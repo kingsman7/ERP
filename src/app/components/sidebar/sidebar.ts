@@ -10,6 +10,9 @@ export type NavTab =
   | 'purchases'
   | 'sales-pos'
   | 'quotes'
+  | 'mrp'
+  | 'crm'
+  | 'accounting'
   | 'cash-closing'
   | 'audit-log'
   | 'architecture';
@@ -25,13 +28,13 @@ export type NavTab =
       <div class="py-4 px-3 space-y-1 overflow-y-auto">
         
         <div class="px-3 pb-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-          Módulos Principales (Fase 1)
+          Operaciones Core
         </div>
 
         <button 
           (click)="selectTab('dashboard')"
           [class]="activeTab() === 'dashboard' ? 'bg-blue-600/10 text-blue-400 font-semibold border-l-4 border-blue-500 rounded-r-lg' : 'hover:bg-slate-800/90 text-slate-300 rounded-lg'"
-          class="w-full flex items-center justify-between px-3.5 py-2.5 text-xs transition-all duration-150 text-left">
+          class="w-full flex items-center justify-between px-3.5 py-2 text-xs transition-all duration-150 text-left">
           <div class="flex items-center space-x-3">
             <mat-icon class="text-blue-400 text-lg">dashboard</mat-icon>
             <span class="font-medium">Dashboard Ejecutivo</span>
@@ -41,7 +44,7 @@ export type NavTab =
         <button 
           (click)="selectTab('inventory')"
           [class]="activeTab() === 'inventory' ? 'bg-blue-600/10 text-blue-400 font-semibold border-l-4 border-blue-500 rounded-r-lg' : 'hover:bg-slate-800/90 text-slate-300 rounded-lg'"
-          class="w-full flex items-center justify-between px-3.5 py-2.5 text-xs transition-all duration-150 text-left">
+          class="w-full flex items-center justify-between px-3.5 py-2 text-xs transition-all duration-150 text-left">
           <div class="flex items-center space-x-3">
             <mat-icon class="text-sky-400 text-lg">inventory_2</mat-icon>
             <span class="font-medium">Inventario y Almacenes</span>
@@ -56,7 +59,7 @@ export type NavTab =
         <button 
           (click)="selectTab('kardex')"
           [class]="activeTab() === 'kardex' ? 'bg-blue-600/10 text-blue-400 font-semibold border-l-4 border-blue-500 rounded-r-lg' : 'hover:bg-slate-800/90 text-slate-300 rounded-lg'"
-          class="w-full flex items-center justify-between px-3.5 py-2.5 text-xs transition-all duration-150 text-left">
+          class="w-full flex items-center justify-between px-3.5 py-2 text-xs transition-all duration-150 text-left">
           <div class="flex items-center space-x-3">
             <mat-icon class="text-emerald-400 text-lg">query_stats</mat-icon>
             <span class="font-medium">Kardex Valorado (CPP)</span>
@@ -66,7 +69,7 @@ export type NavTab =
         <button 
           (click)="selectTab('purchases')"
           [class]="activeTab() === 'purchases' ? 'bg-blue-600/10 text-blue-400 font-semibold border-l-4 border-blue-500 rounded-r-lg' : 'hover:bg-slate-800/90 text-slate-300 rounded-lg'"
-          class="w-full flex items-center justify-between px-3.5 py-2.5 text-xs transition-all duration-150 text-left">
+          class="w-full flex items-center justify-between px-3.5 py-2 text-xs transition-all duration-150 text-left">
           <div class="flex items-center space-x-3">
             <mat-icon class="text-amber-400 text-lg">local_shipping</mat-icon>
             <span class="font-medium">Compras y Proveedores</span>
@@ -76,7 +79,7 @@ export type NavTab =
         <button 
           (click)="selectTab('sales-pos')"
           [class]="activeTab() === 'sales-pos' ? 'bg-blue-600/10 text-blue-400 font-semibold border-l-4 border-blue-500 rounded-r-lg' : 'hover:bg-slate-800/90 text-slate-300 rounded-lg'"
-          class="w-full flex items-center justify-between px-3.5 py-2.5 text-xs transition-all duration-150 text-left">
+          class="w-full flex items-center justify-between px-3.5 py-2 text-xs transition-all duration-150 text-left">
           <div class="flex items-center space-x-3">
             <mat-icon class="text-blue-500 text-lg">point_of_sale</mat-icon>
             <span class="font-medium">Punto de Venta (POS)</span>
@@ -89,7 +92,7 @@ export type NavTab =
         <button 
           (click)="selectTab('quotes')"
           [class]="activeTab() === 'quotes' ? 'bg-blue-600/10 text-blue-400 font-semibold border-l-4 border-blue-500 rounded-r-lg' : 'hover:bg-slate-800/90 text-slate-300 rounded-lg'"
-          class="w-full flex items-center justify-between px-3.5 py-2.5 text-xs transition-all duration-150 text-left">
+          class="w-full flex items-center justify-between px-3.5 py-2 text-xs transition-all duration-150 text-left">
           <div class="flex items-center space-x-3">
             <mat-icon class="text-violet-400 text-lg">request_quote</mat-icon>
             <span class="font-medium">Presupuestos / Cotiz.</span>
@@ -99,14 +102,59 @@ export type NavTab =
           </span>
         </button>
 
-        <div class="pt-4 px-3 pb-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+        <!-- FASE 2 SECTION -->
+        <div class="pt-3 px-3 pb-2 text-[10px] font-bold text-amber-400 uppercase tracking-widest flex items-center justify-between">
+          <span>Avanzado (Fase 2)</span>
+          <span class="px-1 py-0.2 bg-amber-500/20 text-amber-300 text-[8px] rounded">ACTIVO</span>
+        </div>
+
+        <button 
+          (click)="selectTab('mrp')"
+          [class]="activeTab() === 'mrp' ? 'bg-amber-600/10 text-amber-400 font-semibold border-l-4 border-amber-500 rounded-r-lg' : 'hover:bg-slate-800/90 text-slate-300 rounded-lg'"
+          class="w-full flex items-center justify-between px-3.5 py-2 text-xs transition-all duration-150 text-left">
+          <div class="flex items-center space-x-3">
+            <mat-icon class="text-amber-500 text-lg">precision_manufacturing</mat-icon>
+            <span class="font-medium">Manufactura y MRP</span>
+          </div>
+          <span class="px-1.5 py-0.5 text-[9px] font-mono rounded bg-slate-800 text-amber-400">
+            {{ stateService.productionOrders().length }}
+          </span>
+        </button>
+
+        <button 
+          (click)="selectTab('crm')"
+          [class]="activeTab() === 'crm' ? 'bg-violet-600/10 text-violet-400 font-semibold border-l-4 border-violet-500 rounded-r-lg' : 'hover:bg-slate-800/90 text-slate-300 rounded-lg'"
+          class="w-full flex items-center justify-between px-3.5 py-2 text-xs transition-all duration-150 text-left">
+          <div class="flex items-center space-x-3">
+            <mat-icon class="text-violet-400 text-lg">view_kanban</mat-icon>
+            <span class="font-medium">CRM & Pipeline</span>
+          </div>
+          <span class="px-1.5 py-0.5 text-[9px] font-mono rounded bg-slate-800 text-violet-400">
+            {{ stateService.crmDeals().length }}
+          </span>
+        </button>
+
+        <button 
+          (click)="selectTab('accounting')"
+          [class]="activeTab() === 'accounting' ? 'bg-emerald-600/10 text-emerald-400 font-semibold border-l-4 border-emerald-500 rounded-r-lg' : 'hover:bg-slate-800/90 text-slate-300 rounded-lg'"
+          class="w-full flex items-center justify-between px-3.5 py-2 text-xs transition-all duration-150 text-left">
+          <div class="flex items-center space-x-3">
+            <mat-icon class="text-emerald-400 text-lg">account_balance</mat-icon>
+            <span class="font-medium">Contabilidad NIIF</span>
+          </div>
+          <span class="px-1.5 py-0.5 text-[9px] font-mono rounded bg-slate-800 text-emerald-400">
+            {{ stateService.journalEntries().length }}
+          </span>
+        </button>
+
+        <div class="pt-3 px-3 pb-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
           Finanzas & Seguridad
         </div>
 
         <button 
           (click)="selectTab('cash-closing')"
           [class]="activeTab() === 'cash-closing' ? 'bg-blue-600/10 text-blue-400 font-semibold border-l-4 border-blue-500 rounded-r-lg' : 'hover:bg-slate-800/90 text-slate-300 rounded-lg'"
-          class="w-full flex items-center justify-between px-3.5 py-2.5 text-xs transition-all duration-150 text-left">
+          class="w-full flex items-center justify-between px-3.5 py-2 text-xs transition-all duration-150 text-left">
           <div class="flex items-center space-x-3">
             <mat-icon class="text-rose-400 text-lg">payments</mat-icon>
             <span class="font-medium">Cierre de Caja (Z)</span>
@@ -116,7 +164,7 @@ export type NavTab =
         <button 
           (click)="selectTab('audit-log')"
           [class]="activeTab() === 'audit-log' ? 'bg-blue-600/10 text-blue-400 font-semibold border-l-4 border-blue-500 rounded-r-lg' : 'hover:bg-slate-800/90 text-slate-300 rounded-lg'"
-          class="w-full flex items-center justify-between px-3.5 py-2.5 text-xs transition-all duration-150 text-left">
+          class="w-full flex items-center justify-between px-3.5 py-2 text-xs transition-all duration-150 text-left">
           <div class="flex items-center space-x-3">
             <mat-icon class="text-blue-400 text-lg">shield</mat-icon>
             <span class="font-medium">Auditoría y Roles</span>
@@ -129,10 +177,10 @@ export type NavTab =
         <button 
           (click)="selectTab('architecture')"
           [class]="activeTab() === 'architecture' ? 'bg-blue-600/10 text-blue-400 font-semibold border-l-4 border-blue-500 rounded-r-lg' : 'hover:bg-slate-800/90 text-slate-300 rounded-lg'"
-          class="w-full flex items-center justify-between px-3.5 py-2.5 text-xs transition-all duration-150 text-left">
+          class="w-full flex items-center justify-between px-3.5 py-2 text-xs transition-all duration-150 text-left">
           <div class="flex items-center space-x-3">
             <mat-icon class="text-indigo-400 text-lg">account_tree</mat-icon>
-            <span class="font-medium">Ficha Técnica Prisma</span>
+            <span class="font-medium">Ficha Técnica & Roadmap</span>
           </div>
         </button>
 

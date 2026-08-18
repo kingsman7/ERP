@@ -21,26 +21,40 @@ import { Invoice } from '../../models/erp.models';
             <span class="text-xs font-semibold text-emerald-600 font-mono">PostgreSQL ACID • Conectado</span>
           </div>
           <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 mt-1">
-            Centro de Operaciones ERP (Fase 1 - MVP)
+            Centro de Operaciones ERP (Fase 1 & Fase 2 Activas)
           </h1>
           <p class="text-xs text-slate-500 mt-0.5">
-            Bienvenido, <span class="text-slate-800 font-semibold">{{ authService.currentUser().name }}</span>. Control en tiempo real de inventarios valorizados, transacciones de venta, compras y auditoría forense.
+            Bienvenido, <span class="text-slate-800 font-semibold">{{ authService.currentUser().name }}</span>. Inventarios valorizados CPP, Manufactura MRP, CRM Pipeline, Facturación BCV y Contabilidad NIIF.
           </p>
         </div>
 
         <div class="flex items-center space-x-2">
           <button 
-            (click)="navigate.emit('sales-pos')"
-            class="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center space-x-1.5 shadow-sm shadow-blue-200 transition-all">
-            <mat-icon class="text-base">point_of_sale</mat-icon>
-            <span>Venta POS (F10)</span>
+            (click)="navigate.emit('mrp')"
+            class="px-3.5 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 rounded-xl text-xs font-semibold flex items-center space-x-1.5 border border-amber-500/30 transition-all">
+            <mat-icon class="text-base text-amber-600">precision_manufacturing</mat-icon>
+            <span>MRP</span>
           </button>
 
           <button 
-            (click)="navigate.emit('purchases')"
-            class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition-colors border border-slate-200">
-            <mat-icon class="text-base">add_shopping_cart</mat-icon>
-            <span>Entrada Compra</span>
+            (click)="navigate.emit('crm')"
+            class="px-3.5 py-2 bg-violet-500/10 hover:bg-violet-500/20 text-violet-800 rounded-xl text-xs font-semibold flex items-center space-x-1.5 border border-violet-500/30 transition-all">
+            <mat-icon class="text-base text-violet-600">view_kanban</mat-icon>
+            <span>CRM</span>
+          </button>
+
+          <button 
+            (click)="navigate.emit('accounting')"
+            class="px-3.5 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-800 rounded-xl text-xs font-semibold flex items-center space-x-1.5 border border-emerald-500/30 transition-all">
+            <mat-icon class="text-base text-emerald-600">account_balance</mat-icon>
+            <span>Contabilidad</span>
+          </button>
+
+          <button 
+            (click)="navigate.emit('sales-pos')"
+            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center space-x-1.5 shadow-sm shadow-blue-200 transition-all">
+            <mat-icon class="text-base">point_of_sale</mat-icon>
+            <span>POS (F10)</span>
           </button>
         </div>
       </div>
@@ -261,6 +275,58 @@ import { Invoice } from '../../models/erp.models';
             <mat-icon class="text-xs text-emerald-500">verified</mat-icon>
             <span>Descuento atómico por bodega</span>
           </div>
+        </div>
+
+        <!-- ========================================================= -->
+        <!-- FASE 2 BENTO ROW: MRP, CRM, CONTABILIDAD -->
+        <!-- ========================================================= -->
+        <div class="col-span-1 md:col-span-2 lg:col-span-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+          
+          <!-- MRP Card -->
+          <button 
+            type="button" 
+            (click)="navigate.emit('mrp')" 
+            class="bg-gradient-to-br from-amber-500/5 to-amber-500/15 p-4 rounded-2xl border border-amber-200/80 shadow-xs hover:shadow-md cursor-pointer transition-all flex items-center justify-between group text-left">
+            <div>
+              <span class="text-[10px] font-bold text-amber-700 uppercase tracking-wider block">Manufactura & MRP</span>
+              <h4 class="text-base sm:text-lg font-bold text-slate-800 mt-0.5">{{ stateService.productionOrders().length }} Órdenes Fabricación</h4>
+              <p class="text-[11px] text-slate-500 mt-0.5">Explosión BOM & Descuento MP</p>
+            </div>
+            <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform shrink-0">
+              <mat-icon class="text-lg">precision_manufacturing</mat-icon>
+            </div>
+          </button>
+
+          <!-- CRM Card -->
+          <button 
+            type="button" 
+            (click)="navigate.emit('crm')" 
+            class="bg-gradient-to-br from-violet-500/5 to-violet-500/15 p-4 rounded-2xl border border-violet-200/80 shadow-xs hover:shadow-md cursor-pointer transition-all flex items-center justify-between group text-left">
+            <div>
+              <span class="text-[10px] font-bold text-violet-700 uppercase tracking-wider block">CRM Pipeline Comercial</span>
+              <h4 class="text-base sm:text-lg font-bold text-slate-800 mt-0.5">\${{ stateService.crmPipelineTotalValue().toFixed(2) }}</h4>
+              <p class="text-[11px] text-slate-500 mt-0.5">{{ stateService.crmDeals().length }} Oportunidades en Kanban</p>
+            </div>
+            <div class="w-10 h-10 rounded-xl bg-violet-600 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform shrink-0">
+              <mat-icon class="text-lg">view_kanban</mat-icon>
+            </div>
+          </button>
+
+          <!-- Accounting Card -->
+          <button 
+            type="button" 
+            (click)="navigate.emit('accounting')" 
+            class="bg-gradient-to-br from-emerald-500/5 to-emerald-500/15 p-4 rounded-2xl border border-emerald-200/80 shadow-xs hover:shadow-md cursor-pointer transition-all flex items-center justify-between group text-left">
+            <div>
+              <span class="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">Contabilidad NIIF</span>
+              <h4 class="text-base sm:text-lg font-bold text-slate-800 mt-0.5">\${{ stateService.totalAccountingAssets().toFixed(2) }} Activos</h4>
+              <p class="text-[11px] text-slate-500 mt-0.5">Partida Doble & P&L Automático</p>
+            </div>
+            <div class="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform shrink-0">
+              <mat-icon class="text-lg">account_balance</mat-icon>
+            </div>
+          </button>
+
         </div>
 
         <!-- BENTO CARD 7 (Col 1-4 full width): Kardex Últimos Movimientos -->

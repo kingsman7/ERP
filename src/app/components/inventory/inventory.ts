@@ -128,7 +128,7 @@ import { Product, ProductPrices } from '../../models/erp.models';
             <tbody class="divide-y divide-slate-100 text-slate-700">
               @for (prod of filteredProducts(); track prod.id) {
                 @let bcv = stateService.bcvState();
-                @let p1 = prod.prices.price1 ?? prod.salePrice;
+                @let p1 = prod.prices.price1;
                 <tr class="hover:bg-slate-50/60 transition-colors">
                   
                   <!-- Product Name, SKU, Barcode -->

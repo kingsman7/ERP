@@ -278,28 +278,28 @@ model KardexMovement &#123;
                 <div>
                   <div class="flex items-center space-x-2">
                     <span class="w-3 h-3 rounded-full bg-emerald-500 ring-4 ring-emerald-100"></span>
-                    <span class="text-xs font-bold uppercase text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">Fase 1 (MVP) - En Producción / Entregable Actual</span>
+                    <span class="text-xs font-bold uppercase text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">Fase 1 (Core Transaccional) - COMPLETADA</span>
                   </div>
                   <div class="mt-2 p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1.5 text-slate-700">
                     <p class="font-medium text-slate-900">Núcleo Transaccional Completo:</p>
                     <p>✓ Seguridad JWT, Roles RBAC y Bitácora de Auditoría con Diffs.</p>
                     <p>✓ Inventario multi-almacén, Kardex Valorado con Costo Promedio Ponderado.</p>
                     <p>✓ Módulo de Compras a Proveedores con recepción automática.</p>
-                    <p>✓ Ventas POS, Facturación rápida, Presupuestos y conversión a 1-clic.</p>
-                    <p>✓ Cierres de caja diarios (Z-Report) y reportes de inventario.</p>
+                    <p>✓ Ventas POS, Facturación multidivisa (VES/USD/EUR), Tasas BCV Oficiales, IVA e IGTF 3%.</p>
+                    <p>✓ 5 Niveles de Precios, Presupuestos y Cierre de Caja Z diario.</p>
                   </div>
                 </div>
 
-                <div class="opacity-75">
+                <div>
                   <div class="flex items-center space-x-2">
-                    <span class="w-3 h-3 rounded-full bg-slate-400 ring-4 ring-slate-100"></span>
-                    <span class="text-xs font-bold uppercase text-slate-600 bg-slate-100 px-2 py-0.5 rounded">Fase 2 - Siguiente Hito (Producción, MRP & CRM)</span>
+                    <span class="w-3 h-3 rounded-full bg-amber-500 ring-4 ring-amber-100"></span>
+                    <span class="text-xs font-bold uppercase text-amber-700 bg-amber-50 px-2 py-0.5 rounded">Fase 2 (MRP, CRM, Contabilidad) - IMPLEMENTADA & ACTIVA</span>
                   </div>
-                  <div class="mt-2 p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1.5 text-slate-500">
-                    <p class="font-medium text-slate-700">Módulos Avanzados de Manufactura & Clientes:</p>
-                    <p>• MRP: Órdenes de Fabricación, Listas de Materiales (BOM) y consumo de materia prima.</p>
-                    <p>• CRM: Pipeline de oportunidades comerciales, seguimiento de prospectos y WhatsApp API.</p>
-                    <p>• Contabilidad Avanzada: Asientos contables automáticos y balance general NIIF.</p>
+                  <div class="mt-2 p-3.5 bg-amber-50/50 rounded-xl border border-amber-200 text-xs space-y-1.5 text-slate-800">
+                    <p class="font-medium text-amber-900">Pilares Avanzados de Fase 2 Integrados:</p>
+                    <p>✓ <strong>Manufactura (MRP)</strong>: Listas de Materiales (BOM), Órdenes de Fabricación (OP), explosión de insumos, costeo directo y descuento automático de materia prima en Kardex.</p>
+                    <p>✓ <strong>CRM & Pipeline Comercial</strong>: Tablero Kanban interactivo, valor ponderado del pipeline por probabilidad, gestión de leads y bitácora de interacciones (llamadas, reuniones, WhatsApp).</p>
+                    <p>✓ <strong>Contabilidad General NIIF</strong>: Catálogo de cuentas, Libro Diario con asientos de partida doble automáticos (Ventas, Compras, Producción) y Balance General / Estado de Resultados en tiempo real.</p>
                   </div>
                 </div>
 

@@ -23,8 +23,8 @@ export interface AuditLog {
   userId: string;
   userName: string;
   userRole: UserRole;
-  action: 'CREATE_INVOICE' | 'ADJUST_STOCK' | 'PURCHASE_RECEIPT' | 'CONVERT_QUOTE' | 'CREATE_QUOTE' | 'CASH_CLOSING' | 'USER_LOGIN' | 'CREATE_PRODUCT' | 'CREATE_SUPPLIER' | 'SYNC_BCV_RATES' | 'UPDATE_EXCHANGE_RATE' | 'UPDATE_PRODUCT_PRICES';
-  module: 'INVENTORY' | 'AUTH' | 'PURCHASES' | 'SALES' | 'POS' | 'FINANCE';
+  action: 'CREATE_INVOICE' | 'ADJUST_STOCK' | 'PURCHASE_RECEIPT' | 'CONVERT_QUOTE' | 'CREATE_QUOTE' | 'CASH_CLOSING' | 'USER_LOGIN' | 'CREATE_PRODUCT' | 'CREATE_SUPPLIER' | 'SYNC_BCV_RATES' | 'UPDATE_EXCHANGE_RATE' | 'UPDATE_PRODUCT_PRICES' | 'CREATE_BOM' | 'UPDATE_BOM' | 'CREATE_PRODUCTION_ORDER' | 'COMPLETE_PRODUCTION_ORDER' | 'CANCEL_PRODUCTION_ORDER' | 'CREATE_CRM_DEAL' | 'UPDATE_CRM_DEAL' | 'CREATE_JOURNAL_ENTRY';
+  module: 'INVENTORY' | 'AUTH' | 'PURCHASES' | 'SALES' | 'POS' | 'FINANCE' | 'MRP' | 'CRM' | 'ACCOUNTING';
   details: {
     title: string;
     description: string;
@@ -100,7 +100,7 @@ export interface Product {
   updatedAt: string;
 }
 
-export type KardexMovementType = 'ENTRADA_COMPRA' | 'SALIDA_VENTA' | 'AJUSTE_MERMA' | 'AJUSTE_SOBRANTE' | 'AJUSTE_INVENTARIO' | 'TRANSFERENCIA_ALMACEN';
+export type KardexMovementType = 'ENTRADA_COMPRA' | 'SALIDA_VENTA' | 'ENTRADA_PRODUCCION' | 'SALIDA_PRODUCCION' | 'AJUSTE_MERMA' | 'AJUSTE_SOBRANTE' | 'AJUSTE_INVENTARIO' | 'TRANSFERENCIA_ALMACEN';
 
 export interface KardexMovement {
   id: string;
@@ -316,3 +316,161 @@ export interface CashRegisterSession {
   cashDifference?: number; // countedCashAmount - (initialAmount + totalCashSales)
   closingNotes?: string;
 }
+
+// ============================================================================
+// FASE 2: MODELOS DE MANUFACTURA (MRP / BOM)
+// ============================================================================
+
+export interface BomItem {
+  id: string;
+  rawMaterialProductId: string;
+  rawMaterialSku: string;
+  rawMaterialName: string;
+  quantityNeeded: number;
+  unit: string;
+  wastePercent: number; // e.g. 2% merma estimada
+  estimatedUnitCost: number;
+  subtotalCost: number;
+}
+
+export interface Bom {
+  id: string;
+  code: string; // e.g. "BOM-LUB-01"
+  name: string;
+  finishedProductId: string;
+  finishedProductSku: string;
+  finishedProductName: string;
+  quantityToProduce: number; // e.g. 100 UND
+  items: BomItem[];
+  laborCost: number; // Mano de obra directa
+  overheadCost: number; // Costos indirectos de fabricación (CIF)
+  totalEstimatedCost: number;
+  unitCost: number;
+  active: boolean;
+  notes?: string;
+  createdAt: string;
+}
+
+export type ProductionOrderStatus = 'PLANIFICADA' | 'EN_PROCESO' | 'CONTROL_CALIDAD' | 'COMPLETADA' | 'CANCELADA';
+
+export interface ProductionOrder {
+  id: string;
+  orderNumber: string; // e.g. "OF-2026-0012"
+  bomId: string;
+  bomCode: string;
+  finishedProductId: string;
+  finishedProductSku: string;
+  finishedProductName: string;
+  warehouseId: string;
+  warehouseName: string;
+  quantityPlanned: number;
+  quantityProduced: number;
+  status: ProductionOrderStatus;
+  startDate: string;
+  targetEndDate: string;
+  actualEndDate?: string;
+  
+  // Costos Reales Acumulados
+  directMaterialCost: number;
+  laborCost: number;
+  overheadCost: number;
+  totalCost: number;
+  unitCost: number;
+  
+  notes?: string;
+  operatorName: string;
+  createdAt: string;
+}
+
+// ============================================================================
+// FASE 2: MODELOS DE CRM & PIPELINE COMERCIAL (KANBAN)
+// ============================================================================
+
+export type CrmStage = 
+  | 'NUEVO_LEAD' 
+  | 'CONTACTADO' 
+  | 'DIAGNOSTICO' 
+  | 'PROPUESTA' 
+  | 'NEGOCIACION' 
+  | 'GANADO' 
+  | 'PERDIDO';
+
+export type CrmActivityType = 'LLAMADA' | 'REUNION' | 'WHATSAPP' | 'CORREO' | 'NOTA';
+
+export interface CrmActivity {
+  id: string;
+  dealId: string;
+  type: CrmActivityType;
+  description: string;
+  date: string;
+  user: string;
+  completed: boolean;
+}
+
+export interface CrmDeal {
+  id: string;
+  code: string; // e.g. "DEAL-2026-089"
+  title: string;
+  customerId?: string;
+  customerName: string;
+  contactPerson: string;
+  email: string;
+  phone: string;
+  stage: CrmStage;
+  expectedValueUsd: number;
+  probability: number; // 0 to 100%
+  expectedCloseDate: string;
+  assignedTo: string;
+  notes?: string;
+  activities: CrmActivity[];
+  quoteId?: string;
+  invoiceId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ============================================================================
+// FASE 2: MODELOS DE CONTABILIDAD GENERAL NIIF (ASIENTOS & LIBROS)
+// ============================================================================
+
+export type AccountType = 'ACTIVO' | 'PASIVO' | 'PATRIMONIO' | 'INGRESO' | 'COSTO' | 'GASTO';
+
+export interface Account {
+  id: string;
+  code: string; // e.g. "1.1.01.01" (Caja y Bancos)
+  name: string;
+  type: AccountType;
+  level: number; // 1: Clase, 2: Grupo, 3: Cuenta, 4: Subcuenta
+  parentCode?: string;
+  balance: number; // Saldo actual en USD
+  currency: 'USD' | 'VES';
+  isDebitNormal: boolean; // True: saldo normal deudor (Activo, Costo, Gasto), False: acreedor (Pasivo, Patrimonio, Ingreso)
+  description?: string;
+}
+
+export interface JournalEntryLine {
+  accountId: string;
+  accountCode: string;
+  accountName: string;
+  description: string;
+  debit: number;   // Debe (USD)
+  credit: number;  // Haber (USD)
+  debitVes?: number;
+  creditVes?: number;
+}
+
+export interface JournalEntry {
+  id: string;
+  entryNumber: string; // e.g. "ASIENTO-2026-0045"
+  date: string;
+  concept: string;
+  referenceType: 'VENTA' | 'COMPRA' | 'PRODUCCION' | 'AJUSTE' | 'MANUAL' | 'CIERRE_CAJA';
+  referenceId?: string;
+  lines: JournalEntryLine[];
+  totalDebit: number;
+  totalCredit: number;
+  status: 'BORRADOR' | 'ASENTADO' | 'ANULADO';
+  createdBy: string;
+  createdAt: string;
+}
+

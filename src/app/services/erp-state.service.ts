@@ -18,7 +18,18 @@ import {
   Quote,
   CashRegisterSession,
   AuditLog,
-  PaymentRecord
+  PaymentRecord,
+  Bom,
+  BomItem,
+  ProductionOrder,
+  ProductionOrderStatus,
+  CrmDeal,
+  CrmActivity,
+  CrmStage,
+  CrmActivityType,
+  Account,
+  JournalEntry,
+  JournalEntryLine
 } from '../models/erp.models';
 import { AuthService } from './auth.service';
 
@@ -278,6 +289,94 @@ export class ErpStateService {
         { warehouseId: 'wh-01', warehouseName: 'Almacén Central', quantity: 999 },
         { warehouseId: 'wh-02', warehouseName: 'Almacén Sucursal Norte', quantity: 999 },
         { warehouseId: 'wh-03', warehouseName: 'Depósito 3', quantity: 999 }
+      ],
+      status: 'ACTIVE',
+      updatedAt: '2026-08-18 07:15:00'
+    },
+    {
+      id: 'prod-rm-01',
+      sku: 'MP-CAR-50W',
+      barcode: '775123400201',
+      name: 'Materia Prima: Carcasa Aluminio Fundido IP65 50W',
+      category: 'Materia Prima & Insumos',
+      unit: 'UND',
+      costPrice: 5.50,
+      salePrice: 9.00,
+      prices: { price1: 9.00, price2: 8.00, price3: 7.50, price4: 7.00, price5: 6.50 },
+      isTaxExempt: false,
+      taxRate: 0.16,
+      minStock: 20,
+      totalStock: 85,
+      stockByWarehouse: [
+        { warehouseId: 'wh-01', warehouseName: 'Almacén Central', quantity: 60 },
+        { warehouseId: 'wh-02', warehouseName: 'Almacén Sucursal Norte', quantity: 15 },
+        { warehouseId: 'wh-03', warehouseName: 'Depósito 3', quantity: 10 }
+      ],
+      status: 'ACTIVE',
+      updatedAt: '2026-08-18 07:15:00'
+    },
+    {
+      id: 'prod-rm-02',
+      sku: 'MP-COB-50W',
+      barcode: '775123400202',
+      name: 'Materia Prima: Módulo Chip LED COB 50W 6500K Epistar',
+      category: 'Materia Prima & Insumos',
+      unit: 'UND',
+      costPrice: 4.80,
+      salePrice: 8.00,
+      prices: { price1: 8.00, price2: 7.20, price3: 6.80, price4: 6.20, price5: 5.80 },
+      isTaxExempt: false,
+      taxRate: 0.16,
+      minStock: 25,
+      totalStock: 110,
+      stockByWarehouse: [
+        { warehouseId: 'wh-01', warehouseName: 'Almacén Central', quantity: 80 },
+        { warehouseId: 'wh-02', warehouseName: 'Almacén Sucursal Norte', quantity: 20 },
+        { warehouseId: 'wh-03', warehouseName: 'Depósito 3', quantity: 10 }
+      ],
+      status: 'ACTIVE',
+      updatedAt: '2026-08-18 07:15:00'
+    },
+    {
+      id: 'prod-rm-03',
+      sku: 'MP-DRV-50W',
+      barcode: '775123400203',
+      name: 'Materia Prima: Driver Fuente Regulada 85-265V IP67 1500mA',
+      category: 'Materia Prima & Insumos',
+      unit: 'UND',
+      costPrice: 3.20,
+      salePrice: 6.00,
+      prices: { price1: 6.00, price2: 5.40, price3: 4.90, price4: 4.50, price5: 4.00 },
+      isTaxExempt: false,
+      taxRate: 0.16,
+      minStock: 20,
+      totalStock: 74,
+      stockByWarehouse: [
+        { warehouseId: 'wh-01', warehouseName: 'Almacén Central', quantity: 50 },
+        { warehouseId: 'wh-02', warehouseName: 'Almacén Sucursal Norte', quantity: 14 },
+        { warehouseId: 'wh-03', warehouseName: 'Depósito 3', quantity: 10 }
+      ],
+      status: 'ACTIVE',
+      updatedAt: '2026-08-18 07:15:00'
+    },
+    {
+      id: 'prod-rm-04',
+      sku: 'MP-CAB-SIL',
+      barcode: '775123400204',
+      name: 'Materia Prima: Cable Siliconado Alta Temperatura 3x1.0mm',
+      category: 'Materia Prima & Insumos',
+      unit: 'MT',
+      costPrice: 0.85,
+      salePrice: 1.60,
+      prices: { price1: 1.60, price2: 1.40, price3: 1.25, price4: 1.15, price5: 1.05 },
+      isTaxExempt: false,
+      taxRate: 0.16,
+      minStock: 50,
+      totalStock: 240,
+      stockByWarehouse: [
+        { warehouseId: 'wh-01', warehouseName: 'Almacén Central', quantity: 180 },
+        { warehouseId: 'wh-02', warehouseName: 'Almacén Sucursal Norte', quantity: 40 },
+        { warehouseId: 'wh-03', warehouseName: 'Depósito 3', quantity: 20 }
       ],
       status: 'ACTIVE',
       updatedAt: '2026-08-18 07:15:00'
@@ -788,12 +887,393 @@ export class ErpStateService {
   // Toast / System Notifications Signal
   readonly notifications = signal<{ id: string; type: 'success' | 'info' | 'warning' | 'error'; title: string; message: string; timestamp: number }[]>([]);
 
-  // Computed Analytical KPIs
+  // ============================================================================
+  // FASE 2: SEÑALES REACTIVAS DE MANUFACTURA (MRP / BOM)
+  // ============================================================================
+  readonly boms = signal<Bom[]>([
+    {
+      id: 'bom-01',
+      code: 'BOM-REF-50W',
+      name: 'Fórmula Ensamble Reflector LED Industrial 50W IP65',
+      finishedProductId: 'prod-05',
+      finishedProductSku: 'ILU-LED-50W',
+      finishedProductName: 'Reflector LED Industrial Exterior IP65 50W 6500K',
+      quantityToProduce: 10,
+      items: [
+        {
+          id: 'bit-01',
+          rawMaterialProductId: 'prod-rm-01',
+          rawMaterialSku: 'MP-CAR-50W',
+          rawMaterialName: 'Carcasa Aluminio Fundido IP65 50W',
+          quantityNeeded: 10,
+          unit: 'UND',
+          wastePercent: 0,
+          estimatedUnitCost: 5.50,
+          subtotalCost: 55.00
+        },
+        {
+          id: 'bit-02',
+          rawMaterialProductId: 'prod-rm-02',
+          rawMaterialSku: 'MP-COB-50W',
+          rawMaterialName: 'Módulo Chip LED COB 50W 6500K Epistar',
+          quantityNeeded: 10,
+          unit: 'UND',
+          wastePercent: 0,
+          estimatedUnitCost: 4.80,
+          subtotalCost: 48.00
+        },
+        {
+          id: 'bit-03',
+          rawMaterialProductId: 'prod-rm-03',
+          rawMaterialSku: 'MP-DRV-50W',
+          rawMaterialName: 'Driver Fuente Regulada 85-265V IP67 1500mA',
+          quantityNeeded: 10,
+          unit: 'UND',
+          wastePercent: 0,
+          estimatedUnitCost: 3.20,
+          subtotalCost: 32.00
+        },
+        {
+          id: 'bit-04',
+          rawMaterialProductId: 'prod-rm-04',
+          rawMaterialSku: 'MP-CAB-SIL',
+          rawMaterialName: 'Cable Siliconado Alta Temperatura 3x1.0mm',
+          quantityNeeded: 12, // 1.2m por unidad
+          unit: 'MT',
+          wastePercent: 2,
+          estimatedUnitCost: 0.85,
+          subtotalCost: 10.20
+        }
+      ],
+      laborCost: 25.00, // $2.50 por unidad en mano de obra ensamble y soldadura
+      overheadCost: 18.80, // $1.88 por unidad en empaque, pruebas y energía
+      totalEstimatedCost: 189.00,
+      unitCost: 18.90,
+      active: true,
+      notes: 'Lote estándar de 10 unidades. Pruebas de hermeticidad IP65 y 2 horas de encendido en banco de prueba.',
+      createdAt: '2026-08-10 10:00:00'
+    }
+  ]);
+
+  readonly productionOrders = signal<ProductionOrder[]>([
+    {
+      id: 'of-01',
+      orderNumber: 'OF-2026-0008',
+      bomId: 'bom-01',
+      bomCode: 'BOM-REF-50W',
+      finishedProductId: 'prod-05',
+      finishedProductSku: 'ILU-LED-50W',
+      finishedProductName: 'Reflector LED Industrial Exterior IP65 50W 6500K',
+      warehouseId: 'wh-01',
+      warehouseName: 'Almacén Central',
+      quantityPlanned: 10,
+      quantityProduced: 10,
+      status: 'COMPLETADA',
+      startDate: '2026-08-11 08:00:00',
+      targetEndDate: '2026-08-12 17:00:00',
+      actualEndDate: '2026-08-12 15:30:00',
+      directMaterialCost: 145.20,
+      laborCost: 25.00,
+      overheadCost: 18.80,
+      totalCost: 189.00,
+      unitCost: 18.90,
+      notes: 'Producción de lote inicial para reposición de stock. Control de calidad 100% aprobado.',
+      operatorName: 'Ing. Javier Lozano (Planta)',
+      createdAt: '2026-08-11 07:30:00'
+    },
+    {
+      id: 'of-02',
+      orderNumber: 'OF-2026-0009',
+      bomId: 'bom-01',
+      bomCode: 'BOM-REF-50W',
+      finishedProductId: 'prod-05',
+      finishedProductSku: 'ILU-LED-50W',
+      finishedProductName: 'Reflector LED Industrial Exterior IP65 50W 6500K',
+      warehouseId: 'wh-01',
+      warehouseName: 'Almacén Central',
+      quantityPlanned: 20,
+      quantityProduced: 0,
+      status: 'EN_PROCESO',
+      startDate: '2026-08-17 08:00:00',
+      targetEndDate: '2026-08-19 18:00:00',
+      directMaterialCost: 290.40,
+      laborCost: 50.00,
+      overheadCost: 37.60,
+      totalCost: 378.00,
+      unitCost: 18.90,
+      notes: 'Ensamble de módulos LED y montaje de drivers en carcasa.',
+      operatorName: 'Ing. Javier Lozano (Planta)',
+      createdAt: '2026-08-17 07:45:00'
+    }
+  ]);
+
+  // ============================================================================
+  // FASE 2: SEÑALES REACTIVAS DE CRM & PIPELINE COMERCIAL
+  // ============================================================================
+  readonly crmDeals = signal<CrmDeal[]>([
+    {
+      id: 'deal-01',
+      code: 'DEAL-2026-081',
+      title: 'Iluminación LED Completa Parque Industrial Norte',
+      customerId: 'cust-01',
+      customerName: 'Constructora San Martín S.A.C.',
+      contactPerson: 'Ing. Roberto Méndez',
+      email: 'rmendez@constructorasanmartin.com',
+      phone: '+52 55 4123 9900',
+      stage: 'NEGOCIACION',
+      expectedValueUsd: 12800.00,
+      probability: 80,
+      expectedCloseDate: '2026-08-25',
+      assignedTo: 'Carlos Mendoza',
+      notes: 'Cliente solicitó ajuste en términos de pago a 30 días y cotización formal por 80 reflectores y cableado.',
+      activities: [
+        { id: 'act-01', dealId: 'deal-01', type: 'REUNION', description: 'Visita técnica a la obra para levantamiento de medidas eléctricas.', date: '2026-08-14 10:00:00', user: 'Carlos Mendoza', completed: true },
+        { id: 'act-02', dealId: 'deal-01', type: 'WHATSAPP', description: 'Envío de ficha técnica de reflectores IP65 y certificación.', date: '2026-08-16 15:30:00', user: 'Carlos Mendoza', completed: true },
+        { id: 'act-03', dealId: 'deal-01', type: 'LLAMADA', description: 'Llamada de seguimiento con gerencia de compras para cierre de orden.', date: '2026-08-19 11:00:00', user: 'Carlos Mendoza', completed: false }
+      ],
+      quoteId: 'quot-01',
+      createdAt: '2026-08-12 09:00:00',
+      updatedAt: '2026-08-18 08:30:00'
+    },
+    {
+      id: 'deal-02',
+      code: 'DEAL-2026-082',
+      title: 'Renovación de Cableado Estructurado Edificio Corporativo Altus',
+      customerId: 'cust-02',
+      customerName: 'Soluciones Eléctricas del Pacífico',
+      contactPerson: 'Lic. Mariana Vega',
+      email: 'mvega@se-pacifico.net',
+      phone: '+52 664 612 7788',
+      stage: 'PROPUESTA',
+      expectedValueUsd: 6950.00,
+      probability: 65,
+      expectedCloseDate: '2026-08-30',
+      assignedTo: 'Carlos Mendoza',
+      notes: 'Presupuesto de 20 bobinas Cat6 100% cobre y accesorios de canalización.',
+      activities: [
+        { id: 'act-04', dealId: 'deal-02', type: 'CORREO', description: 'Envío de propuesta económica formal COT-2026-016.', date: '2026-08-17 14:00:00', user: 'Carlos Mendoza', completed: true }
+      ],
+      createdAt: '2026-08-15 11:30:00',
+      updatedAt: '2026-08-17 14:00:00'
+    },
+    {
+      id: 'deal-03',
+      code: 'DEAL-2026-083',
+      title: 'Suministro Pintura Látex Proyecto Residencial Horizonte',
+      customerId: 'cust-04',
+      customerName: 'Inversiones Horizonte & Asociados',
+      contactPerson: 'Arq. Gabriela Soto',
+      email: 'gsoto@horizontecorp.com',
+      phone: '+52 81 8150 3344',
+      stage: 'DIAGNOSTICO',
+      expectedValueUsd: 4500.00,
+      probability: 40,
+      expectedCloseDate: '2026-09-10',
+      assignedTo: 'Alejandro Morales (Admin)',
+      notes: 'Revisión de rendimiento por m² y carta de colores institucionales.',
+      activities: [
+        { id: 'act-05', dealId: 'deal-03', type: 'LLAMADA', description: 'Primer contacto telefónico y solicitud de muestras de pintura.', date: '2026-08-16 09:30:00', user: 'Alejandro Morales', completed: true }
+      ],
+      createdAt: '2026-08-16 09:00:00',
+      updatedAt: '2026-08-16 09:30:00'
+    },
+    {
+      id: 'deal-04',
+      code: 'DEAL-2026-084',
+      title: 'Lote de Herramientas Eléctricas para Taller Metalmecánico',
+      customerName: 'Maquinados y Matrices del Centro',
+      contactPerson: 'Ing. Alfonso Durán',
+      email: 'aduran@matricescentro.mx',
+      phone: '+52 442 215 8800',
+      stage: 'NUEVO_LEAD',
+      expectedValueUsd: 3800.00,
+      probability: 20,
+      expectedCloseDate: '2026-09-15',
+      assignedTo: 'Carlos Mendoza',
+      notes: 'Lead entrante por formulario web solicitando catálogo de herramientas 750W.',
+      activities: [
+        { id: 'act-06', dealId: 'deal-04', type: 'NOTA', description: 'Prospecto calificado con necesidad inmediata de compra.', date: '2026-08-18 08:00:00', user: 'Carlos Mendoza', completed: true }
+      ],
+      createdAt: '2026-08-18 08:00:00',
+      updatedAt: '2026-08-18 08:00:00'
+    },
+    {
+      id: 'deal-05',
+      code: 'DEAL-2026-079',
+      title: 'Dotación Inicial Ferretería Sucursal Puerto',
+      customerId: 'cust-01',
+      customerName: 'Constructora San Martín S.A.C.',
+      contactPerson: 'Ing. Roberto Méndez',
+      email: 'rmendez@constructorasanmartin.com',
+      phone: '+52 55 4123 9900',
+      stage: 'GANADO',
+      expectedValueUsd: 8900.00,
+      probability: 100,
+      expectedCloseDate: '2026-08-14',
+      assignedTo: 'Carlos Mendoza',
+      notes: 'Trato ganado y facturado bajo comprobante FAC-2026-0081.',
+      activities: [
+        { id: 'act-07', dealId: 'deal-05', type: 'NOTA', description: 'Facturación y entrega completada satisfactoriamente.', date: '2026-08-14 16:00:00', user: 'Carlos Mendoza', completed: true }
+      ],
+      invoiceId: 'inv-01',
+      createdAt: '2026-08-05 10:00:00',
+      updatedAt: '2026-08-14 16:00:00'
+    }
+  ]);
+
+  // ============================================================================
+  // FASE 2: SEÑALES REACTIVAS DE CONTABILIDAD GENERAL (PLAN DE CUENTAS & LIBRO DIARIO)
+  // ============================================================================
+  readonly accounts = signal<Account[]>([
+    // ACTIVOS (1)
+    { id: 'acc-101', code: '1.1.01.01', name: 'Caja General y Efectivo Moneda Local/Divisas', type: 'ACTIVO', level: 4, parentCode: '1.1.01', balance: 1470.00, currency: 'USD', isDebitNormal: true, description: 'Fondos en caja física y bóveda' },
+    { id: 'acc-102', code: '1.1.01.02', name: 'Bancos Cuentas Corrientes y Pago Móvil', type: 'ACTIVO', level: 4, parentCode: '1.1.01', balance: 18450.00, currency: 'USD', isDebitNormal: true, description: 'Cuentas bancarias operativas' },
+    { id: 'acc-103', code: '1.1.02.01', name: 'Cuentas por Cobrar Comerciales a Clientes', type: 'ACTIVO', level: 4, parentCode: '1.1.02', balance: 3450.00, currency: 'USD', isDebitNormal: true, description: 'Facturas a crédito pendientes' },
+    { id: 'acc-104', code: '1.1.03.01', name: 'Inventario de Mercancías y Productos Terminados', type: 'ACTIVO', level: 4, parentCode: '1.1.03', balance: 8940.00, currency: 'USD', isDebitNormal: true, description: 'Existencias valoradas a CPP' },
+    { id: 'acc-105', code: '1.1.03.02', name: 'Inventario de Materias Primas e Insumos', type: 'ACTIVO', level: 4, parentCode: '1.1.03', balance: 1835.50, currency: 'USD', isDebitNormal: true, description: 'Insumos para órdenes de fabricación' },
+    { id: 'acc-106', code: '1.1.04.01', name: 'Crédito Fiscal IVA 16% por Compras', type: 'ACTIVO', level: 4, parentCode: '1.1.04', balance: 284.00, currency: 'USD', isDebitNormal: true, description: 'IVA soportado en compras' },
+    { id: 'acc-107', code: '1.2.01.01', name: 'Maquinaria, Equipos y Herramientas de Planta', type: 'ACTIVO', level: 4, parentCode: '1.2.01', balance: 12500.00, currency: 'USD', isDebitNormal: true, description: 'Activos fijos de producción' },
+
+    // PASIVOS (2)
+    { id: 'acc-201', code: '2.1.01.01', name: 'Cuentas por Pagar a Proveedores Comerciales', type: 'PASIVO', level: 4, parentCode: '2.1.01', balance: 4200.00, currency: 'USD', isDebitNormal: false, description: 'Facturas de proveedores por pagar' },
+    { id: 'acc-202', code: '2.1.02.01', name: 'Débito Fiscal IVA 16% por Pagar', type: 'PASIVO', level: 4, parentCode: '2.1.02', balance: 60.97, currency: 'USD', isDebitNormal: false, description: 'IVA generado en ventas' },
+    { id: 'acc-203', code: '2.1.02.02', name: 'IGTF 3% Retenido en Divisas por Pagar', type: 'PASIVO', level: 4, parentCode: '2.1.02', balance: 12.50, currency: 'USD', isDebitNormal: false, description: 'Impuesto IGTF retenido' },
+
+    // PATRIMONIO (3)
+    { id: 'acc-301', code: '3.1.01.01', name: 'Capital Social Suscrito y Pagado', type: 'PATRIMONIO', level: 4, parentCode: '3.1.01', balance: 35000.00, currency: 'USD', isDebitNormal: false, description: 'Aporte de socios fundadores' },
+    { id: 'acc-302', code: '3.1.02.01', name: 'Utilidades Acumuladas de Ejercicios Anteriores', type: 'PATRIMONIO', level: 4, parentCode: '3.1.02', balance: 7240.00, currency: 'USD', isDebitNormal: false, description: 'Resultados retenidos' },
+
+    // INGRESOS (4)
+    { id: 'acc-401', code: '4.1.01.01', name: 'Ingresos Operacionales por Ventas de Bienes', type: 'INGRESO', level: 4, parentCode: '4.1.01', balance: 442.07, currency: 'USD', isDebitNormal: false, description: 'Ventas brutas del período' },
+    { id: 'acc-402', code: '4.1.02.01', name: 'Ingresos por Servicios Técnicos y Asesoría', type: 'INGRESO', level: 4, parentCode: '4.1.02', balance: 100.00, currency: 'USD', isDebitNormal: false, description: 'Servicios profesionales exentos' },
+
+    // COSTOS (5)
+    { id: 'acc-501', code: '5.1.01.01', name: 'Costo de Ventas de Mercancías', type: 'COSTO', level: 4, parentCode: '5.1.01', balance: 201.60, currency: 'USD', isDebitNormal: true, description: 'Costo promedio de bienes vendidos' },
+    { id: 'acc-502', code: '5.1.02.01', name: 'Mano de Obra Directa Aplicada a Producción', type: 'COSTO', level: 4, parentCode: '5.1.02', balance: 25.00, currency: 'USD', isDebitNormal: true, description: 'Salarios directos de ensamble' },
+    { id: 'acc-503', code: '5.1.02.02', name: 'Costos Indirectos de Fabricación (CIF)', type: 'COSTO', level: 4, parentCode: '5.1.02', balance: 18.80, currency: 'USD', isDebitNormal: true, description: 'Gastos indirectos de manufactura' },
+
+    // GASTOS (6)
+    { id: 'acc-601', code: '6.1.01.01', name: 'Gastos de Administración y Servicios Públicos', type: 'GASTO', level: 4, parentCode: '6.1.01', balance: 450.00, currency: 'USD', isDebitNormal: true, description: 'Luz, internet, papelería' }
+  ]);
+
+  readonly journalEntries = signal<JournalEntry[]>([
+    {
+      id: 'as-001',
+      entryNumber: 'ASIENTO-2026-0001',
+      date: '2026-08-14 14:20:00',
+      concept: 'Reconocimiento de Venta Comprobante FAC-2026-0081 (Constructora San Martín)',
+      referenceType: 'VENTA',
+      referenceId: 'FAC-2026-0081',
+      lines: [
+        { accountId: 'acc-102', accountCode: '1.1.01.02', accountName: 'Bancos Cuentas Corrientes', description: 'Cobro por transferencia', debit: 274.57, credit: 0 },
+        { accountId: 'acc-501', accountCode: '5.1.01.01', accountName: 'Costo de Ventas', description: 'Costo de 3 Taladros Percutores', debit: 126.00, credit: 0 },
+        { accountId: 'acc-401', accountCode: '4.1.01.01', accountName: 'Ingresos por Ventas', description: 'Base imponible gravada', debit: 0, credit: 236.70 },
+        { accountId: 'acc-202', accountCode: '2.1.02.01', accountName: 'Débito Fiscal IVA 16%', description: 'IVA 16% en venta', debit: 0, credit: 37.87 },
+        { accountId: 'acc-104', accountCode: '1.1.03.01', accountName: 'Inventario de Mercancías', description: 'Salida de almacén a costo CPP', debit: 0, credit: 126.00 }
+      ],
+      totalDebit: 400.57,
+      totalCredit: 400.57,
+      status: 'ASENTADO',
+      createdBy: 'Sistema NexusERP (Automático)',
+      createdAt: '2026-08-14 14:20:00'
+    },
+    {
+      id: 'as-002',
+      entryNumber: 'ASIENTO-2026-0002',
+      date: '2026-08-12 15:30:00',
+      concept: 'Liquidación y Cierre de Orden de Fabricación OF-2026-0008 (10 Reflectores LED 50W)',
+      referenceType: 'PRODUCCION',
+      referenceId: 'OF-2026-0008',
+      lines: [
+        { accountId: 'acc-104', accountCode: '1.1.03.01', accountName: 'Inventario de Mercancías y Terminados', description: 'Ingreso 10 Reflectores LED terminados a $18.90', debit: 189.00, credit: 0 },
+        { accountId: 'acc-105', accountCode: '1.1.03.02', accountName: 'Inventario de Materias Primas', description: 'Consumo de carcasas, chips COB, drivers y cables', debit: 0, credit: 145.20 },
+        { accountId: 'acc-502', accountCode: '5.1.02.01', accountName: 'Mano de Obra Directa Aplicada', description: 'Absorción mano de obra ensamble', debit: 0, credit: 25.00 },
+        { accountId: 'acc-503', accountCode: '5.1.02.02', accountName: 'Costos Indirectos de Fabricación (CIF)', description: 'Absorción energía y control calidad', debit: 0, credit: 18.80 }
+      ],
+      totalDebit: 189.00,
+      totalCredit: 189.00,
+      status: 'ASENTADO',
+      createdBy: 'Sistema MRP NexusERP',
+      createdAt: '2026-08-12 15:30:00'
+    }
+  ]);
+
+  // Computed Accounting Balances
+  readonly totalAccountingAssets = computed(() => {
+    return this.accounts()
+      .filter(a => a.type === 'ACTIVO')
+      .reduce((sum, a) => sum + a.balance, 0);
+  });
+
+  readonly totalAccountingLiabilities = computed(() => {
+    return this.accounts()
+      .filter(a => a.type === 'PASIVO')
+      .reduce((sum, a) => sum + a.balance, 0);
+  });
+
+  readonly totalAccountingEquity = computed(() => {
+    return this.accounts()
+      .filter(a => a.type === 'PATRIMONIO')
+      .reduce((sum, a) => sum + a.balance, 0);
+  });
+
+  readonly totalAccountingRevenue = computed(() => {
+    return this.accounts()
+      .filter(a => a.type === 'INGRESO')
+      .reduce((sum, a) => sum + a.balance, 0);
+  });
+
+  readonly totalAccountingCost = computed(() => {
+    return this.accounts()
+      .filter(a => a.type === 'COSTO')
+      .reduce((sum, a) => sum + a.balance, 0);
+  });
+
+  readonly totalAccountingExpenses = computed(() => {
+    return this.accounts()
+      .filter(a => a.type === 'GASTO')
+      .reduce((sum, a) => sum + a.balance, 0);
+  });
+
+  readonly netIncomePeriod = computed(() => {
+    return this.totalAccountingRevenue() - (this.totalAccountingCost() + this.totalAccountingExpenses());
+  });
+
+  // Computed CRM Stats
+  readonly crmPipelineTotalValue = computed(() => {
+    return this.crmDeals()
+      .filter(d => d.stage !== 'PERDIDO')
+      .reduce((sum, d) => sum + d.expectedValueUsd, 0);
+  });
+
+  readonly crmWeightedPipelineValue = computed(() => {
+    return this.crmDeals()
+      .filter(d => d.stage !== 'PERDIDO' && d.stage !== 'GANADO')
+      .reduce((sum, d) => sum + (d.expectedValueUsd * (d.probability / 100)), 0);
+  });
+
+  readonly crmDealsWonCount = computed(() => {
+    return this.crmDeals().filter(d => d.stage === 'GANADO').length;
+  });
+
+  readonly crmWinRatePercent = computed(() => {
+    const closed = this.crmDeals().filter(d => d.stage === 'GANADO' || d.stage === 'PERDIDO');
+    if (closed.length === 0) return 0;
+    const won = closed.filter(d => d.stage === 'GANADO').length;
+    return (won / closed.length) * 100;
+  });
+
+  // Computed MRP Stats
+  readonly activeProductionOrdersCount = computed(() => {
+    return this.productionOrders().filter(o => o.status === 'EN_PROCESO' || o.status === 'PLANIFICADA' || o.status === 'CONTROL_CALIDAD').length;
+  });
+
+
+  readonly totalProductsCount = computed(() => this.products().length);
+
   readonly totalInventoryValuation = computed(() => {
     return this.products().reduce((sum, p) => sum + (p.totalStock * p.costPrice), 0);
   });
-
-  readonly totalProductsCount = computed(() => this.products().length);
 
   readonly lowStockProducts = computed(() => {
     return this.products().filter(p => p.totalStock <= p.minStock);
@@ -837,6 +1317,11 @@ export class ErpStateService {
           if (parsed.cashSessionHistory) this.cashSessionHistory.set(parsed.cashSessionHistory);
           if (parsed.suppliers) this.suppliers.set(parsed.suppliers);
           if (parsed.customers) this.customers.set(parsed.customers);
+          if (parsed.boms) this.boms.set(parsed.boms);
+          if (parsed.productionOrders) this.productionOrders.set(parsed.productionOrders);
+          if (parsed.crmDeals) this.crmDeals.set(parsed.crmDeals);
+          if (parsed.accounts) this.accounts.set(parsed.accounts);
+          if (parsed.journalEntries) this.journalEntries.set(parsed.journalEntries);
         }
       }
     } catch {
@@ -857,7 +1342,12 @@ export class ErpStateService {
           activeCashSession: this.activeCashSession(),
           cashSessionHistory: this.cashSessionHistory(),
           suppliers: this.suppliers(),
-          customers: this.customers()
+          customers: this.customers(),
+          boms: this.boms(),
+          productionOrders: this.productionOrders(),
+          crmDeals: this.crmDeals(),
+          accounts: this.accounts(),
+          journalEntries: this.journalEntries()
         };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
       }
@@ -1051,6 +1541,36 @@ export class ErpStateService {
     this.products.set(currentProducts);
     this.purchaseOrders.update(orders => [newPO, ...orders]);
     this.kardexMovements.update(kdx => [...kardexToAdd, ...kdx]);
+
+    // Automatic double-entry accounting entry for purchase
+    const poAccountLines: JournalEntryLine[] = [
+      {
+        accountId: 'acc-104',
+        accountCode: '1.1.03.01',
+        accountName: 'Inventario de Mercancías y Productos Terminados',
+        description: `Ingreso de compra ${orderNumber} (${supplier.name})`,
+        debit: newPO.subtotal,
+        credit: 0
+      },
+      {
+        accountId: 'acc-106',
+        accountCode: '1.1.04.01',
+        accountName: 'Crédito Fiscal IVA 16% por Compras',
+        description: `IVA crédito fiscal compra ${orderNumber}`,
+        debit: newPO.taxTotal,
+        credit: 0
+      },
+      {
+        accountId: 'acc-201',
+        accountCode: '2.1.01.01',
+        accountName: 'Cuentas por Pagar a Proveedores Comerciales',
+        description: `Obligación con proveedor ${supplier.name}`,
+        debit: 0,
+        credit: newPO.total
+      }
+    ];
+
+    this.generateAutomatedJournalEntry('COMPRA', orderNumber, `Recepción de Compra ${orderNumber} (${supplier.name})`, poAccountLines);
 
     this.logAudit(
       'PURCHASE_RECEIPT',
@@ -1441,6 +1961,67 @@ export class ErpStateService {
     if (kardexToAdd.length > 0) {
       this.kardexMovements.update(kdx => [...kardexToAdd, ...kdx]);
     }
+
+    // Automatic double-entry accounting recognition
+    const totalCostOfGoods = invoiceItems.reduce((s, it) => s + (it.quantity * it.costPrice), 0);
+    const saleAccountingLines: JournalEntryLine[] = [
+      {
+        accountId: 'acc-101',
+        accountCode: '1.1.01.01',
+        accountName: 'Caja General y Efectivo Moneda Local/Divisas',
+        description: `Cobro venta ${invoiceNumber} (${customer.name})`,
+        debit: grandTotalUsd,
+        credit: 0
+      },
+      {
+        accountId: 'acc-501',
+        accountCode: '5.1.01.01',
+        accountName: 'Costo de Ventas de Mercancías',
+        description: `Costo promedio de salida mercancías ${invoiceNumber}`,
+        debit: Number(totalCostOfGoods.toFixed(2)),
+        credit: 0
+      },
+      {
+        accountId: 'acc-401',
+        accountCode: '4.1.01.01',
+        accountName: 'Ingresos Operacionales por Ventas de Bienes',
+        description: `Venta neta ${invoiceNumber}`,
+        debit: 0,
+        credit: netSubtotal
+      },
+      {
+        accountId: 'acc-202',
+        accountCode: '2.1.02.01',
+        accountName: 'Débito Fiscal IVA 16% por Pagar',
+        description: `Débito fiscal IVA ${invoiceNumber}`,
+        debit: 0,
+        credit: ivaAmount
+      }
+    ];
+
+    if (igtfAmount > 0) {
+      saleAccountingLines.push({
+        accountId: 'acc-203',
+        accountCode: '2.1.02.02',
+        accountName: 'IGTF 3% Retenido en Divisas por Pagar',
+        description: `IGTF 3% percibido en divisas ${invoiceNumber}`,
+        debit: 0,
+        credit: igtfAmount
+      });
+    }
+
+    if (totalCostOfGoods > 0) {
+      saleAccountingLines.push({
+        accountId: 'acc-104',
+        accountCode: '1.1.03.01',
+        accountName: 'Inventario de Mercancías y Productos Terminados',
+        description: `Descargo de inventario por venta ${invoiceNumber}`,
+        debit: 0,
+        credit: Number(totalCostOfGoods.toFixed(2))
+      });
+    }
+
+    this.generateAutomatedJournalEntry('VENTA', invoiceNumber, `Venta Factura ${invoiceNumber} a ${customer.name}`, saleAccountingLines);
 
     this.logAudit(
       'CREATE_INVOICE',
@@ -1843,4 +2424,628 @@ export class ErpStateService {
     this.saveState();
     return { success: true, quoteNumber };
   }
+
+  // ============================================================================
+  // FASE 2: MÉTODOS DE CONTABILIDAD GENERAL (ASIENTOS & MAYORIZACIÓN)
+  // ============================================================================
+
+  generateAutomatedJournalEntry(
+    referenceType: 'VENTA' | 'COMPRA' | 'PRODUCCION' | 'AJUSTE' | 'MANUAL' | 'CIERRE_CAJA',
+    referenceId: string,
+    concept: string,
+    lines: JournalEntryLine[]
+  ): JournalEntry {
+    const totalDebit = Number(lines.reduce((s, l) => s + (l.debit || 0), 0).toFixed(2));
+    const totalCredit = Number(lines.reduce((s, l) => s + (l.credit || 0), 0).toFixed(2));
+    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    const entryNumber = 'ASIENTO-2026-' + (this.journalEntries().length + 1).toString().padStart(4, '0');
+    const user = this.authService.currentUser();
+
+    const newEntry: JournalEntry = {
+      id: 'as-' + Date.now().toString(36),
+      entryNumber,
+      date: nowStr,
+      concept,
+      referenceType,
+      referenceId,
+      lines,
+      totalDebit,
+      totalCredit,
+      status: 'ASENTADO',
+      createdBy: user.name || 'Sistema NexusERP Automático',
+      createdAt: nowStr
+    };
+
+    // Actualizar saldos en el catálogo de cuentas
+    this.accounts.update(currentAccounts => {
+      return currentAccounts.map(acc => {
+        const matchingLines = lines.filter(l => l.accountId === acc.id || l.accountCode === acc.code);
+        if (matchingLines.length === 0) return acc;
+
+        let balanceDelta = 0;
+        matchingLines.forEach(l => {
+          if (acc.isDebitNormal) {
+            balanceDelta += (l.debit || 0) - (l.credit || 0);
+          } else {
+            balanceDelta += (l.credit || 0) - (l.debit || 0);
+          }
+        });
+
+        return {
+          ...acc,
+          balance: Number((acc.balance + balanceDelta).toFixed(2))
+        };
+      });
+    });
+
+    this.journalEntries.update(entries => [newEntry, ...entries]);
+    this.logAudit(
+      'CREATE_JOURNAL_ENTRY',
+      'ACCOUNTING',
+      `Asiento Contable Generado ${entryNumber}`,
+      `Registro contable de tipo ${referenceType} por importe de $${totalDebit.toFixed(2)} (${concept}).`,
+      null,
+      newEntry as unknown as Record<string, unknown>
+    );
+
+    return newEntry;
+  }
+
+  createManualJournalEntry(
+    concept: string,
+    lines: { accountId: string; description: string; debit: number; credit: number }[]
+  ): { success: boolean; message?: string; entryNumber?: string } {
+    const totalDebit = lines.reduce((s, l) => s + l.debit, 0);
+    const totalCredit = lines.reduce((s, l) => s + l.credit, 0);
+
+    if (Math.abs(totalDebit - totalCredit) > 0.01) {
+      return {
+        success: false,
+        message: `El asiento no está cuadrado. Total Debe: $${totalDebit.toFixed(2)}, Total Haber: $${totalCredit.toFixed(2)}.`
+      };
+    }
+
+    const allAccounts = this.accounts();
+    const formattedLines: JournalEntryLine[] = lines.map(l => {
+      const acc = allAccounts.find(a => a.id === l.accountId);
+      return {
+        accountId: l.accountId,
+        accountCode: acc?.code || '0.0.00',
+        accountName: acc?.name || 'Cuenta General',
+        description: l.description,
+        debit: l.debit,
+        credit: l.credit
+      };
+    });
+
+    const entry = this.generateAutomatedJournalEntry('MANUAL', 'MANUAL-' + Date.now(), concept, formattedLines);
+    this.notify('success', 'Asiento Contable Registrado', `Asiento ${entry.entryNumber} mayorizado correctamente.`);
+    this.saveState();
+    return { success: true, entryNumber: entry.entryNumber };
+  }
+
+  // ============================================================================
+  // FASE 2: MÉTODOS DE MANUFACTURA Y MRP (BOM & ÓRDENES DE PRODUCCIÓN)
+  // ============================================================================
+
+  createBom(data: {
+    code: string;
+    name: string;
+    finishedProductId: string;
+    quantityToProduce: number;
+    items: {
+      rawMaterialProductId: string;
+      quantityNeeded: number;
+      wastePercent: number;
+    }[];
+    laborCost: number;
+    overheadCost: number;
+    notes?: string;
+  }): { success: boolean; bomId?: string; message?: string } {
+    const finishedProd = this.products().find(p => p.id === data.finishedProductId);
+    if (!finishedProd) return { success: false, message: 'Producto terminado no encontrado' };
+
+    let materialsTotalCost = 0;
+    const bomItems: BomItem[] = [];
+
+    for (const item of data.items) {
+      const rawProd = this.products().find(p => p.id === item.rawMaterialProductId);
+      if (!rawProd) continue;
+
+      const unitCost = rawProd.costPrice;
+      const subtotal = (item.quantityNeeded * unitCost) * (1 + (item.wastePercent / 100));
+      materialsTotalCost += subtotal;
+
+      bomItems.push({
+        id: 'bit-' + Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 6),
+        rawMaterialProductId: rawProd.id,
+        rawMaterialSku: rawProd.sku,
+        rawMaterialName: rawProd.name,
+        quantityNeeded: item.quantityNeeded,
+        unit: rawProd.unit,
+        wastePercent: item.wastePercent,
+        estimatedUnitCost: unitCost,
+        subtotalCost: Number(subtotal.toFixed(2))
+      });
+    }
+
+    const totalEstimatedCost = Number((materialsTotalCost + data.laborCost + data.overheadCost).toFixed(2));
+    const unitCost = Number((totalEstimatedCost / (data.quantityToProduce || 1)).toFixed(2));
+    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+
+    const newBom: Bom = {
+      id: 'bom-' + Date.now().toString(36),
+      code: data.code.toUpperCase().trim(),
+      name: data.name.trim(),
+      finishedProductId: finishedProd.id,
+      finishedProductSku: finishedProd.sku,
+      finishedProductName: finishedProd.name,
+      quantityToProduce: data.quantityToProduce,
+      items: bomItems,
+      laborCost: data.laborCost,
+      overheadCost: data.overheadCost,
+      totalEstimatedCost,
+      unitCost,
+      active: true,
+      notes: data.notes,
+      createdAt: nowStr
+    };
+
+    this.boms.update(boms => [newBom, ...boms]);
+    this.logAudit(
+      'CREATE_BOM',
+      'MRP',
+      `Nueva Lista de Materiales (BOM): ${newBom.code}`,
+      `Fórmula registrada para fabricar ${finishedProd.name} (Lote: ${data.quantityToProduce} ${finishedProd.unit}, Costo Unit: $${unitCost}).`,
+      null,
+      newBom as unknown as Record<string, unknown>
+    );
+    this.notify('success', 'BOM Registrada', `Fórmula ${newBom.code} guardada exitosamente.`);
+    this.saveState();
+    return { success: true, bomId: newBom.id };
+  }
+
+  createProductionOrder(data: {
+    bomId: string;
+    warehouseId: string;
+    quantityPlanned: number;
+    targetEndDate: string;
+    notes?: string;
+  }): { success: boolean; orderNumber?: string; message?: string } {
+    const bom = this.boms().find(b => b.id === data.bomId);
+    if (!bom) return { success: false, message: 'BOM no encontrada' };
+
+    const warehouse = this.warehouses().find(w => w.id === data.warehouseId) || this.warehouses()[0];
+    const user = this.authService.currentUser();
+    const orderNumber = 'OF-2026-' + (this.productionOrders().length + 10).toString().padStart(4, '0');
+    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+
+    const factor = data.quantityPlanned / (bom.quantityToProduce || 1);
+    let directMaterialCost = 0;
+    bom.items.forEach(it => {
+      directMaterialCost += it.subtotalCost * factor;
+    });
+    const laborCost = bom.laborCost * factor;
+    const overheadCost = bom.overheadCost * factor;
+    const totalCost = Number((directMaterialCost + laborCost + overheadCost).toFixed(2));
+    const unitCost = Number((totalCost / data.quantityPlanned).toFixed(2));
+
+    const newOrder: ProductionOrder = {
+      id: 'of-' + Date.now().toString(36),
+      orderNumber,
+      bomId: bom.id,
+      bomCode: bom.code,
+      finishedProductId: bom.finishedProductId,
+      finishedProductSku: bom.finishedProductSku,
+      finishedProductName: bom.finishedProductName,
+      warehouseId: warehouse.id,
+      warehouseName: warehouse.name,
+      quantityPlanned: data.quantityPlanned,
+      quantityProduced: 0,
+      status: 'PLANIFICADA',
+      startDate: nowStr,
+      targetEndDate: data.targetEndDate,
+      directMaterialCost: Number(directMaterialCost.toFixed(2)),
+      laborCost: Number(laborCost.toFixed(2)),
+      overheadCost: Number(overheadCost.toFixed(2)),
+      totalCost,
+      unitCost,
+      notes: data.notes,
+      operatorName: user.name || 'Jefe de Planta',
+      createdAt: nowStr
+    };
+
+    this.productionOrders.update(orders => [newOrder, ...orders]);
+    this.logAudit(
+      'CREATE_PRODUCTION_ORDER',
+      'MRP',
+      `Orden de Fabricación Creada ${orderNumber}`,
+      `Planificada producción de ${data.quantityPlanned} unidades de ${bom.finishedProductName} en ${warehouse.name}.`,
+      null,
+      newOrder as unknown as Record<string, unknown>
+    );
+    this.notify('success', 'Orden de Fabricación Creada', `Orden ${orderNumber} lista para ejecución.`);
+    this.saveState();
+    return { success: true, orderNumber };
+  }
+
+  startProductionOrder(orderId: string): { success: boolean; message?: string } {
+    const order = this.productionOrders().find(o => o.id === orderId);
+    if (!order) return { success: false, message: 'Orden no encontrada' };
+
+    this.productionOrders.update(orders =>
+      orders.map(o => (o.id === orderId ? { ...o, status: 'EN_PROCESO' as ProductionOrderStatus } : o))
+    );
+    this.notify('info', 'Producción Iniciada', `La orden ${order.orderNumber} pasó al estado EN PROCESO.`);
+    this.saveState();
+    return { success: true };
+  }
+
+  completeProductionOrder(orderId: string): { success: boolean; message?: string } {
+    const order = this.productionOrders().find(o => o.id === orderId);
+    if (!order) return { success: false, message: 'Orden no encontrada' };
+    if (order.status === 'COMPLETADA') return { success: false, message: 'La orden ya está completada' };
+
+    const bom = this.boms().find(b => b.id === order.bomId);
+    if (!bom) return { success: false, message: 'Fórmula BOM asociada no encontrada' };
+
+    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    const factor = order.quantityPlanned / (bom.quantityToProduce || 1);
+    const currentProducts = [...this.products()];
+    const kardexToAdd: KardexMovement[] = [];
+    let totalMaterialsConsumedCost = 0;
+
+    // 1. Validar y Descontar Materias Primas del Almacén
+    for (const item of bom.items) {
+      const prodIndex = currentProducts.findIndex(p => p.id === item.rawMaterialProductId);
+      if (prodIndex === -1) {
+        return { success: false, message: `Materia prima "${item.rawMaterialName}" no existe en inventario.` };
+      }
+
+      const prod = currentProducts[prodIndex];
+      const qtyToDeduct = Number((item.quantityNeeded * factor * (1 + (item.wastePercent / 100))).toFixed(2));
+      const whStock = prod.stockByWarehouse.find(w => w.warehouseId === order.warehouseId)?.quantity || 0;
+
+      if (whStock < qtyToDeduct && prod.totalStock < 900) {
+        return {
+          success: false,
+          message: `Stock insuficiente de insumo "${prod.name}". Requerido: ${qtyToDeduct} ${prod.unit}, Disponible: ${whStock} ${prod.unit}.`
+        };
+      }
+
+      const exitTotalCost = Number((qtyToDeduct * prod.costPrice).toFixed(2));
+      totalMaterialsConsumedCost += exitTotalCost;
+
+      // Actualizar existencias
+      const updatedStockByWh = prod.stockByWarehouse.map(sw => {
+        if (sw.warehouseId === order.warehouseId) {
+          return { ...sw, quantity: Math.max(0, sw.quantity - qtyToDeduct) };
+        }
+        return sw;
+      });
+
+      const newTotalStock = Math.max(0, prod.totalStock - qtyToDeduct);
+      currentProducts[prodIndex] = {
+        ...prod,
+        totalStock: newTotalStock,
+        stockByWarehouse: updatedStockByWh,
+        updatedAt: nowStr
+      };
+
+      // Registrar Kardex: SALIDA_PRODUCCION
+      kardexToAdd.push({
+        id: 'kdx-' + Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 6),
+        productId: prod.id,
+        productSku: prod.sku,
+        productName: prod.name,
+        warehouseId: order.warehouseId,
+        warehouseName: order.warehouseName,
+        date: nowStr,
+        movementType: 'SALIDA_PRODUCCION',
+        docReference: order.orderNumber,
+        justificationReason: `Consumo de materia prima para fabricación en orden ${order.orderNumber}`,
+        entryQty: 0,
+        entryUnitCost: 0,
+        entryTotalCost: 0,
+        exitQty: qtyToDeduct,
+        exitUnitCost: prod.costPrice,
+        exitTotalCost,
+        balanceQty: newTotalStock,
+        balanceAverageCost: prod.costPrice,
+        balanceTotalValuation: Number((newTotalStock * prod.costPrice).toFixed(2)),
+        registeredByUserId: 'usr-mrp-01',
+        registeredByUserName: 'Control de Producción MRP'
+      });
+    }
+
+    // 2. Ingresar Producto Terminado al Inventario con Nuevo Costo Ponderado
+    const finProdIndex = currentProducts.findIndex(p => p.id === order.finishedProductId);
+    if (finProdIndex === -1) {
+      return { success: false, message: 'Producto terminado no encontrado en catálogo' };
+    }
+
+    const finProd = currentProducts[finProdIndex];
+    const totalOrderCost = Number((totalMaterialsConsumedCost + order.laborCost + order.overheadCost).toFixed(2));
+    const effectiveUnitCost = Number((totalOrderCost / order.quantityPlanned).toFixed(2));
+
+    const currentTotalStock = finProd.totalStock;
+    const currentTotalValue = currentTotalStock * finProd.costPrice;
+    const newTotalStock = currentTotalStock + order.quantityPlanned;
+    const newAverageCost = newTotalStock > 0 ? Number(((currentTotalValue + totalOrderCost) / newTotalStock).toFixed(2)) : effectiveUnitCost;
+
+    const updatedFinStockByWh = finProd.stockByWarehouse.map(sw => {
+      if (sw.warehouseId === order.warehouseId) {
+        return { ...sw, quantity: sw.quantity + order.quantityPlanned };
+      }
+      return sw;
+    });
+
+    currentProducts[finProdIndex] = {
+      ...finProd,
+      costPrice: newAverageCost,
+      totalStock: newTotalStock,
+      stockByWarehouse: updatedFinStockByWh,
+      updatedAt: nowStr
+    };
+
+    // Registrar Kardex: ENTRADA_PRODUCCION
+    kardexToAdd.push({
+      id: 'kdx-' + Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 6),
+      productId: finProd.id,
+      productSku: finProd.sku,
+      productName: finProd.name,
+      warehouseId: order.warehouseId,
+      warehouseName: order.warehouseName,
+      date: nowStr,
+      movementType: 'ENTRADA_PRODUCCION',
+      docReference: order.orderNumber,
+      justificationReason: `Entrada por liquidación de producción terminada ${order.orderNumber}`,
+      entryQty: order.quantityPlanned,
+      entryUnitCost: effectiveUnitCost,
+      entryTotalCost: totalOrderCost,
+      exitQty: 0,
+      exitUnitCost: 0,
+      exitTotalCost: 0,
+      balanceQty: newTotalStock,
+      balanceAverageCost: newAverageCost,
+      balanceTotalValuation: Number((newTotalStock * newAverageCost).toFixed(2)),
+      registeredByUserId: 'usr-mrp-01',
+      registeredByUserName: 'Control de Producción MRP'
+    });
+
+    // 3. Generar Asiento Contable Automático
+    const accountingLines: JournalEntryLine[] = [
+      {
+        accountId: 'acc-104',
+        accountCode: '1.1.03.01',
+        accountName: 'Inventario de Mercancías y Productos Terminados',
+        description: `Ingreso ${order.quantityPlanned} unidades de ${finProd.name} a $${effectiveUnitCost.toFixed(2)}`,
+        debit: totalOrderCost,
+        credit: 0
+      },
+      {
+        accountId: 'acc-105',
+        accountCode: '1.1.03.02',
+        accountName: 'Inventario de Materias Primas e Insumos',
+        description: `Consumo de materias primas según lista BOM (${bom.code})`,
+        debit: 0,
+        credit: Number(totalMaterialsConsumedCost.toFixed(2))
+      },
+      {
+        accountId: 'acc-502',
+        accountCode: '5.1.02.01',
+        accountName: 'Mano de Obra Directa Aplicada a Producción',
+        description: `Mano de obra directa de ensamble aplicada a orden ${order.orderNumber}`,
+        debit: 0,
+        credit: order.laborCost
+      },
+      {
+        accountId: 'acc-503',
+        accountCode: '5.1.02.02',
+        accountName: 'Costos Indirectos de Fabricación (CIF)',
+        description: `Costos indirectos y control de calidad aplicados a orden ${order.orderNumber}`,
+        debit: 0,
+        credit: order.overheadCost
+      }
+    ];
+
+    this.generateAutomatedJournalEntry(
+      'PRODUCCION',
+      order.orderNumber,
+      `Liquidación de Orden de Fabricación ${order.orderNumber} (${order.quantityPlanned} ${finProd.name})`,
+      accountingLines
+    );
+
+    // 4. Actualizar Estado de la Orden
+    this.products.set(currentProducts);
+    this.kardexMovements.update(kdx => [...kardexToAdd, ...kdx]);
+    this.productionOrders.update(orders =>
+      orders.map(o =>
+        o.id === orderId
+          ? {
+              ...o,
+              status: 'COMPLETADA' as ProductionOrderStatus,
+              quantityProduced: o.quantityPlanned,
+              actualEndDate: nowStr,
+              directMaterialCost: Number(totalMaterialsConsumedCost.toFixed(2)),
+              totalCost: totalOrderCost,
+              unitCost: effectiveUnitCost
+            }
+          : o
+      )
+    );
+
+    this.logAudit(
+      'COMPLETE_PRODUCTION_ORDER',
+      'MRP',
+      `Orden de Fabricación Completada ${order.orderNumber}`,
+      `Finalizada producción de ${order.quantityPlanned} unidades de ${finProd.name}. Stock ingresado en ${order.warehouseName}. Asiento contable generado.`,
+      null,
+      { orderNumber: order.orderNumber, totalCost: totalOrderCost, unitCost: effectiveUnitCost }
+    );
+
+    this.notify('success', 'Fabricación Completada con Éxito', `Ingresaron ${order.quantityPlanned} unidades de ${finProd.name} al almacén.`);
+    this.saveState();
+    return { success: true };
+  }
+
+  cancelProductionOrder(orderId: string, reason: string): { success: boolean; message?: string } {
+    const order = this.productionOrders().find(o => o.id === orderId);
+    if (!order) return { success: false, message: 'Orden no encontrada' };
+
+    this.productionOrders.update(orders =>
+      orders.map(o => (o.id === orderId ? { ...o, status: 'CANCELADA' as ProductionOrderStatus, notes: (o.notes ? o.notes + ' | ' : '') + 'CANCELADA: ' + reason } : o))
+    );
+    this.logAudit(
+      'CANCEL_PRODUCTION_ORDER',
+      'MRP',
+      `Orden de Fabricación Cancelada ${order.orderNumber}`,
+      `Motivo: ${reason}`,
+      null,
+      { orderNumber: order.orderNumber, reason }
+    );
+    this.notify('warning', 'Orden Cancelada', `La orden ${order.orderNumber} ha sido cancelada.`);
+    this.saveState();
+    return { success: true };
+  }
+
+  // ============================================================================
+  // FASE 2: MÉTODOS DE CRM (LEADS, DEALS Y PIPELINE KANBAN)
+  // ============================================================================
+
+  createCrmDeal(data: {
+    title: string;
+    customerId?: string;
+    customerName: string;
+    contactPerson: string;
+    email: string;
+    phone: string;
+    stage: CrmStage;
+    expectedValueUsd: number;
+    probability: number;
+    expectedCloseDate: string;
+    assignedTo: string;
+    notes?: string;
+    initialActivity?: string;
+  }): { success: boolean; dealId?: string } {
+    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    const code = 'DEAL-2026-' + (this.crmDeals().length + 85).toString().padStart(3, '0');
+    const user = this.authService.currentUser();
+
+    const activities: CrmActivity[] = [];
+    if (data.initialActivity) {
+      activities.push({
+        id: 'act-' + Date.now().toString(36),
+        dealId: '',
+        type: 'NOTA',
+        description: data.initialActivity,
+        date: nowStr,
+        user: user.name,
+        completed: true
+      });
+    }
+
+    const newDeal: CrmDeal = {
+      id: 'deal-' + Date.now().toString(36),
+      code,
+      title: data.title.trim(),
+      customerId: data.customerId,
+      customerName: data.customerName.trim(),
+      contactPerson: data.contactPerson.trim(),
+      email: data.email.trim(),
+      phone: data.phone.trim(),
+      stage: data.stage,
+      expectedValueUsd: Number(data.expectedValueUsd.toFixed(2)),
+      probability: data.probability,
+      expectedCloseDate: data.expectedCloseDate,
+      assignedTo: data.assignedTo || user.name,
+      notes: data.notes,
+      activities,
+      createdAt: nowStr,
+      updatedAt: nowStr
+    };
+
+    if (activities.length > 0) {
+      activities[0].dealId = newDeal.id;
+    }
+
+    this.crmDeals.update(deals => [newDeal, ...deals]);
+    this.logAudit(
+      'CREATE_CRM_DEAL',
+      'CRM',
+      `Nueva Oportunidad CRM: ${code}`,
+      `Oportunidad "${data.title}" por $${data.expectedValueUsd.toFixed(2)} creada para ${data.customerName}.`,
+      null,
+      newDeal as unknown as Record<string, unknown>
+    );
+    this.notify('success', 'Oportunidad Registrada', `Oportunidad comercial ${code} agregada al pipeline.`);
+    this.saveState();
+    return { success: true, dealId: newDeal.id };
+  }
+
+  updateCrmDealStage(dealId: string, newStage: CrmStage): { success: boolean } {
+    const deal = this.crmDeals().find(d => d.id === dealId);
+    if (!deal) return { success: false };
+
+    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    let newProbability = deal.probability;
+    if (newStage === 'NUEVO_LEAD') newProbability = 20;
+    else if (newStage === 'CONTACTADO') newProbability = 35;
+    else if (newStage === 'DIAGNOSTICO') newProbability = 50;
+    else if (newStage === 'PROPUESTA') newProbability = 65;
+    else if (newStage === 'NEGOCIACION') newProbability = 80;
+    else if (newStage === 'GANADO') newProbability = 100;
+    else if (newStage === 'PERDIDO') newProbability = 0;
+
+    this.crmDeals.update(deals =>
+      deals.map(d =>
+        d.id === dealId
+          ? {
+              ...d,
+              stage: newStage,
+              probability: newProbability,
+              updatedAt: nowStr
+            }
+          : d
+      )
+    );
+
+    this.logAudit(
+      'UPDATE_CRM_DEAL',
+      'CRM',
+      `Cambio de Etapa en Oportunidad ${deal.code}`,
+      `La oportunidad "${deal.title}" avanzó a la etapa "${newStage}" (${newProbability}% probabilidad).`,
+      { stageBefore: deal.stage },
+      { stageAfter: newStage, probabilityAfter: newProbability }
+    );
+    this.notify('info', 'Pipeline Actualizado', `Oportunidad ${deal.code} movida a ${newStage}.`);
+    this.saveState();
+    return { success: true };
+  }
+
+  addCrmActivity(dealId: string, activity: { type: CrmActivityType; description: string; date?: string; completed?: boolean }): { success: boolean } {
+    const deal = this.crmDeals().find(d => d.id === dealId);
+    if (!deal) return { success: false };
+
+    const user = this.authService.currentUser();
+    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+
+    const newAct: CrmActivity = {
+      id: 'act-' + Date.now().toString(36),
+      dealId,
+      type: activity.type,
+      description: activity.description.trim(),
+      date: activity.date || nowStr,
+      user: user.name,
+      completed: activity.completed !== undefined ? activity.completed : true
+    };
+
+    this.crmDeals.update(deals =>
+      deals.map(d => (d.id === dealId ? { ...d, activities: [newAct, ...d.activities], updatedAt: nowStr } : d))
+    );
+    this.notify('success', 'Actividad Registrada', `Interacción de tipo ${activity.type} agregada.`);
+    this.saveState();
+    return { success: true };
+  }
 }
+
