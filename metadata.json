@@ -1,0 +1,6 @@
+{
+  "name": "NexusERP - MVP Core Enterprise Suite",
+  "description": "Sistema ERP modular con Facturación Multimoneda (USD, VES, EUR), Sincronización de Tasas BCV Oficial / Manual, 5 Niveles de Precios, Cálculo de Impuestos (IVA 16%, 8%, Exento e IGTF 3%), Inventario Multialmacén, Kardex Valorado, Compras, Presupuestos y Auditoría RBAC.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,115 @@
+<div class="min-h-screen bg-[#f8fafc] flex flex-col font-sans text-slate-800 antialiased selection:bg-blue-600 selection:text-white">
+  
+  <!-- Top Navigation Header -->
+  <app-header 
+    (openArchitecture)="showArchModal.set(true)"
+    (openCash)="onNavChange('cash-closing')" />
+
+  <div class="flex-1 flex overflow-hidden">
+    
+    <!-- Left Navigation Sidebar (Bento Dark #0f172a) -->
+    <app-sidebar 
+      [activeTab]="activeNavId()"
+      (tabChange)="onNavChange($event)" />
+
+    <!-- Main Content Workspace Area (Bento Workspace) -->
+    <main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-7 max-w-7xl mx-auto w-full">
+      
+      <!-- Dynamic Module Render based on activeNavId -->
+      @switch (activeNavId()) {
+        
+        @case ('dashboard') {
+          <app-dashboard 
+            (navigate)="onNavChange($event)"
+            (viewInvoice)="showInvoice($event)" />
+        }
+
+        @case ('inventory') {
+          <app-inventory />
+        }
+
+        @case ('kardex') {
+          <app-kardex />
+        }
+
+        @case ('purchases') {
+          <app-purchases />
+        }
+
+        @case ('sales-pos') {
+          <app-sales-pos 
+            (openInvoiceView)="showInvoice($event)" />
+        }
+
+        @case ('quotes') {
+          <app-quotes />
+        }
+
+        @case ('cash-closing') {
+          <app-cash-closing />
+        }
+
+        @case ('audit-log') {
+          <app-audit-log />
+        }
+
+        @default {
+          <app-dashboard 
+            (navigate)="onNavChange($event)"
+            (viewInvoice)="showInvoice($event)" />
+        }
+
+      }
+
+    </main>
+
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- TOAST NOTIFICATION STACK (ACID Transactions & Alerts) -->
+  <!-- ========================================================= -->
+  <div class="fixed bottom-4 right-4 z-50 flex flex-col space-y-2 max-w-sm w-full pointer-events-none">
+    @for (n of stateService.notifications(); track n.id) {
+      <div 
+        class="pointer-events-auto p-4 rounded-2xl shadow-xl border backdrop-blur-md flex items-start space-x-3 text-xs animate-in slide-in-from-right-10 duration-200"
+        [class]="n.type === 'success' ? 'bg-slate-900/95 border-emerald-500/50 text-white' : 
+                 (n.type === 'error' ? 'bg-rose-900/95 border-rose-400 text-white' : 
+                 (n.type === 'warning' ? 'bg-amber-900/95 border-amber-400 text-white' : 'bg-slate-900/95 border-slate-700 text-white'))">
+        
+        <mat-icon class="text-base shrink-0 mt-0.5"
+          [class]="n.type === 'success' ? 'text-emerald-400' : 
+                   (n.type === 'error' ? 'text-rose-300' : 
+                   (n.type === 'warning' ? 'text-amber-300' : 'text-sky-300'))">
+          {{ n.type === 'success' ? 'check_circle' : (n.type === 'error' ? 'error' : (n.type === 'warning' ? 'warning' : 'info')) }}
+        </mat-icon>
+
+        <div class="flex-1 min-w-0">
+          <p class="font-bold text-xs">{{ n.title }}</p>
+          <p class="text-[11px] text-slate-300 mt-0.5 leading-snug">{{ n.message }}</p>
+        </div>
+
+        <button (click)="dismissToast(n.id)" class="text-slate-400 hover:text-white shrink-0">
+          <mat-icon class="text-sm">close</mat-icon>
+        </button>
+      </div>
+    }
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- MODALS -->
+  <!-- ========================================================= -->
+  
+  <!-- Architecture Blueprints & Tech Stack Modal -->
+  @if (showArchModal()) {
+    <app-architecture-modal 
+      (closeModal)="showArchModal.set(false)" />
+  }
+
+  <!-- Electronic Invoice Viewer & Printer Modal -->
+  @if (activeInvoiceForModal(); as inv) {
+    <app-invoice-modal 
+      [invoice]="inv"
+      (closeModal)="closeInvoiceModal()" />
+  }
+
+</div>
