@@ -15,6 +15,8 @@ export type NavTab =
   | 'accounting'
   | 'cash-closing'
   | 'audit-log'
+  | 'backups'
+  | 'manual'
   | 'architecture';
 
 @Component({
@@ -171,6 +173,32 @@ export type NavTab =
           </div>
           <span class="px-1.5 py-0.5 text-[9px] font-mono rounded bg-slate-800 text-slate-400">
             {{ stateService.auditLogs().length }}
+          </span>
+        </button>
+
+        <button 
+          (click)="selectTab('backups')"
+          [class]="activeTab() === 'backups' ? 'bg-indigo-600/15 text-indigo-400 font-semibold border-l-4 border-indigo-500 rounded-r-lg' : 'hover:bg-slate-800/90 text-slate-300 rounded-lg'"
+          class="w-full flex items-center justify-between px-3.5 py-2 text-xs transition-all duration-150 text-left">
+          <div class="flex items-center space-x-3">
+            <mat-icon class="text-indigo-400 text-lg">cloud_sync</mat-icon>
+            <span class="font-medium">Respaldos Firestore</span>
+          </div>
+          <span class="px-1.5 py-0.2 text-[9px] font-bold rounded bg-indigo-900/60 text-indigo-300 border border-indigo-700">
+            JSON
+          </span>
+        </button>
+
+        <button 
+          (click)="selectTab('manual')"
+          [class]="activeTab() === 'manual' ? 'bg-blue-600/10 text-blue-400 font-semibold border-l-4 border-blue-500 rounded-r-lg' : 'hover:bg-slate-800/90 text-slate-300 rounded-lg'"
+          class="w-full flex items-center justify-between px-3.5 py-2 text-xs transition-all duration-150 text-left">
+          <div class="flex items-center space-x-3">
+            <mat-icon class="text-sky-400 text-lg">menu_book</mat-icon>
+            <span class="font-medium">Manual de Usuario PDF</span>
+          </div>
+          <span class="px-1.5 py-0.2 text-[9px] font-bold rounded bg-sky-900/60 text-sky-300 border border-sky-700">
+            DOCS
           </span>
         </button>
 

@@ -4,6 +4,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { ErpStateService } from '../../services/erp-state.service';
 import { AuthService } from '../../services/auth.service';
 import { Product, ProductPrices } from '../../models/erp.models';
+import { exportInventoryToCsv } from '../../utils/csv-exporter';
 
 @Component({
   selector: 'app-inventory',
@@ -36,6 +37,16 @@ import { Product, ProductPrices } from '../../models/erp.models';
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
+          <!-- Download CSV Button -->
+          <button 
+            type="button"
+            (click)="downloadInventoryCsv()"
+            title="Exportar inventario actual a archivo CSV para Excel"
+            class="px-3.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-semibold flex items-center space-x-1.5 transition-colors cursor-pointer shadow-xs">
+            <mat-icon class="text-base text-emerald-600">file_download</mat-icon>
+            <span>Descargar CSV</span>
+          </button>
+
           <!-- Adjust Stock Button -->
           <button 
             (click)="openAdjustModal()"
@@ -245,7 +256,16 @@ import { Product, ProductPrices } from '../../models/erp.models';
         </div>
 
         <div class="px-4 py-3 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
-          <span>Mostrando {{ filteredProducts().length }} de {{ stateService.products().length }} productos</span>
+          <div class="flex items-center space-x-3">
+            <span>Mostrando <strong>{{ filteredProducts().length }}</strong> de {{ stateService.products().length }} productos</span>
+            <button 
+              type="button"
+              (click)="downloadInventoryCsv()"
+              class="text-emerald-700 hover:text-emerald-900 font-semibold inline-flex items-center space-x-1 underline cursor-pointer text-xs">
+              <mat-icon class="text-xs text-emerald-600">file_download</mat-icon>
+              <span>Exportar filtrados a CSV</span>
+            </button>
+          </div>
           <span>Valor total de catálogo actual: <strong class="font-mono text-slate-900">\${{ stateService.totalInventoryValuation().toFixed(2) }}</strong> (Bs. {{ (stateService.totalInventoryValuation() * stateService.bcvState().usdRate).toLocaleString('es-VE') }})</span>
         </div>
       </div>
@@ -272,6 +292,17 @@ import { Product, ProductPrices } from '../../models/erp.models';
 
             <form [formGroup]="pricesForm" (ngSubmit)="saveProductPrices()" class="p-6 space-y-4 text-xs">
               
+              <!-- Critical Audit Notice -->
+              <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 flex items-start space-x-2 text-amber-900">
+                <mat-icon class="text-amber-600 text-base shrink-0 mt-0.5">warning</mat-icon>
+                <div class="text-[11px]">
+                  <p class="font-bold">Control de Auditoría Crítica</p>
+                  <p class="text-amber-800 leading-tight mt-0.5">
+                    Toda variación en los precios base genera una notificación inmediata en el Centro de Alertas y se almacena con trazabilidad inmutable en el registro de auditoría.
+                  </p>
+                </div>
+              </div>
+
               <!-- Tax Condition Checkbox -->
               <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
                 <div>
@@ -423,6 +454,17 @@ import { Product, ProductPrices } from '../../models/erp.models';
 
             <form [formGroup]="adjustForm" (ngSubmit)="submitStockAdjustment()" class="p-6 space-y-4 text-xs">
               
+              <!-- Critical Audit Notice -->
+              <div class="p-3 bg-sky-50 rounded-xl border border-sky-200 flex items-start space-x-2 text-sky-950">
+                <mat-icon class="text-sky-600 text-base shrink-0 mt-0.5">warning</mat-icon>
+                <div class="text-[11px]">
+                  <p class="font-bold">Ajuste Manual Fuera de Fabricación</p>
+                  <p class="text-sky-800 leading-tight mt-0.5">
+                    Este movimiento de inventario es clasificado como Evento Crítico de Auditoría. Se requiere documento de soporte físico y justificación detallada para el Kardex.
+                  </p>
+                </div>
+              </div>
+
               <!-- Product Select -->
               <div>
                 <span class="block font-semibold text-slate-700 mb-1">Producto a Ajustar *</span>
@@ -851,5 +893,20 @@ export class InventoryComponent {
       initialStock: 10
     });
     this.showNewProductModal.set(false);
+  }
+
+  downloadInventoryCsv() {
+    const list = this.filteredProducts();
+    if (list.length === 0) {
+      this.stateService.notify('warning', 'Sin Registros', 'No hay productos para exportar con los filtros actuales.');
+      return;
+    }
+    const bcv = this.stateService.bcvState().usdRate;
+    const success = exportInventoryToCsv(list, bcv);
+    if (success) {
+      this.stateService.notify('success', 'Descarga Completada', `Se han exportado ${list.length} productos a formato CSV exitosamente.`);
+    } else {
+      this.stateService.notify('error', 'Error de Exportación', 'No fue posible generar el archivo CSV.');
+    }
   }
 }

@@ -1,0 +1,177 @@
+{
+  "entities": {
+    "ErpBackup": {
+      "title": "ErpBackup",
+      "description": "Snapshots de copias de seguridad de todo el sistema ERP NexusERP persistidos en Firestore",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Identificador único del respaldo"
+        },
+        "backupCode": {
+          "type": "string",
+          "description": "Código de serie del respaldo, e.g. BKP-20260819-0805"
+        },
+        "name": {
+          "type": "string",
+          "description": "Nombre descriptivo del respaldo"
+        },
+        "description": {
+          "type": "string",
+          "description": "Notas o motivo del respaldo"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["MANUAL", "SCHEDULED", "AUTOMATIC", "PRE_RESTORE"],
+          "description": "Tipo o modalidad de generación del respaldo"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["COMPLETED", "IN_PROGRESS", "FAILED", "RESTORED"],
+          "description": "Estado del respaldo"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Fecha y hora ISO de creación"
+        },
+        "createdBy": {
+          "type": "string",
+          "description": "Usuario responsable de la generación"
+        },
+        "userEmail": {
+          "type": "string",
+          "format": "email",
+          "description": "Correo del usuario"
+        },
+        "sizeBytes": {
+          "type": "number",
+          "description": "Tamaño en bytes del archivo de respaldo"
+        },
+        "sizeFormatted": {
+          "type": "string",
+          "description": "Tamaño legible formateado en KB o MB"
+        },
+        "checksumSha256": {
+          "type": "string",
+          "description": "Hash SHA-256 o CRC32 de verificación de integridad"
+        },
+        "totalCollections": {
+          "type": "number",
+          "description": "Cantidad de colecciones o módulos respaldados"
+        },
+        "totalRecords": {
+          "type": "number",
+          "description": "Total de registros contenidos en el respaldo"
+        },
+        "storageTarget": {
+          "type": "string",
+          "enum": ["FIRESTORE_CLOUD", "LOCAL_DOWNLOAD", "HYBRID"],
+          "description": "Destino del almacenamiento"
+        },
+        "erpVersion": {
+          "type": "string",
+          "description": "Versión del sistema ERP NexusERP"
+        },
+        "payloadJson": {
+          "type": "string",
+          "description": "Contenido comprimido o serializado del dataset completo del ERP en formato JSON"
+        }
+      },
+      "required": [
+        "id",
+        "backupCode",
+        "name",
+        "type",
+        "status",
+        "createdAt",
+        "createdBy",
+        "sizeBytes",
+        "checksumSha256",
+        "totalCollections",
+        "totalRecords",
+        "storageTarget",
+        "erpVersion"
+      ]
+    },
+    "BackupSchedule": {
+      "title": "BackupSchedule",
+      "description": "Configuración de programación automática de copias de seguridad",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Identificador de la configuración de programación"
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "Si la programación automática está activa"
+        },
+        "frequency": {
+          "type": "string",
+          "enum": ["HOURLY", "EVERY_6_HOURS", "EVERY_12_HOURS", "DAILY", "WEEKLY", "CUSTOM_MINUTES"],
+          "description": "Frecuencia de ejecución"
+        },
+        "customIntervalMinutes": {
+          "type": "number",
+          "description": "Intervalo en minutos para ejecuciones recurrentes"
+        },
+        "timeOfDay": {
+          "type": "string",
+          "description": "Hora del día (HH:mm) para frecuencia diaria"
+        },
+        "autoSyncToFirestore": {
+          "type": "boolean",
+          "description": "Si sincroniza automáticamente el snapshot a Firestore"
+        },
+        "autoDownloadJson": {
+          "type": "boolean",
+          "description": "Si dispara la descarga automática del archivo JSON"
+        },
+        "maxBackupsToRetain": {
+          "type": "number",
+          "description": "Cantidad máxima de respaldos a retener en Firestore"
+        },
+        "lastRunAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Última fecha de ejecución exitosa"
+        },
+        "nextRunAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Próxima fecha programada de ejecución"
+        },
+        "notifyOnBackupComplete": {
+          "type": "boolean",
+          "description": "Si notifica por email al completar el respaldo"
+        },
+        "targetEmail": {
+          "type": "string",
+          "format": "email",
+          "description": "Correo de notificación para confirmación de respaldo"
+        }
+      },
+      "required": [
+        "id",
+        "enabled",
+        "frequency",
+        "customIntervalMinutes",
+        "autoSyncToFirestore",
+        "autoDownloadJson",
+        "maxBackupsToRetain"
+      ]
+    }
+  },
+  "firestore": {
+    "/erp_backups/{backupId}": {
+      "schema": "ErpBackup",
+      "description": "Colección de instantáneas y respaldos completos del sistema ERP persistidos en Firestore"
+    },
+    "/erp_backup_schedules/{scheduleId}": {
+      "schema": "BackupSchedule",
+      "description": "Colección de parámetros de programación automática de respaldos"
+    }
+  }
+}

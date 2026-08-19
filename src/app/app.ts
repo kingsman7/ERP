@@ -1,7 +1,8 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal, effect } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { ErpStateService } from './services/erp-state.service';
 import { AuthService } from './services/auth.service';
+import { KeyboardShortcutsService } from './services/keyboard-shortcuts.service';
 import { Invoice } from './models/erp.models';
 import { NavTab } from './components/sidebar/sidebar';
 
@@ -18,8 +19,11 @@ import { CrmComponent } from './components/crm/crm';
 import { AccountingComponent } from './components/accounting/accounting';
 import { CashClosingComponent } from './components/cash-closing/cash-closing';
 import { AuditLogComponent } from './components/audit-log/audit-log';
+import { BackupManagementComponent } from './components/backup-management/backup-management';
+import { UserManualComponent } from './components/user-manual/user-manual';
 import { ArchitectureModal } from './components/architecture-modal/architecture-modal';
 import { InvoiceModal } from './components/invoice-modal/invoice-modal';
+import { KeyboardShortcutsModalComponent } from './components/keyboard-shortcuts-modal/keyboard-shortcuts-modal';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -39,8 +43,11 @@ import { InvoiceModal } from './components/invoice-modal/invoice-modal';
     AccountingComponent,
     CashClosingComponent,
     AuditLogComponent,
+    BackupManagementComponent,
+    UserManualComponent,
     ArchitectureModal,
-    InvoiceModal
+    InvoiceModal,
+    KeyboardShortcutsModalComponent
   ],
   templateUrl: './app.html',
   styleUrl: './app.css',
@@ -48,10 +55,28 @@ import { InvoiceModal } from './components/invoice-modal/invoice-modal';
 export class App {
   stateService = inject(ErpStateService);
   authService = inject(AuthService);
+  shortcutService = inject(KeyboardShortcutsService);
 
   activeNavId = signal<NavTab>('dashboard');
   showArchModal = signal<boolean>(false);
   activeInvoiceForModal = signal<Invoice | null>(null);
+
+  constructor() {
+    // Listen to global shortcut actions to handle top-level routing/modals
+    effect(() => {
+      const action = this.shortcutService.lastExecutedAction();
+      if (!action) return;
+
+      if (action.actionId === 'NAV_ARCH') {
+        this.showArchModal.set(true);
+        return;
+      }
+
+      if (action.targetNav) {
+        this.onNavChange(action.targetNav);
+      }
+    });
+  }
 
   onNavChange(navId: NavTab) {
     if (navId === 'architecture') {

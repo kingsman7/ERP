@@ -23,8 +23,10 @@ export interface AuditLog {
   userId: string;
   userName: string;
   userRole: UserRole;
-  action: 'CREATE_INVOICE' | 'ADJUST_STOCK' | 'PURCHASE_RECEIPT' | 'CONVERT_QUOTE' | 'CREATE_QUOTE' | 'CASH_CLOSING' | 'USER_LOGIN' | 'CREATE_PRODUCT' | 'CREATE_SUPPLIER' | 'SYNC_BCV_RATES' | 'UPDATE_EXCHANGE_RATE' | 'UPDATE_PRODUCT_PRICES' | 'CREATE_BOM' | 'UPDATE_BOM' | 'CREATE_PRODUCTION_ORDER' | 'COMPLETE_PRODUCTION_ORDER' | 'CANCEL_PRODUCTION_ORDER' | 'CREATE_CRM_DEAL' | 'UPDATE_CRM_DEAL' | 'CREATE_JOURNAL_ENTRY';
-  module: 'INVENTORY' | 'AUTH' | 'PURCHASES' | 'SALES' | 'POS' | 'FINANCE' | 'MRP' | 'CRM' | 'ACCOUNTING';
+  action: 'CREATE_INVOICE' | 'ADJUST_STOCK' | 'PURCHASE_RECEIPT' | 'CONVERT_QUOTE' | 'CREATE_QUOTE' | 'CASH_CLOSING' | 'USER_LOGIN' | 'CREATE_PRODUCT' | 'CREATE_SUPPLIER' | 'SYNC_BCV_RATES' | 'UPDATE_EXCHANGE_RATE' | 'UPDATE_PRODUCT_PRICES' | 'CREATE_BOM' | 'UPDATE_BOM' | 'CREATE_PRODUCTION_ORDER' | 'COMPLETE_PRODUCTION_ORDER' | 'CANCEL_PRODUCTION_ORDER' | 'CREATE_CRM_DEAL' | 'UPDATE_CRM_DEAL' | 'CREATE_JOURNAL_ENTRY' | 'CONFIG_BACKUP_SCHEDULE' | 'CREATE_BACKUP' | 'RESTORE_DATABASE';
+  module: 'INVENTORY' | 'AUTH' | 'PURCHASES' | 'SALES' | 'POS' | 'FINANCE' | 'MRP' | 'CRM' | 'ACCOUNTING' | 'BACKUP';
+  isCritical?: boolean;
+  criticalCategory?: 'PRICE_CHANGE' | 'MANUAL_STOCK_ADJUSTMENT' | 'INVOICE_CANCEL' | 'DB_RESTORE' | 'SECURITY_ROLE';
   details: {
     title: string;
     description: string;
@@ -33,6 +35,34 @@ export interface AuditLog {
     metadata?: Record<string, unknown>;
   };
   ipAddress: string;
+  createdAt: string;
+}
+
+export type CriticalAuditCategory = 'PRICE_CHANGE' | 'MANUAL_STOCK_ADJUSTMENT' | 'INVOICE_CANCEL' | 'DB_RESTORE' | 'SECURITY_ROLE';
+export type AuditSeverity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'INFO';
+
+export interface CriticalAuditNotification {
+  id: string;
+  auditLogId?: string;
+  category: CriticalAuditCategory;
+  severity: AuditSeverity;
+  title: string;
+  message: string;
+  details: {
+    itemSku?: string;
+    itemName?: string;
+    warehouseName?: string;
+    oldValue?: string | number | Record<string, unknown>;
+    newValue?: string | number | Record<string, unknown>;
+    diffSummary?: string;
+    supportDocument?: string;
+    justification?: string;
+    user: string;
+    role: string;
+    timestamp: string;
+    ipAddress?: string;
+  };
+  isRead: boolean;
   createdAt: string;
 }
 
@@ -93,6 +123,10 @@ export interface Product {
   isTaxExempt: boolean; // Exento de IVA (0%)
   taxRate: number; // e.g. 0.16 (16%), 0.08 (8%), 0 (Exento)
   minStock: number;
+  reorderPoint?: number; // Punto de Reorden calculado (Lead Time Demand + Safety Stock)
+  safetyStock?: number; // Stock de Seguridad para contingencias MRP
+  leadTimeDays?: number; // Tiempo de reposición de proveedores en días
+  reorderQuantity?: number; // Lote óptimo de compra sugerido (EOQ / Lote Mínimo)
   totalStock: number;
   stockByWarehouse: StockByWarehouse[];
   imageUrl?: string;
@@ -473,4 +507,147 @@ export interface JournalEntry {
   createdBy: string;
   createdAt: string;
 }
+
+// ============================================================================
+// FASE 2: MODELOS DE NOTIFICACIONES Y ALERTAS POR EMAIL (MRP & REORDEN)
+// ============================================================================
+
+export type EmailAlertTriggerReason = 
+  | 'MRP_CONSUMPTION' 
+  | 'SALE_POS' 
+  | 'INVENTORY_SCAN' 
+  | 'MANUAL_TRIGGER'
+  | 'TEST_EMAIL';
+
+export interface EmailNotificationConfig {
+  enabled: boolean;
+  recipients: string[]; // List of emails to receive alerts
+  senderName: string;
+  senderEmail: string;
+  smtpHost: string;
+  smtpPort: number;
+  useTls: boolean;
+  alertOnReorderPoint: boolean; // Alert when totalStock <= reorderPoint
+  alertOnCriticalStock: boolean; // Alert when totalStock <= minStock
+  autoTriggerOnProduction: boolean; // Auto check upon MRP production completion
+  autoTriggerOnSales: boolean; // Auto check upon sales POS checkout
+  includeCostValuation: boolean; // Include $ USD & Bs. in email body
+  includePreferredSupplier: boolean;
+  dailyDigestOnly: boolean;
+}
+
+export interface EmailAlertLog {
+  id: string;
+  timestamp: string;
+  recipients: string[];
+  subject: string;
+  productSku: string;
+  productName: string;
+  category: string;
+  unit: string;
+  currentStock: number;
+  reorderPoint: number;
+  minStock: number;
+  deficitQuantity: number;
+  suggestedOrderQty: number;
+  estimatedCostUsd: number;
+  estimatedCostVes: number;
+  triggerReason: EmailAlertTriggerReason;
+  orderOrDocRef?: string;
+  status: 'SENT' | 'DELIVERED' | 'FAILED';
+  previewHtml: string;
+}
+
+export interface ReorderAlertItem {
+  product: Product;
+  currentStock: number;
+  reorderPoint: number;
+  minStock: number;
+  deficit: number;
+  suggestedOrderQty: number;
+  estimatedCostUsd: number;
+  estimatedCostVes: number;
+  severity: 'CRITICAL' | 'REORDER_REQUIRED' | 'WARNING';
+  isRawMaterial: boolean;
+  associatedBomsCount: number;
+}
+
+// ============================================================================
+// FASE 2: MODELOS DE COPIAS DE SEGURIDAD Y RESPALDOS PROGRAMADOS FIRESTORE
+// ============================================================================
+
+export type BackupType = 'MANUAL' | 'SCHEDULED' | 'AUTOMATIC' | 'PRE_RESTORE';
+export type BackupStatus = 'COMPLETED' | 'IN_PROGRESS' | 'FAILED' | 'RESTORED';
+export type BackupScheduleFrequency = 'HOURLY' | 'EVERY_6_HOURS' | 'EVERY_12_HOURS' | 'DAILY' | 'WEEKLY' | 'CUSTOM_MINUTES';
+
+export interface BackupCollectionSummary {
+  collectionName: string;
+  count: number;
+}
+
+export interface ErpBackupMetadata {
+  id: string;
+  backupCode: string; // e.g. "BKP-20260819-0805"
+  name: string;
+  description?: string;
+  type: BackupType;
+  status: BackupStatus;
+  createdAt: string;
+  createdBy: string;
+  userEmail: string;
+  sizeBytes: number;
+  sizeFormatted: string;
+  checksumSha256: string;
+  totalCollections: number;
+  totalRecords: number;
+  collectionsSummary: BackupCollectionSummary[];
+  firestoreDocumentId?: string;
+  storageTarget: 'FIRESTORE_CLOUD' | 'LOCAL_DOWNLOAD' | 'HYBRID';
+  erpVersion: string;
+  payloadJson?: string;
+}
+
+export interface BackupScheduleConfig {
+  enabled: boolean;
+  frequency: BackupScheduleFrequency;
+  customIntervalMinutes: number; // e.g. 60 min
+  timeOfDay?: string; // e.g. "00:00" for daily
+  autoSyncToFirestore: boolean;
+  autoDownloadJson: boolean;
+  maxBackupsToRetain: number; // e.g. 20
+  lastRunAt?: string;
+  nextRunAt?: string;
+  notifyOnBackupComplete: boolean;
+  targetEmail?: string;
+}
+
+export interface ErpFullBackupPayload {
+  version: string;
+  exportDate: string;
+  system: string;
+  checksum: string;
+  metadata: ErpBackupMetadata;
+  data: {
+    products: Product[];
+    inventoryMovements: KardexMovement[];
+    warehouses: Warehouse[];
+    boms: Bom[];
+    productionOrders: ProductionOrder[];
+    crmDeals: CrmDeal[];
+    accounts: Account[];
+    journalEntries: JournalEntry[];
+    invoices: Invoice[];
+    cashClosings: CashRegisterSession[];
+    quotes: Quote[];
+    customers: Customer[];
+    suppliers: Supplier[];
+    users: User[];
+    auditLogs: AuditLog[];
+    emailAlertLogs: EmailAlertLog[];
+    notificationConfig?: EmailNotificationConfig;
+    backupScheduleConfig?: BackupScheduleConfig;
+  };
+}
+
+
 

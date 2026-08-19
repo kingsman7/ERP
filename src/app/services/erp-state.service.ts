@@ -29,7 +29,10 @@ import {
   CrmActivityType,
   Account,
   JournalEntry,
-  JournalEntryLine
+  JournalEntryLine,
+  ErpFullBackupPayload,
+  CriticalAuditNotification,
+  CriticalAuditCategory
 } from '../models/erp.models';
 import { AuthService } from './auth.service';
 
@@ -887,6 +890,82 @@ export class ErpStateService {
   // Toast / System Notifications Signal
   readonly notifications = signal<{ id: string; type: 'success' | 'info' | 'warning' | 'error'; title: string; message: string; timestamp: number }[]>([]);
 
+  // Critical Audit Notifications (UI Real-time Alert Center)
+  readonly criticalAuditNotifications = signal<CriticalAuditNotification[]>([
+    {
+      id: 'can-001',
+      category: 'PRICE_CHANGE',
+      severity: 'CRITICAL',
+      title: 'Alteración de Precio Base de Venta (Nivel 1)',
+      message: 'El usuario Alejandro Morales (Admin) modificó el precio base de venta del producto "Taladro Percutor Industrial 750W 1/2"" (ELE-TAL-750) de $69.00 a $78.90 USD (+14.35%).',
+      details: {
+        itemSku: 'ELE-TAL-750',
+        itemName: 'Taladro Percutor Industrial 750W 1/2"',
+        oldValue: '$69.00 (Base Detal)',
+        newValue: '$78.90 (Base Detal)',
+        diffSummary: 'Precio Base: $69.00 ➔ $78.90 USD (Nivel 1 Detal)',
+        user: 'Alejandro Morales (Admin)',
+        role: 'ADMIN',
+        timestamp: '2026-08-18 10:15:20',
+        justification: 'Ajuste de margen comercial por inflación y fletes internacionales'
+      },
+      isRead: false,
+      createdAt: '2026-08-18 10:15:20'
+    },
+    {
+      id: 'can-002',
+      category: 'MANUAL_STOCK_ADJUSTMENT',
+      severity: 'CRITICAL',
+      title: 'Ajuste Manual de Inventario Fuera de Fabricación (Merma)',
+      message: 'Se registró un descargo manual no planificado de -2 UND en "Almacén Central" para "Bobina Cable de Red UTP Cat6 305m Exterior" (RED-CAT6-305). Soporte: MER-2026-089.',
+      details: {
+        itemSku: 'RED-CAT6-305',
+        itemName: 'Bobina Cable de Red UTP Cat6 305m Exterior 100% Cobre',
+        warehouseName: 'Almacén Central',
+        oldValue: '18 UND en Almacén Central',
+        newValue: '16 UND en Almacén Central',
+        diffSummary: 'Descargo directo por merma: -2 UND',
+        supportDocument: 'MER-2026-089',
+        justification: 'Bobinas dañadas por filtración en rack perimetral B-12',
+        user: 'David Silva (Almacén)',
+        role: 'WAREHOUSE_KEEPER',
+        timestamp: '2026-08-18 14:22:45'
+      },
+      isRead: false,
+      createdAt: '2026-08-18 14:22:45'
+    },
+    {
+      id: 'can-003',
+      category: 'MANUAL_STOCK_ADJUSTMENT',
+      severity: 'HIGH',
+      title: 'Ajuste Manual de Inventario (Sobrante por Conteo Físico)',
+      message: 'Se ingresaron manualmente +4 UND en "Almacén Sucursal Norte" para "Reflector LED Industrial Exterior IP65 50W 6500K" (ILU-LED-50W) tras auditoría física.',
+      details: {
+        itemSku: 'ILU-LED-50W',
+        itemName: 'Reflector LED Industrial Exterior IP65 50W 6500K',
+        warehouseName: 'Almacén Sucursal Norte',
+        oldValue: '12 UND en Sucursal Norte',
+        newValue: '16 UND en Sucursal Norte',
+        diffSummary: 'Ingreso manual por sobrante: +4 UND',
+        supportDocument: 'INV-FIS-042',
+        justification: 'Regularización de conteo cíclico trimestral de inventario',
+        user: 'David Silva (Almacén)',
+        role: 'WAREHOUSE_KEEPER',
+        timestamp: '2026-08-17 17:30:10'
+      },
+      isRead: true,
+      createdAt: '2026-08-17 17:30:10'
+    }
+  ]);
+
+  readonly unreadCriticalAuditCount = computed(() =>
+    this.criticalAuditNotifications().filter(n => !n.isRead).length
+  );
+
+  readonly hasUnreadCriticalAudits = computed(() =>
+    this.unreadCriticalAuditCount() > 0
+  );
+
   // ============================================================================
   // FASE 2: SEÑALES REACTIVAS DE MANUFACTURA (MRP / BOM)
   // ============================================================================
@@ -1368,14 +1447,60 @@ export class ErpStateService {
     this.notifications.update(prev => prev.filter(n => n.id !== id));
   }
 
-  private logAudit(
+  addCriticalAuditNotification(
+    data: Omit<CriticalAuditNotification, 'id' | 'createdAt' | 'isRead'>
+  ): CriticalAuditNotification {
+    const id = 'can-' + Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 6);
+    const createdAt = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    const newNotification: CriticalAuditNotification = {
+      ...data,
+      id,
+      isRead: false,
+      createdAt
+    };
+
+    this.criticalAuditNotifications.update(prev => [newNotification, ...prev]);
+
+    // Also trigger instant visual toast with high urgency
+    this.notify(
+      data.severity === 'CRITICAL' ? 'error' : 'warning',
+      `🚨 ALERTA DE AUDITORÍA: ${data.title}`,
+      data.message
+    );
+
+    this.saveState();
+    return newNotification;
+  }
+
+  markAuditNotificationAsRead(id: string): void {
+    this.criticalAuditNotifications.update(list =>
+      list.map(n => (n.id === id ? { ...n, isRead: true } : n))
+    );
+    this.saveState();
+  }
+
+  markAllAuditNotificationsAsRead(): void {
+    this.criticalAuditNotifications.update(list =>
+      list.map(n => ({ ...n, isRead: true }))
+    );
+    this.saveState();
+  }
+
+  clearAllAuditNotifications(): void {
+    this.criticalAuditNotifications.set([]);
+    this.saveState();
+  }
+
+  logAudit(
     action: AuditLog['action'],
     module: AuditLog['module'],
     title: string,
     description: string,
     previousState?: Record<string, unknown> | null,
     newState?: Record<string, unknown> | null,
-    metadata?: Record<string, unknown>
+    metadata?: Record<string, unknown>,
+    isCritical?: boolean,
+    criticalCategory?: CriticalAuditCategory
   ) {
     const user = this.authService.currentUser();
     const log: AuditLog = {
@@ -1385,6 +1510,8 @@ export class ErpStateService {
       userRole: user.role,
       action,
       module,
+      isCritical,
+      criticalCategory,
       details: {
         title,
         description,
@@ -1664,13 +1791,20 @@ export class ErpStateService {
     const prod = this.products().find(p => p.id === productId);
     if (!prod) return;
 
+    const user = this.authService.currentUser();
+    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+
+    const oldBasePrice = prod.salePrice || prod.prices?.price1 || 0;
+    const newBasePrice = prices.price1;
+    const isBasePriceChanged = Math.abs(oldBasePrice - newBasePrice) > 0.001;
+
     const updatedProd: Product = {
       ...prod,
       salePrice: prices.price1, // Base price alias
       prices: { ...prices },
       isTaxExempt,
       taxRate: isTaxExempt ? 0 : taxRate,
-      updatedAt: new Date().toISOString().replace('T', ' ').substring(0, 19)
+      updatedAt: nowStr
     };
 
     this.products.update(prods => prods.map(p => p.id === productId ? updatedProd : p));
@@ -1679,11 +1813,33 @@ export class ErpStateService {
       'INVENTORY',
       `Actualización de 5 Niveles de Precio: ${prod.sku}`,
       `Se actualizaron los 5 niveles de precio y condición tributaria (${isTaxExempt ? 'Exento 0%' : 'Gravado ' + (taxRate * 100) + '%'}) de ${prod.name}.`,
-      { preciosAnteriores: prod.prices, exentoAnterior: prod.isTaxExempt },
-      { preciosNuevos: prices, exentoNuevo: isTaxExempt, tasaIva: taxRate }
+      { preciosAnteriores: prod.prices, precioBaseAnterior: oldBasePrice, exentoAnterior: prod.isTaxExempt },
+      { preciosNuevos: prices, precioBaseNuevo: newBasePrice, exentoNuevo: isTaxExempt, tasaIva: taxRate },
+      { basePriceChanged: isBasePriceChanged },
+      true,
+      'PRICE_CHANGE'
     );
 
-    this.notify('success', 'Precios Actualizados', `Se actualizaron los 5 precios para ${prod.name}`);
+    // Emit Real-time Critical Audit Notification
+    const priceDeltaPercent = oldBasePrice > 0 ? (((newBasePrice - oldBasePrice) / oldBasePrice) * 100).toFixed(2) : '0';
+    this.addCriticalAuditNotification({
+      category: 'PRICE_CHANGE',
+      severity: isBasePriceChanged ? 'CRITICAL' : 'HIGH',
+      title: isBasePriceChanged ? 'Alteración de Precio Base de Venta' : 'Actualización de Niveles de Precio',
+      message: `El usuario ${user.name} (${user.role}) modificó los precios de "${prod.name}" (${prod.sku}). Precio Base: $${oldBasePrice.toFixed(2)} ➔ $${newBasePrice.toFixed(2)} USD (${Number(priceDeltaPercent) >= 0 ? '+' : ''}${priceDeltaPercent}%).`,
+      details: {
+        itemSku: prod.sku,
+        itemName: prod.name,
+        oldValue: `$${oldBasePrice.toFixed(2)} (Base Nivel 1)`,
+        newValue: `$${newBasePrice.toFixed(2)} (Base Nivel 1)`,
+        diffSummary: `Precio Base: $${oldBasePrice.toFixed(2)} ➔ $${newBasePrice.toFixed(2)} USD (${isTaxExempt ? 'Exento' : 'IVA ' + (taxRate * 100) + '%'})`,
+        user: user.name,
+        role: user.role,
+        timestamp: nowStr,
+        justification: 'Modificación manual directa en catálogo de inventario'
+      }
+    });
+
     this.saveState();
   }
 
@@ -2104,6 +2260,85 @@ export class ErpStateService {
   }
 
   // ==========================================
+  // TRANSACTION 3B: ANULACIÓN DE FACTURA CON RESTITUCIÓN DE INVENTARIO
+  // ==========================================
+  cancelInvoice(invoiceId: string, justificationReason = 'Anulación solicitada por gerencia de ventas'): { success: boolean; message: string } {
+    const inv = this.invoices().find(i => i.id === invoiceId);
+    if (!inv) return { success: false, message: 'Factura no encontrada.' };
+    if (inv.status === 'ANULADA') return { success: false, message: 'La factura ya se encuentra anulada.' };
+
+    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    const user = this.authService.currentUser();
+
+    // Re-ingresar stock a los almacenes
+    const currentProducts = [...this.products()];
+    const kardexToAdd: KardexMovement[] = [];
+
+    for (const item of inv.items || []) {
+      const prodIndex = currentProducts.findIndex(p => p.id === item.productId);
+      if (prodIndex !== -1) {
+        const prod = currentProducts[prodIndex];
+        const updatedStockByWh = prod.stockByWarehouse.map(sw => {
+          if (sw.warehouseId === inv.warehouseId) {
+            return { ...sw, quantity: sw.quantity + item.quantity };
+          }
+          return sw;
+        });
+        const newTotalStock = prod.totalStock + item.quantity;
+        currentProducts[prodIndex] = {
+          ...prod,
+          totalStock: newTotalStock,
+          stockByWarehouse: updatedStockByWh,
+          updatedAt: nowStr
+        };
+
+        kardexToAdd.push({
+          id: 'kdx-' + Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 6),
+          productId: prod.id,
+          productSku: prod.sku,
+          productName: prod.name,
+          warehouseId: inv.warehouseId,
+          warehouseName: this.warehouses().find(w => w.id === inv.warehouseId)?.name || 'Almacén Central',
+          date: nowStr,
+          movementType: 'AJUSTE_SOBRANTE',
+          docReference: `ANUL-${inv.invoiceNumber}`,
+          justificationReason: `Reingreso por anulación de factura ${inv.invoiceNumber}: ${justificationReason}`,
+          entryQty: item.quantity,
+          entryUnitCost: prod.costPrice,
+          entryTotalCost: Number((item.quantity * prod.costPrice).toFixed(2)),
+          exitQty: 0,
+          exitUnitCost: 0,
+          exitTotalCost: 0,
+          balanceQty: newTotalStock,
+          balanceAverageCost: prod.costPrice,
+          balanceTotalValuation: Number((newTotalStock * prod.costPrice).toFixed(2)),
+          registeredByUserId: user.id,
+          registeredByUserName: user.name
+        });
+      }
+    }
+
+    this.products.set(currentProducts);
+    this.kardexMovements.update(k => [...kardexToAdd, ...k]);
+    this.invoices.update(invs =>
+      invs.map(i => i.id === invoiceId ? { ...i, status: 'ANULADA' } : i)
+    );
+
+    this.logAudit(
+      'CREATE_INVOICE',
+      'POS',
+      `Anulación de Factura ${inv.invoiceNumber}`,
+      `Factura ${inv.invoiceNumber} anulada. Motivo: ${justificationReason}. Stock devuelto al almacén.`,
+      { invoiceStatus: 'EMITIDA', total: inv.total },
+      { invoiceStatus: 'ANULADA', motivo: justificationReason }
+    );
+
+    this.notify('warning', 'Factura Anulada', `La factura ${inv.invoiceNumber} ha sido anulada y el stock fue restablecido.`);
+    this.saveState();
+    return { success: true, message: `Factura ${inv.invoiceNumber} anulada correctamente.` };
+  }
+
+  // ==========================================
   // TRANSACTION 4: AJUSTE DE INVENTARIO / MERMA CON DOCUMENTO DE SOPORTE OBLIGATORIO
   // ==========================================
   adjustStock(
@@ -2209,12 +2444,35 @@ export class ErpStateService {
       `Ajuste de ${quantityDelta > 0 ? '+' : ''}${quantityDelta} UND en ${wh.name}. Doc Soporte: "${supportDocument}". Motivo: "${justificationReason}".`,
       { stockAnteriorTotal: prod.totalStock, stockAnteriorAlmacen: currentWhStock },
       { stockNuevoTotal: newTotalStock, stockNuevoAlmacen: newWhStock, docSoporte: supportDocument, motivo: justificationReason },
-      { auditoriaRequerida: true }
+      { auditoriaRequerida: true, movementType },
+      true,
+      'MANUAL_STOCK_ADJUSTMENT'
     );
 
-    this.notify('info', 'Ajuste de Inventario Procesado', `Se actualizó el stock de ${prod.name} con soporte ${supportDocument}`);
+    // Emit Real-time Critical Audit Notification for Manual Stock Adjustment
+    const isMerma = quantityDelta < 0;
+    this.addCriticalAuditNotification({
+      category: 'MANUAL_STOCK_ADJUSTMENT',
+      severity: 'CRITICAL',
+      title: `Ajuste Manual de Inventario Fuera de Fabricación (${isMerma ? 'Merma / Baja' : 'Sobrante / Regularización'})`,
+      message: `Ajuste manual de ${quantityDelta > 0 ? '+' : ''}${quantityDelta} UND en "${wh.name}" para "${prod.name}" (${prod.sku}). Doc Soporte: "${supportDocument}". Motivo: "${justificationReason}".`,
+      details: {
+        itemSku: prod.sku,
+        itemName: prod.name,
+        warehouseName: wh.name,
+        oldValue: `${currentWhStock} UND en ${wh.name} (Total: ${prod.totalStock} UND)`,
+        newValue: `${newWhStock} UND en ${wh.name} (Total: ${newTotalStock} UND)`,
+        diffSummary: `Ajuste ${isMerma ? 'Descargo' : 'Ingreso'}: ${quantityDelta > 0 ? '+' : ''}${quantityDelta} UND en ${wh.name}`,
+        supportDocument,
+        justification: justificationReason,
+        user: user.name,
+        role: user.role,
+        timestamp: nowStr
+      }
+    });
+
     this.saveState();
-    return { success: true, message: 'Ajuste registrado exitosamente en Kardex y Auditoría.' };
+    return { success: true, message: 'Ajuste registrado exitosamente en Kardex, Bitácora y Centro de Alertas.' };
   }
 
   // ==========================================
@@ -3047,5 +3305,137 @@ export class ErpStateService {
     this.saveState();
     return { success: true };
   }
+
+  // ==========================================================================
+  // EXPORT & RESTORE SYSTEM DATA FOR FIRESTORE BACKUPS
+  // ==========================================================================
+
+  getErpFullSnapshotData() {
+    return {
+      products: this.products(),
+      inventoryMovements: this.kardexMovements(),
+      warehouses: this.warehouses(),
+      boms: this.boms(),
+      productionOrders: this.productionOrders(),
+      crmDeals: this.crmDeals(),
+      accounts: this.accounts(),
+      journalEntries: this.journalEntries(),
+      invoices: this.invoices(),
+      cashClosings: [this.activeCashSession(), ...this.cashSessionHistory()],
+      quotes: this.quotes(),
+      customers: this.customers(),
+      suppliers: this.suppliers(),
+      users: this.authService.availableDemoUsers,
+      auditLogs: this.auditLogs(),
+      emailAlertLogs: []
+    };
+  }
+
+  restoreFullErpData(data: ErpFullBackupPayload['data'], sourceDescription: string): { success: boolean; recordsRestored: number; error?: string } {
+    try {
+      if (!data) {
+        return { success: false, recordsRestored: 0, error: 'Estructura de datos inválida o vacía.' };
+      }
+
+      let count = 0;
+
+      if (Array.isArray(data.warehouses) && data.warehouses.length > 0) {
+        this.warehouses.set(data.warehouses);
+        count += data.warehouses.length;
+      }
+      if (Array.isArray(data.products) && data.products.length > 0) {
+        this.products.set(data.products);
+        count += data.products.length;
+      }
+      if (Array.isArray(data.suppliers) && data.suppliers.length > 0) {
+        this.suppliers.set(data.suppliers);
+        count += data.suppliers.length;
+      }
+      if (Array.isArray(data.customers) && data.customers.length > 0) {
+        this.customers.set(data.customers);
+        count += data.customers.length;
+      }
+      if (Array.isArray(data.inventoryMovements) && data.inventoryMovements.length > 0) {
+        this.kardexMovements.set(data.inventoryMovements);
+        count += data.inventoryMovements.length;
+      }
+      if (Array.isArray(data.boms) && data.boms.length > 0) {
+        this.boms.set(data.boms);
+        count += data.boms.length;
+      }
+      if (Array.isArray(data.productionOrders) && data.productionOrders.length > 0) {
+        this.productionOrders.set(data.productionOrders);
+        count += data.productionOrders.length;
+      }
+      if (Array.isArray(data.crmDeals) && data.crmDeals.length > 0) {
+        this.crmDeals.set(data.crmDeals);
+        count += data.crmDeals.length;
+      }
+      if (Array.isArray(data.accounts) && data.accounts.length > 0) {
+        this.accounts.set(data.accounts);
+        count += data.accounts.length;
+      }
+      if (Array.isArray(data.journalEntries) && data.journalEntries.length > 0) {
+        this.journalEntries.set(data.journalEntries);
+        count += data.journalEntries.length;
+      }
+      if (Array.isArray(data.invoices) && data.invoices.length > 0) {
+        this.invoices.set(data.invoices);
+        count += data.invoices.length;
+      }
+      if (Array.isArray(data.quotes) && data.quotes.length > 0) {
+        this.quotes.set(data.quotes);
+        count += data.quotes.length;
+      }
+      if (Array.isArray(data.cashClosings) && data.cashClosings.length > 0) {
+        const first = data.cashClosings[0];
+        if (first) {
+          this.activeCashSession.set(first);
+        }
+        this.cashSessionHistory.set(data.cashClosings.slice(1));
+        count += data.cashClosings.length;
+      }
+      if (Array.isArray(data.auditLogs) && data.auditLogs.length > 0) {
+        this.auditLogs.set(data.auditLogs);
+        count += data.auditLogs.length;
+      }
+
+      this.logAudit(
+        'RESTORE_DATABASE',
+        'BACKUP',
+        `Restauración de Base de Datos (${sourceDescription})`,
+        `Se ejecutó con éxito la restauración global de ${count} registros desde el respaldo.`,
+        undefined,
+        { recordsRestored: count, source: sourceDescription },
+        undefined,
+        true,
+        'DB_RESTORE'
+      );
+
+      this.addCriticalAuditNotification({
+        category: 'DB_RESTORE',
+        severity: 'CRITICAL',
+        title: 'Restauración Completa de Base de Datos',
+        message: `El usuario ${this.authService.currentUser().name} ejecutó una restauración de respaldo global (${count} registros restaurados desde ${sourceDescription}).`,
+        details: {
+          diffSummary: `${count} entidades restauradas en PostgreSQL ACID`,
+          supportDocument: `RESTORE-${Date.now()}`,
+          justification: `Restauración autorizada desde módulo de seguridad (${sourceDescription})`,
+          user: this.authService.currentUser().name,
+          role: this.authService.currentUser().role,
+          timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19)
+        }
+      });
+
+      this.saveState();
+      this.notify('success', 'Base de Datos Restaurada', `Se restauraron exitosamente ${count} registros desde ${sourceDescription}.`);
+      return { success: true, recordsRestored: count };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al procesar los datos de restauración';
+      this.notify('error', 'Error en Restauración', msg);
+      return { success: false, recordsRestored: 0, error: msg };
+    }
+  }
 }
+
 

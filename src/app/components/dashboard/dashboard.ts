@@ -51,6 +51,20 @@ import { Invoice } from '../../models/erp.models';
           </button>
 
           <button 
+            (click)="navigate.emit('backups')"
+            class="px-3.5 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-800 rounded-xl text-xs font-semibold flex items-center space-x-1.5 border border-indigo-500/30 transition-all">
+            <mat-icon class="text-base text-indigo-600">cloud_sync</mat-icon>
+            <span>Respaldos</span>
+          </button>
+
+          <button 
+            (click)="navigate.emit('manual')"
+            class="px-3.5 py-2 bg-sky-500/10 hover:bg-sky-500/20 text-sky-800 rounded-xl text-xs font-semibold flex items-center space-x-1.5 border border-sky-500/30 transition-all">
+            <mat-icon class="text-base text-sky-600">menu_book</mat-icon>
+            <span>Manual PDF</span>
+          </button>
+
+          <button 
             (click)="navigate.emit('sales-pos')"
             class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center space-x-1.5 shadow-sm shadow-blue-200 transition-all">
             <mat-icon class="text-base">point_of_sale</mat-icon>

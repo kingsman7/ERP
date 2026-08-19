@@ -1,0 +1,53 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Connection test document
+    match /test/{docId} {
+      allow read, write: if true;
+    }
+
+    // Helper functions
+    function isValidBackup(data) {
+      return data.id is string &&
+             data.backupCode is string &&
+             data.name is string &&
+             data.type in ['MANUAL', 'SCHEDULED', 'AUTOMATIC', 'PRE_RESTORE'] &&
+             data.status in ['COMPLETED', 'IN_PROGRESS', 'FAILED', 'RESTORED'] &&
+             data.createdAt is string &&
+             data.createdBy is string &&
+             data.sizeBytes is number &&
+             data.checksumSha256 is string &&
+             data.totalCollections is number &&
+             data.totalRecords is number &&
+             data.storageTarget in ['FIRESTORE_CLOUD', 'LOCAL_DOWNLOAD', 'HYBRID'] &&
+             data.erpVersion is string;
+    }
+
+    function isValidBackupSchedule(data) {
+      return data.id is string &&
+             data.enabled is bool &&
+             data.frequency in ['HOURLY', 'EVERY_6_HOURS', 'EVERY_12_HOURS', 'DAILY', 'WEEKLY', 'CUSTOM_MINUTES'] &&
+             data.customIntervalMinutes is number &&
+             data.autoSyncToFirestore is bool &&
+             data.autoDownloadJson is bool &&
+             data.maxBackupsToRetain is number;
+    }
+
+    // ERP Backups Collection
+    match /erp_backups/{backupId} {
+      allow read: if true;
+      allow create: if isValidBackup(request.resource.data);
+      allow update: if isValidBackup(request.resource.data);
+      allow delete: if true;
+    }
+
+    // ERP Backup Schedules Collection
+    match /erp_backup_schedules/{scheduleId} {
+      allow read: if true;
+      allow create: if isValidBackupSchedule(request.resource.data);
+      allow update: if isValidBackupSchedule(request.resource.data);
+      allow delete: if true;
+    }
+  }
+}

@@ -1,6 +1,6 @@
 {
   "name": "NexusERP - MVP Core Enterprise Suite",
-  "description": "Sistema ERP Enterprise modular con Facturación Multimoneda (USD, VES, EUR), Tasas BCV, 5 Niveles de Precios, IVA e IGTF 3%, Inventario Multialmacén, Kardex CPP, Manufactura MRP (BOM, Órdenes de Fabricación), CRM Pipeline Kanban, Contabilidad General NIIF con Partida Doble en tiempo real y Auditoría RBAC.",
+  "description": "Sistema ERP Enterprise modular con Facturación Multimoneda (USD, VES, EUR), Tasas BCV, 5 Niveles de Precios, IVA e IGTF 3%, Inventario Multialmacén, Kardex CPP, Manufactura MRP (BOM, Órdenes de Fabricación y Alertas de Reorden por Email), CRM Pipeline Kanban, Contabilidad General NIIF con Partida Doble en tiempo real, Copias de Seguridad Automáticas en Google Cloud Firestore y Descarga de Archivos JSON.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
