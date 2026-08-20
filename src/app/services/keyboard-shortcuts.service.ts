@@ -416,42 +416,43 @@ export class KeyboardShortcutsService {
     const isAlt = event.altKey;
     const isShift = event.shiftKey;
     const isCtrl = event.ctrlKey || event.metaKey;
-    const key = event.key.toUpperCase();
+    const key = event.key ? event.key.toUpperCase() : '';
+    const code = event.code || '';
 
     // -------------------------------------------------------------
     // CREATION SHORTCUTS (Alt + N, Alt + Shift + P, etc.)
     // -------------------------------------------------------------
-    if (isAlt && !isShift && !isCtrl && key === 'N') {
+    if (isAlt && !isShift && !isCtrl && (key === 'N' || code === 'KeyN')) {
       return this.getShortcutById('NEW_SALE');
     }
-    if (isAlt && isShift && key === 'P') {
+    if (isAlt && isShift && (key === 'P' || code === 'KeyP')) {
       return this.getShortcutById('NEW_PRODUCT');
     }
-    if (isAlt && isShift && key === 'A') {
+    if (isAlt && isShift && (key === 'A' || code === 'KeyA')) {
       return this.getShortcutById('NEW_STOCK_ADJUST');
     }
-    if (isAlt && isShift && key === 'C') {
+    if (isAlt && isShift && (key === 'C' || code === 'KeyC')) {
       return this.getShortcutById('NEW_PURCHASE');
     }
-    if (isAlt && isShift && key === 'Q') {
+    if (isAlt && isShift && (key === 'Q' || code === 'KeyQ')) {
       return this.getShortcutById('NEW_QUOTE');
     }
-    if (isAlt && isShift && key === 'M') {
+    if (isAlt && isShift && (key === 'M' || code === 'KeyM')) {
       return this.getShortcutById('NEW_PRODUCTION_ORDER');
     }
-    if (isAlt && isShift && key === 'B') {
+    if (isAlt && isShift && (key === 'B' || code === 'KeyB')) {
       return this.getShortcutById('NEW_BOM');
     }
-    if (isAlt && isShift && key === 'J') {
+    if (isAlt && isShift && (key === 'J' || code === 'KeyJ')) {
       return this.getShortcutById('NEW_JOURNAL_ENTRY');
     }
-    if (isAlt && isShift && key === 'D') {
+    if (isAlt && isShift && (key === 'D' || code === 'KeyD')) {
       return this.getShortcutById('NEW_CRM_DEAL');
     }
-    if (isAlt && isShift && key === 'S') {
+    if (isAlt && isShift && (key === 'S' || code === 'KeyS')) {
       return this.getShortcutById('NEW_BACKUP');
     }
-    if (isAlt && isShift && key === 'T') {
+    if (isAlt && isShift && (key === 'T' || code === 'KeyT')) {
       return this.getShortcutById('OPEN_BCV_MODAL');
     }
 
@@ -459,22 +460,20 @@ export class KeyboardShortcutsService {
     // NAVIGATION SHORTCUTS (Alt + 1..0, Alt + B, Alt + S, Alt + H, Alt + T)
     // -------------------------------------------------------------
     if (isAlt && !isShift && !isCtrl) {
-      switch (key) {
-        case '1': return this.getShortcutById('NAV_DASHBOARD');
-        case '2': return this.getShortcutById('NAV_INVENTORY');
-        case '3': return this.getShortcutById('NAV_KARDEX');
-        case '4': return this.getShortcutById('NAV_PURCHASES');
-        case '5': return this.getShortcutById('NAV_POS');
-        case '6': return this.getShortcutById('NAV_QUOTES');
-        case '7': return this.getShortcutById('NAV_MRP');
-        case '8': return this.getShortcutById('NAV_CRM');
-        case '9': return this.getShortcutById('NAV_ACCOUNTING');
-        case '0': return this.getShortcutById('NAV_CASH');
-        case 'B': return this.getShortcutById('NAV_AUDIT');
-        case 'S': return this.getShortcutById('NAV_BACKUPS');
-        case 'H': return this.getShortcutById('NAV_MANUAL');
-        case 'T': return this.getShortcutById('NAV_ARCH');
-      }
+      if (key === '1' || code === 'Digit1' || code === 'Numpad1') return this.getShortcutById('NAV_DASHBOARD');
+      if (key === '2' || code === 'Digit2' || code === 'Numpad2') return this.getShortcutById('NAV_INVENTORY');
+      if (key === '3' || code === 'Digit3' || code === 'Numpad3') return this.getShortcutById('NAV_KARDEX');
+      if (key === '4' || code === 'Digit4' || code === 'Numpad4') return this.getShortcutById('NAV_PURCHASES');
+      if (key === '5' || code === 'Digit5' || code === 'Numpad5') return this.getShortcutById('NAV_POS');
+      if (key === '6' || code === 'Digit6' || code === 'Numpad6') return this.getShortcutById('NAV_QUOTES');
+      if (key === '7' || code === 'Digit7' || code === 'Numpad7') return this.getShortcutById('NAV_MRP');
+      if (key === '8' || code === 'Digit8' || code === 'Numpad8') return this.getShortcutById('NAV_CRM');
+      if (key === '9' || code === 'Digit9' || code === 'Numpad9') return this.getShortcutById('NAV_ACCOUNTING');
+      if (key === '0' || code === 'Digit0' || code === 'Numpad0') return this.getShortcutById('NAV_CASH');
+      if (key === 'B' || code === 'KeyB') return this.getShortcutById('NAV_AUDIT');
+      if (key === 'S' || code === 'KeyS') return this.getShortcutById('NAV_BACKUPS');
+      if (key === 'H' || code === 'KeyH') return this.getShortcutById('NAV_MANUAL');
+      if (key === 'T' || code === 'KeyT') return this.getShortcutById('NAV_ARCH');
     }
 
     return null;

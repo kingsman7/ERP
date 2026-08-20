@@ -1,8 +1,9 @@
-import { Component, ChangeDetectionStrategy, inject, signal, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, computed, effect } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators, FormArray } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { ErpStateService } from '../../services/erp-state.service';
 import { AuthService } from '../../services/auth.service';
+import { KeyboardShortcutsService } from '../../services/keyboard-shortcuts.service';
 import { Account, AccountType } from '../../models/erp.models';
 
 @Component({
@@ -505,12 +506,23 @@ import { Account, AccountType } from '../../models/erp.models';
 export class AccountingComponent {
   stateService = inject(ErpStateService);
   authService = inject(AuthService);
+  shortcutService = inject(KeyboardShortcutsService);
   fb = inject(FormBuilder);
   Math = Math;
 
   activeTab = signal<'journal' | 'chart' | 'financials'>('journal');
   selectedOriginFilter = signal<string>('ALL');
   showManualEntryModal = signal<boolean>(false);
+
+  constructor() {
+    effect(() => {
+      const action = this.shortcutService.lastExecutedAction();
+      if (action?.actionId === 'NEW_JOURNAL_ENTRY') {
+        this.activeTab.set('journal');
+        this.openNewManualEntryModal();
+      }
+    });
+  }
 
   manualEntryForm = this.fb.group({
     concept: ['', [Validators.required, Validators.minLength(5)]],

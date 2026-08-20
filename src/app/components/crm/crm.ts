@@ -1,8 +1,9 @@
-import { Component, ChangeDetectionStrategy, inject, signal, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, computed, effect } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { ErpStateService } from '../../services/erp-state.service';
 import { AuthService } from '../../services/auth.service';
+import { KeyboardShortcutsService } from '../../services/keyboard-shortcuts.service';
 import { CrmDeal, CrmStage, CrmActivityType } from '../../models/erp.models';
 
 interface StageColumn {
@@ -375,12 +376,22 @@ interface StageColumn {
 export class CrmComponent {
   stateService = inject(ErpStateService);
   authService = inject(AuthService);
+  shortcutService = inject(KeyboardShortcutsService);
   fb = inject(FormBuilder);
 
   searchQuery = signal<string>('');
   showDealModal = signal<boolean>(false);
   showActivityModal = signal<boolean>(false);
   activeDealForActivity = signal<CrmDeal | null>(null);
+
+  constructor() {
+    effect(() => {
+      const action = this.shortcutService.lastExecutedAction();
+      if (action?.actionId === 'NEW_CRM_DEAL') {
+        this.openNewDealModal();
+      }
+    });
+  }
 
   stages: StageColumn[] = [
     { id: 'NUEVO_LEAD', label: 'Nuevo Lead', probability: 20, colorClass: 'bg-slate-400', borderClass: 'border-slate-300' },

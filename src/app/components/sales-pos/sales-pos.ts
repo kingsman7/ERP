@@ -1,9 +1,10 @@
-import { Component, ChangeDetectionStrategy, inject, signal, computed, output } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, computed, output, effect } from '@angular/core';
 import { ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { ErpStateService } from '../../services/erp-state.service';
 import { AuthService } from '../../services/auth.service';
 import { EmailNotificationService } from '../../services/email-notification.service';
+import { KeyboardShortcutsService } from '../../services/keyboard-shortcuts.service';
 import { 
   Product, 
   PaymentMethod, 
@@ -712,10 +713,27 @@ export class SalesPosComponent {
   stateService = inject(ErpStateService);
   authService = inject(AuthService);
   emailService = inject(EmailNotificationService);
+  shortcutService = inject(KeyboardShortcutsService);
 
   openInvoiceView = output<Invoice>();
 
   activeSalesTab = signal<'pos' | 'history'>('pos');
+
+  constructor() {
+    effect(() => {
+      const action = this.shortcutService.lastExecutedAction();
+      if (!action) return;
+
+      if (action.actionId === 'NEW_SALE') {
+        this.activeSalesTab.set('pos');
+      } else if (action.actionId === 'POS_PAY') {
+        this.activeSalesTab.set('pos');
+        if (this.cartItems().length > 0) {
+          this.processSale();
+        }
+      }
+    });
+  }
 
   selectedWarehouseId = signal<string>(this.stateService.warehouses()[0]?.id || '');
   selectedCustomerId = signal<string>(this.stateService.customers()[0]?.id || '');

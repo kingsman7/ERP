@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, inject, signal, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, computed, AfterViewInit, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
@@ -190,11 +190,18 @@ import { KeyboardShortcutsService, ShortcutDefinition, ShortcutCategory } from '
     </div>
   `
 })
-export class KeyboardShortcutsModalComponent {
+export class KeyboardShortcutsModalComponent implements AfterViewInit {
   shortcutService = inject(KeyboardShortcutsService);
+  @ViewChild('searchInput') searchInput!: ElementRef<HTMLInputElement>;
 
   searchQuery = signal<string>('');
   selectedCategory = signal<ShortcutCategory | 'ALL'>('ALL');
+
+  ngAfterViewInit(): void {
+    setTimeout(() => {
+      this.searchInput?.nativeElement?.focus();
+    }, 50);
+  }
 
   filteredShortcuts = computed(() => {
     const q = this.searchQuery().trim().toLowerCase();

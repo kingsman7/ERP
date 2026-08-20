@@ -1,7 +1,8 @@
-import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, effect } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { ErpStateService } from '../../services/erp-state.service';
 import { AuthService } from '../../services/auth.service';
+import { KeyboardShortcutsService } from '../../services/keyboard-shortcuts.service';
 import { Quote, PriceLevelKey } from '../../models/erp.models';
 
 @Component({
@@ -246,8 +247,19 @@ import { Quote, PriceLevelKey } from '../../models/erp.models';
 export class QuotesComponent {
   stateService = inject(ErpStateService);
   authService = inject(AuthService);
+  shortcutService = inject(KeyboardShortcutsService);
 
   showNewQuoteModal = signal<boolean>(false);
+
+  constructor() {
+    effect(() => {
+      const action = this.shortcutService.lastExecutedAction();
+      if (action?.actionId === 'NEW_QUOTE') {
+        this.showNewQuoteModal.set(true);
+      }
+    });
+  }
+
   selectedCustomerId = signal<string>(this.stateService.customers()[0]?.id || '');
   selectedPriceLevel = signal<PriceLevelKey>('price1');
   quoteItems = signal<{ productId: string; quantity: number; discountPercent: number }[]>([]);

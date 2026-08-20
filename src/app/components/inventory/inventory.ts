@@ -1,8 +1,9 @@
-import { Component, ChangeDetectionStrategy, inject, signal, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, computed, effect } from '@angular/core';
 import { ReactiveFormsModule, FormGroup, FormControl, Validators } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { ErpStateService } from '../../services/erp-state.service';
 import { AuthService } from '../../services/auth.service';
+import { KeyboardShortcutsService } from '../../services/keyboard-shortcuts.service';
 import { Product, ProductPrices } from '../../models/erp.models';
 import { exportInventoryToCsv } from '../../utils/csv-exporter';
 
@@ -680,6 +681,7 @@ import { exportInventoryToCsv } from '../../utils/csv-exporter';
 export class InventoryComponent {
   stateService = inject(ErpStateService);
   authService = inject(AuthService);
+  shortcutService = inject(KeyboardShortcutsService);
 
   searchTerm = signal<string>('');
   selectedCategory = signal<string>('ALL');
@@ -689,6 +691,19 @@ export class InventoryComponent {
   showAdjustModal = signal<boolean>(false);
   showNewProductModal = signal<boolean>(false);
   selectedProductForPrices = signal<Product | null>(null);
+
+  constructor() {
+    effect(() => {
+      const action = this.shortcutService.lastExecutedAction();
+      if (!action) return;
+
+      if (action.actionId === 'NEW_PRODUCT') {
+        this.showNewProductModal.set(true);
+      } else if (action.actionId === 'NEW_STOCK_ADJUST') {
+        this.openAdjustModal();
+      }
+    });
+  }
 
   categories = computed(() => {
     const set = new Set(this.stateService.products().map(p => p.category));

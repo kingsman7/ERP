@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, inject, signal, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormsModule, FormBuilder, Validators } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
@@ -6,6 +6,7 @@ import { ErpBackupService } from '../../services/erp-backup.service';
 import { FirebaseService } from '../../services/firebase.service';
 import { ErpStateService } from '../../services/erp-state.service';
 import { AuthService } from '../../services/auth.service';
+import { KeyboardShortcutsService } from '../../services/keyboard-shortcuts.service';
 import { ErpBackupMetadata, BackupScheduleFrequency } from '../../models/erp.models';
 
 @Component({
@@ -788,6 +789,7 @@ export class BackupManagementComponent {
   firebaseService = inject(FirebaseService);
   erpState = inject(ErpStateService);
   authService = inject(AuthService);
+  shortcutService = inject(KeyboardShortcutsService);
   private fb = inject(FormBuilder);
 
   activeTab = signal<'history' | 'schedule' | 'schema'>('history');
@@ -798,6 +800,15 @@ export class BackupManagementComponent {
   restoreTargetBackup = signal<ErpBackupMetadata | null>(null);
   selectedFile = signal<File | null>(null);
   hasCopiedJson = signal<boolean>(false);
+
+  constructor() {
+    effect(() => {
+      const action = this.shortcutService.lastExecutedAction();
+      if (action?.actionId === 'NEW_BACKUP') {
+        this.openCreateBackupModal();
+      }
+    });
+  }
 
   manualBackupName = '';
   manualBackupDesc = '';

@@ -1,9 +1,10 @@
-import { Component, ChangeDetectionStrategy, inject, signal, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, computed, effect } from '@angular/core';
 import { ReactiveFormsModule, FormsModule, FormBuilder, Validators, FormArray } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { ErpStateService } from '../../services/erp-state.service';
 import { AuthService } from '../../services/auth.service';
 import { EmailNotificationService } from '../../services/email-notification.service';
+import { KeyboardShortcutsService } from '../../services/keyboard-shortcuts.service';
 import { Bom, ProductionOrder, Product, EmailAlertLog } from '../../models/erp.models';
 
 @Component({
@@ -1419,10 +1420,26 @@ export class MrpComponent {
   stateService = inject(ErpStateService);
   authService = inject(AuthService);
   emailService = inject(EmailNotificationService);
+  shortcutService = inject(KeyboardShortcutsService);
   private fb = inject(FormBuilder);
 
   activeTab = signal<'orders' | 'boms' | 'simulator' | 'reorder-alerts'>('orders');
   selectedStatusFilter = signal<string>('ALL');
+
+  constructor() {
+    effect(() => {
+      const action = this.shortcutService.lastExecutedAction();
+      if (!action) return;
+
+      if (action.actionId === 'NEW_PRODUCTION_ORDER') {
+        this.activeTab.set('orders');
+        this.openNewOrderModal();
+      } else if (action.actionId === 'NEW_BOM') {
+        this.activeTab.set('boms');
+        this.openNewBomModal();
+      }
+    });
+  }
 
   // Modals signals
   showBomModal = signal<boolean>(false);

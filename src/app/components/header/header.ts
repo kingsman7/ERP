@@ -1,8 +1,9 @@
-import { Component, ChangeDetectionStrategy, inject, output, signal, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, output, signal, computed, effect } from '@angular/core';
 import { ReactiveFormsModule, FormControl, Validators } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { AuthService } from '../../services/auth.service';
 import { ErpStateService } from '../../services/erp-state.service';
+import { KeyboardShortcutsService } from '../../services/keyboard-shortcuts.service';
 import { User, CriticalAuditNotification, CriticalAuditCategory } from '../../models/erp.models';
 
 @Component({
@@ -34,9 +35,21 @@ import { User, CriticalAuditNotification, CriticalAuditCategory } from '../../mo
         </div>
       </div>
 
-      <!-- Quick Metrics, BCV Ticker, Cash Status, Notification Center & Role Switcher -->
+      <!-- Quick Metrics, BCV Ticker, Cash Status, Command Palette, Notification Center & Role Switcher -->
       <div class="flex items-center space-x-2 sm:space-x-3">
         
+        <!-- Command Palette Trigger Chip -->
+        <button 
+          (click)="shortcutService.showPalette.set(true)"
+          title="Abrir Paleta de Comandos y Atajos (Ctrl + K)"
+          class="hidden lg:flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 text-slate-700 hover:text-blue-700 transition-all cursor-pointer shadow-2xs">
+          <mat-icon class="text-base text-blue-600">search</mat-icon>
+          <span class="text-xs font-semibold">Atajos</span>
+          <kbd class="px-1.5 py-0.5 bg-white border border-slate-300 text-slate-600 font-mono text-[10px] font-bold rounded shadow-2xs">
+            Ctrl+K
+          </kbd>
+        </button>
+
         <!-- BCV Ticker & Control Modal Button -->
         <button 
           (click)="showBcvModal.set(true)"
@@ -507,6 +520,7 @@ import { User, CriticalAuditNotification, CriticalAuditCategory } from '../../mo
 export class HeaderComponent {
   authService = inject(AuthService);
   stateService = inject(ErpStateService);
+  shortcutService = inject(KeyboardShortcutsService);
 
   showUserDropdown = signal<boolean>(false);
   showBcvModal = signal<boolean>(false);
@@ -522,6 +536,15 @@ export class HeaderComponent {
   openArchitecture = output<void>();
   openCash = output<void>();
   openAudit = output<void>();
+
+  constructor() {
+    effect(() => {
+      const action = this.shortcutService.lastExecutedAction();
+      if (action?.actionId === 'OPEN_BCV_MODAL') {
+        this.showBcvModal.set(true);
+      }
+    });
+  }
 
   filteredNotifications = computed(() => {
     const list = this.stateService.criticalAuditNotifications();

@@ -1,8 +1,9 @@
-import { Component, ChangeDetectionStrategy, inject, signal, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, computed, effect } from '@angular/core';
 import { ReactiveFormsModule, FormGroup, FormControl, Validators } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { ErpStateService } from '../../services/erp-state.service';
 import { AuthService } from '../../services/auth.service';
+import { KeyboardShortcutsService } from '../../services/keyboard-shortcuts.service';
 
 interface TempItem {
   productId: string;
@@ -391,10 +392,21 @@ interface TempItem {
 export class PurchasesComponent {
   stateService = inject(ErpStateService);
   authService = inject(AuthService);
+  shortcutService = inject(KeyboardShortcutsService);
 
   activeTab = signal<'orders' | 'suppliers'>('orders');
   showNewPurchaseModal = signal<boolean>(false);
   showNewSupplierModal = signal<boolean>(false);
+
+  constructor() {
+    effect(() => {
+      const action = this.shortcutService.lastExecutedAction();
+      if (action?.actionId === 'NEW_PURCHASE') {
+        this.activeTab.set('orders');
+        this.showNewPurchaseModal.set(true);
+      }
+    });
+  }
 
   selectedSupplierId = signal<string>(this.stateService.suppliers()[0]?.id || '');
   selectedWarehouseId = signal<string>(this.stateService.warehouses()[0]?.id || '');
