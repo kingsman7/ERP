@@ -145,7 +145,7 @@ export class AuthService {
   private usersSignal = signal<User[]>(DEMO_USERS);
   private currentUserSignal = signal<User>(DEMO_USERS[0]);
   private tokenSignal = signal<string>('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.nexus_erp_mock_token_2026');
-  private isAuthenticatedSignal = signal<boolean>(true);
+  private isAuthenticatedSignal = signal<boolean>(false);
 
   readonly users = this.usersSignal.asReadonly();
   readonly currentUser = this.currentUserSignal.asReadonly();
