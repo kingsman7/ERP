@@ -145,10 +145,12 @@ export class AuthService {
   private usersSignal = signal<User[]>(DEMO_USERS);
   private currentUserSignal = signal<User>(DEMO_USERS[0]);
   private tokenSignal = signal<string>('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.nexus_erp_mock_token_2026');
+  private isAuthenticatedSignal = signal<boolean>(true);
 
   readonly users = this.usersSignal.asReadonly();
   readonly currentUser = this.currentUserSignal.asReadonly();
   readonly token = this.tokenSignal.asReadonly();
+  readonly isAuthenticated = this.isAuthenticatedSignal.asReadonly();
 
   readonly currentRoleConfig = computed(() => {
     const role = this.currentUserSignal().role;
@@ -161,6 +163,48 @@ export class AuthService {
   }
 
   readonly roles = SYSTEM_ROLES;
+
+  login(email: string, password?: string): { success: boolean; message?: string } {
+    const trimmedEmail = (email || '').trim().toLowerCase();
+    const user = this.usersSignal().find(u => u.email.toLowerCase() === trimmedEmail);
+
+    if (!user) {
+      return { success: false, message: 'Usuario no encontrado en la base de datos empresarial.' };
+    }
+
+    if (user.status === 'INACTIVO') {
+      return { success: false, message: 'La cuenta de usuario se encuentra INACTIVA. Contacte a Dirección/TI.' };
+    }
+
+    if (password !== undefined && password.trim().length === 0) {
+      return { success: false, message: 'La contraseña no puede estar vacía.' };
+    }
+
+    this.switchUser(user);
+    this.isAuthenticatedSignal.set(true);
+    return { success: true };
+  }
+
+  loginAsDemoUser(userId: string): boolean {
+    const user = this.usersSignal().find(u => u.id === userId);
+    if (!user) return false;
+
+    if (user.status === 'INACTIVO') {
+      return false;
+    }
+
+    this.switchUser(user);
+    this.isAuthenticatedSignal.set(true);
+    return true;
+  }
+
+  logout(): void {
+    this.isAuthenticatedSignal.set(false);
+  }
+
+  setAuthenticated(authenticated: boolean): void {
+    this.isAuthenticatedSignal.set(authenticated);
+  }
 
   switchUser(user: User) {
     const updated = {

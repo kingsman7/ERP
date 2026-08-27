@@ -315,8 +315,20 @@ import { User, CriticalAuditNotification, CriticalAuditCategory } from '../../mo
                 }
               </div>
 
-              <div class="px-4 py-2 border-t border-slate-100 bg-slate-50 text-[11px] text-slate-500">
-                <span class="font-bold">Token JWT:</span> Sin estado con firma HS256
+              <div class="p-2 border-t border-slate-100 bg-slate-50 space-y-1">
+                <button 
+                  (click)="logout()"
+                  class="w-full px-3 py-2 rounded-xl text-rose-700 hover:bg-rose-50 font-semibold text-xs flex items-center justify-between transition-colors cursor-pointer">
+                  <div class="flex items-center space-x-2">
+                    <mat-icon class="text-base text-rose-600">logout</mat-icon>
+                    <span>Cerrar Sesión (Ir al Login)</span>
+                  </div>
+                  <mat-icon class="text-sm">arrow_forward</mat-icon>
+                </button>
+                <div class="px-2 text-[10px] text-slate-400 flex items-center justify-between">
+                  <span>Token JWT: Cifrado HS256</span>
+                  <span class="font-mono">4-InLine Auth</span>
+                </div>
               </div>
             </div>
           }
@@ -590,6 +602,11 @@ export class HeaderComponent {
   selectUser(user: User) {
     this.authService.switchUser(user);
     this.showUserDropdown.set(false);
+  }
+
+  logout() {
+    this.showUserDropdown.set(false);
+    this.authService.logout();
   }
 
   syncBcv() {

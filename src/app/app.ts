@@ -22,6 +22,7 @@ import { UserManagementComponent } from './components/user-management/user-manag
 import { AuditLogComponent } from './components/audit-log/audit-log';
 import { BackupManagementComponent } from './components/backup-management/backup-management';
 import { UserManualComponent } from './components/user-manual/user-manual';
+import { LoginComponent } from './components/login/login';
 import { ArchitectureModal } from './components/architecture-modal/architecture-modal';
 import { InvoiceModal } from './components/invoice-modal/invoice-modal';
 import { KeyboardShortcutsModalComponent } from './components/keyboard-shortcuts-modal/keyboard-shortcuts-modal';
@@ -31,6 +32,7 @@ import { KeyboardShortcutsModalComponent } from './components/keyboard-shortcuts
   selector: 'app-root',
   imports: [
     MatIconModule,
+    LoginComponent,
     HeaderComponent,
     SidebarComponent,
     DashboardComponent,

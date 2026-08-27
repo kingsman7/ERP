@@ -229,16 +229,25 @@ export type NavTab =
       </div>
 
       <!-- Bottom User Profile Card (Bento Design Spec) -->
-      <div class="p-4 border-t border-slate-800 bg-[#0b1120]">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center border border-slate-600 text-xs font-bold text-white uppercase shrink-0">
-            {{ authService.currentUser().name.substring(0, 2).toUpperCase() }}
-          </div>
+      <div class="p-3 border-t border-slate-800 bg-[#0b1120] flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2.5 min-w-0">
+          <img 
+            [src]="authService.currentUser().avatarUrl" 
+            [alt]="authService.currentUser().name"
+            referrerpolicy="no-referrer"
+            class="w-9 h-9 rounded-full object-cover ring-1 ring-slate-600 shrink-0" />
           <div class="overflow-hidden min-w-0">
             <p class="text-xs font-semibold text-white truncate">{{ authService.currentUser().name }}</p>
-            <p class="text-[11px] text-slate-400 truncate">{{ authService.currentRoleConfig().name }}</p>
+            <p class="text-[10px] text-slate-400 truncate">{{ authService.currentRoleConfig().name }}</p>
           </div>
         </div>
+
+        <button 
+          (click)="authService.logout()" 
+          title="Cerrar sesión e ir a pantalla de Login"
+          class="p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-slate-800/80 transition-colors cursor-pointer shrink-0">
+          <mat-icon class="text-lg">logout</mat-icon>
+        </button>
       </div>
 
     </aside>
