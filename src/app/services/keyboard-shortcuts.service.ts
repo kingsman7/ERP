@@ -1,4 +1,4 @@
-import { Injectable, signal, computed, inject } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 import { NavTab } from '../components/sidebar/sidebar';
 
 export type ShortcutCategory = 'CREATION' | 'NAVIGATION' | 'POS' | 'SYSTEM';
@@ -366,7 +366,6 @@ export class KeyboardShortcutsService {
     // 2. Command Palette triggers: Ctrl+K, Cmd+K, Alt+K, Alt+/, or F1
     const isCmdOrCtrl = event.ctrlKey || event.metaKey;
     const isAlt = event.altKey;
-    const isShift = event.shiftKey;
     const key = event.key;
 
     // Open Command Palette: Ctrl+K / Cmd+K or Alt+K or Alt+/
@@ -393,10 +392,6 @@ export class KeyboardShortcutsService {
       return;
     }
 
-    // If typing in standard text input and NO Alt/Ctrl modifier is pressed, don't intercept normal typing
-    const target = event.target as HTMLElement | null;
-    const isInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
-    
     // We only process Alt combinations if Alt is pressed
     if (!isAlt && !isCmdOrCtrl) {
       return;

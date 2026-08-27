@@ -79,43 +79,68 @@ import { AuthService } from '../../services/auth.service';
           </div>
         </div>
 
-        <!-- CAPÍTULO 1: ACCESO Y ROLES RBAC -->
+        <!-- CAPÍTULO 1: ACCESO, LOGIN Y GESTIÓN DE USUARIOS / ROLES (RBAC) -->
         <section id="cap-01" class="space-y-4 pt-4">
           <div class="flex items-center gap-2 text-indigo-600 border-b border-indigo-100 pb-2">
-            <mat-icon class="text-xl">badge</mat-icon>
-            <h2 class="text-lg font-bold text-slate-900">Capítulo 1: Autenticación, Acceso y Roles de Seguridad (RBAC)</h2>
+            <mat-icon class="text-xl">manage_accounts</mat-icon>
+            <h2 class="text-lg font-bold text-slate-900">Capítulo 1: Autenticación, Inicio de Sesión y Módulo de Usuarios & Roles (RBAC)</h2>
           </div>
           
           <p class="text-xs text-slate-600">
-            4-inLine implementa un modelo de Control de Acceso Basado en Roles (RBAC) estricto con tokens stateless. Cada usuario cuenta con un perfil definido que determina los permisos de visualización, edición, anulación o aprobación.
+            <strong>4-inLine</strong> implementa una pantalla de inicio de sesión segura como puerta de entrada al sistema, complementada con un módulo integral de <strong>Gestión de Usuarios, Roles y Matriz de Permisos</strong> ubicado bajo el menú <em>Finanzas & Seguridad</em>.
           </p>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
               <div class="font-bold text-slate-900 flex items-center gap-1.5">
-                <mat-icon class="text-sm text-indigo-500">manage_accounts</mat-icon>
-                Roles Disponibles en el Sistema:
+                <mat-icon class="text-sm text-indigo-500">login</mat-icon>
+                1. Inicio de Sesión (Login):
               </div>
+              <p class="text-slate-600 text-[11px]">
+                Al ingresar a la aplicación se presenta la vista de login. El usuario puede:
+              </p>
               <ul class="list-disc list-inside space-y-1 text-slate-600 text-[11px]">
-                <li><strong class="text-slate-800">Super Administrador:</strong> Acceso ilimitado, anulación de facturas, auditoría y configuración de respaldos.</li>
-                <li><strong class="text-slate-800">Cajero / Facturación:</strong> Emisión de facturas POS, cobros multimoneda, apertura y cierre Z de caja.</li>
-                <li><strong class="text-slate-800">Jefe de Almacén:</strong> Recepción de compras, traslados entre bodegas, control de mermas y Kardex.</li>
-                <li><strong class="text-slate-800">Supervisor de Producción:</strong> Creación de BOMs, emisión de órdenes MRP y consumo de insumos.</li>
-                <li><strong class="text-slate-800">Contador General:</strong> Creación de asientos NIIF, balance de comprobación y cierre fiscal.</li>
-                <li><strong class="text-slate-800">Ejecutivo de Ventas:</strong> Pipeline CRM Kanban, registro de llamadas y cotizaciones.</li>
+                <li><strong class="text-slate-800">Acceso por Credenciales:</strong> Ingrese el correo corporativo (ej. <em>admin&#64;4inline.com</em>) y contraseña (<em>admin123</em>).</li>
+                <li><strong class="text-slate-800">Acceso Rápido Demo:</strong> Para demostraciones y auditorías, haga clic sobre cualquiera de los perfiles precargados (Super Admin, Facturación/Caja, Almacén, Supervisor MRP, etc.).</li>
+                <li><strong class="text-slate-800">Cierre de Sesión:</strong> Disponible en la esquina inferior de la barra lateral y en el menú del encabezado superior.</li>
               </ul>
             </div>
 
-            <div class="p-4 rounded-xl bg-indigo-50/50 border border-indigo-100 space-y-2">
+            <div class="p-4 rounded-xl bg-indigo-50/50 border border-indigo-100 space-y-2.5">
               <div class="font-bold text-indigo-900 flex items-center gap-1.5">
-                <mat-icon class="text-sm text-indigo-600">login</mat-icon>
-                Ejemplo Práctico de Inicio de Sesión:
+                <mat-icon class="text-sm text-indigo-600">admin_panel_settings</mat-icon>
+                2. CRUD de Usuarios y Asignación de Roles:
               </div>
               <p class="text-[11px] text-slate-700">
-                1. Ubique el selector de perfil en el encabezado superior derecho o barra lateral.<br>
-                2. Seleccione el usuario deseado (ej. <em>Alejandro Barrios - Administrador General</em>).<br>
-                3. Observe cómo las opciones del menú y botones de acción se adaptan dinámicamente según la matriz de privilegios.
+                Desde el módulo <em>Finanzas & Seguridad &gt; Usuarios & Roles</em>:
               </p>
+              <ul class="list-disc list-inside space-y-1 text-slate-600 text-[11px]">
+                <li><strong class="text-slate-800">Crear Usuario:</strong> Botón <em>"Nuevo Usuario"</em> con campos de nombre, correo, cargo, teléfono, contraseña, rol asignado y sucursal/almacén asignado.</li>
+                <li><strong class="text-slate-800">Editar / Bloquear:</strong> Modifique datos del usuario o cambie su estado a <em>Inactivo</em> para revocar su acceso instantáneamente.</li>
+                <li><strong class="text-slate-800">Eliminar Usuario:</strong> Elimine cuentas obsoletas con confirmación de seguridad y registro en auditoría.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="p-4 rounded-xl bg-slate-900 text-slate-100 text-xs space-y-2 border border-slate-800">
+            <div class="font-bold text-indigo-300 flex items-center gap-1.5">
+              <mat-icon class="text-sm text-indigo-400">shield</mat-icon>
+              3. Gestión Dinámica de Roles y Matriz de Permisos:
+            </div>
+            <p class="text-[11px] text-slate-300">
+              El administrador puede crear nuevos roles personalizados (ej. <em>Auditor Externo</em>, <em>Vendedor Junior</em>) o editar los existentes, configurando casillas de verificación granulares para cada módulo:
+            </p>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 text-[10px] text-slate-200 mt-2 font-mono">
+              <div class="p-2 rounded bg-slate-800 border border-slate-700">✓ dashboard.view / stats</div>
+              <div class="p-2 rounded bg-slate-800 border border-slate-700">✓ pos.access / print</div>
+              <div class="p-2 rounded bg-slate-800 border border-slate-700">✓ pos.void_invoice</div>
+              <div class="p-2 rounded bg-slate-800 border border-slate-700">✓ inventory.price_override</div>
+              <div class="p-2 rounded bg-slate-800 border border-slate-700">✓ inventory.stock_adjust</div>
+              <div class="p-2 rounded bg-slate-800 border border-slate-700">✓ purchases.create</div>
+              <div class="p-2 rounded bg-slate-800 border border-slate-700">✓ mrp.create_order</div>
+              <div class="p-2 rounded bg-slate-800 border border-slate-700">✓ accounting.journal</div>
+              <div class="p-2 rounded bg-slate-800 border border-slate-700">✓ security.users_manage</div>
+              <div class="p-2 rounded bg-slate-800 border border-slate-700">✓ security.backup_download</div>
             </div>
           </div>
         </section>

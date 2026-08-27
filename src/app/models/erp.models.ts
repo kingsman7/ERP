@@ -16,6 +16,10 @@ export interface User {
   role: UserRole;
   token?: string;
   lastLogin?: string;
+  status?: 'ACTIVO' | 'INACTIVO';
+  department?: string;
+  phone?: string;
+  createdAt?: string;
 }
 
 export interface AuditLog {

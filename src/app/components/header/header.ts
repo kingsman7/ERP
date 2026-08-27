@@ -11,11 +11,11 @@ import { User, CriticalAuditNotification, CriticalAuditCategory } from '../../mo
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [MatIconModule, ReactiveFormsModule],
   template: `
-    <header class="h-16 bg-white border-b border-slate-200 px-4 sm:px-8 flex items-center justify-between sticky top-0 z-30 shadow-xs">
+    <header class="h-16 bg-[#0f172a] text-slate-200 border-b border-slate-800 px-4 sm:px-8 flex items-center justify-between sticky top-0 z-30 shadow-md select-none">
       
       <!-- Brand & Title -->
       <div class="flex items-center space-x-3">
-        <button (click)="toggleSidebar.emit()" class="lg:hidden p-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer">
+        <button (click)="toggleSidebar.emit()" class="lg:hidden p-2 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer">
           <mat-icon>menu</mat-icon>
         </button>
 
@@ -25,7 +25,7 @@ import { User, CriticalAuditNotification, CriticalAuditCategory } from '../../mo
           </div>
           <div>
             <div class="flex items-center space-x-2">
-              <span class="font-bold text-slate-800 tracking-tight text-base leading-none">4-InLine <span class="text-blue-500">ERP</span></span>
+              <span class="font-bold text-white tracking-tight text-base leading-none">4-InLine <span class="text-blue-400">ERP</span></span>
             </div>
           </div>
         </div>
@@ -38,10 +38,10 @@ import { User, CriticalAuditNotification, CriticalAuditCategory } from '../../mo
         <button 
           (click)="shortcutService.showPalette.set(true)"
           title="Abrir Paleta de Comandos y Atajos (Ctrl + K)"
-          class="hidden lg:flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 text-slate-700 hover:text-blue-700 transition-all cursor-pointer shadow-2xs">
-          <mat-icon class="text-base text-blue-600">search</mat-icon>
+          class="hidden lg:flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700/90 border border-slate-700 hover:border-slate-600 text-slate-200 hover:text-white transition-all cursor-pointer shadow-2xs">
+          <mat-icon class="text-base text-blue-400">search</mat-icon>
           <span class="text-xs font-semibold">Atajos</span>
-          <kbd class="px-1.5 py-0.5 bg-white border border-slate-300 text-slate-600 font-mono text-[10px] font-bold rounded shadow-2xs">
+          <kbd class="px-1.5 py-0.5 bg-slate-900 border border-slate-700 text-slate-300 font-mono text-[10px] font-bold rounded shadow-2xs">
             Ctrl+K
           </kbd>
         </button>
@@ -49,16 +49,16 @@ import { User, CriticalAuditNotification, CriticalAuditCategory } from '../../mo
         <!-- BCV Ticker & Control Modal Button -->
         <button 
           (click)="showBcvModal.set(true)"
-          class="flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 text-slate-700 transition-all cursor-pointer">
-          <mat-icon class="text-base text-emerald-600">currency_exchange</mat-icon>
+          class="flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700/90 border border-slate-700 hover:border-slate-600 text-slate-200 transition-all cursor-pointer">
+          <mat-icon class="text-base text-emerald-400">currency_exchange</mat-icon>
           <div class="text-left leading-tight hidden xs:block">
             <span class="text-[10px] uppercase font-bold text-slate-400 block">Tasa Oficial</span>
-            <span class="text-xs font-mono font-bold text-slate-900">
+            <span class="text-xs font-mono font-bold text-emerald-400">
               Bs. {{ stateService.bcvState().usdRate.toFixed(2) }}
             </span>
           </div>
-          <span class="text-[9px] px-1 py-0.2 rounded font-mono font-semibold"
-            [class]="stateService.bcvState().origin === 'API_BCV' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'">
+          <span class="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold"
+            [class]="stateService.bcvState().origin === 'API_BCV' ? 'bg-emerald-950 text-emerald-300 border border-emerald-700/60' : 'bg-amber-950 text-amber-300 border border-amber-700/60'">
             {{ stateService.bcvState().origin === 'API_BCV' ? 'BCV' : 'MAN' }}
           </span>
         </button>
@@ -66,8 +66,8 @@ import { User, CriticalAuditNotification, CriticalAuditCategory } from '../../mo
         <!-- Architecture Ficha Técnica Shortcut -->
         <button 
           (click)="openArchitecture.emit()"
-          class="hidden md:flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-all border border-slate-200 cursor-pointer">
-          <mat-icon class="text-blue-600 text-base">architecture</mat-icon>
+          class="hidden md:flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-800/90 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-semibold transition-all border border-slate-700 cursor-pointer">
+          <mat-icon class="text-blue-400 text-base">architecture</mat-icon>
           <span>Ficha Técnica</span>
         </button>
 
@@ -75,8 +75,8 @@ import { User, CriticalAuditNotification, CriticalAuditCategory } from '../../mo
         <button 
           (click)="openCash.emit()"
           class="flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors cursor-pointer"
-          [class]="stateService.activeCashSession().status === 'ABIERTA' ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100' : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'">
-          <span class="w-2 h-2 rounded-full" [class]="stateService.activeCashSession().status === 'ABIERTA' ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'"></span>
+          [class]="stateService.activeCashSession().status === 'ABIERTA' ? 'bg-emerald-950/80 text-emerald-300 border-emerald-700/70 hover:bg-emerald-900/60' : 'bg-amber-950/80 text-amber-300 border-amber-700/70 hover:bg-amber-900/60'">
+          <span class="w-2 h-2 rounded-full" [class]="stateService.activeCashSession().status === 'ABIERTA' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'"></span>
           <span class="hidden sm:inline font-semibold">Caja:</span>
           <span class="font-bold">{{ stateService.activeCashSession().status }}</span>
         </button>
@@ -90,8 +90,8 @@ import { User, CriticalAuditNotification, CriticalAuditCategory } from '../../mo
             title="Centro de Notificaciones & Auditoría Crítica"
             class="relative p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-center"
             [class]="stateService.hasUnreadCriticalAudits() 
-              ? 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 shadow-xs' 
-              : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'">
+              ? 'bg-rose-950/80 border-rose-700 text-rose-300 hover:bg-rose-900/70 shadow-xs' 
+              : 'bg-slate-800/90 border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white'">
             
             <mat-icon class="text-xl">notifications</mat-icon>
             
@@ -273,14 +273,14 @@ import { User, CriticalAuditNotification, CriticalAuditCategory } from '../../mo
         <div class="relative">
           <button 
             (click)="showUserDropdown.set(!showUserDropdown())"
-            class="flex items-center space-x-2.5 p-1 sm:px-2.5 sm:py-1.5 rounded-xl hover:bg-slate-100 transition-colors border border-transparent hover:border-slate-200 cursor-pointer">
+            class="flex items-center space-x-2.5 p-1 sm:px-2.5 sm:py-1.5 rounded-xl hover:bg-slate-800 transition-colors border border-transparent hover:border-slate-700 cursor-pointer">
             <img 
               [src]="authService.currentUser().avatarUrl" 
               [alt]="authService.currentUser().name"
               referrerpolicy="no-referrer"
-              class="w-7 h-7 rounded-full object-cover ring-1 ring-slate-300" />
+              class="w-7 h-7 rounded-full object-cover ring-1 ring-slate-600" />
             <div class="text-left hidden sm:block">
-              <p class="text-xs font-semibold text-slate-800 leading-tight truncate max-w-[120px]">{{ authService.currentUser().name }}</p>
+              <p class="text-xs font-semibold text-white leading-tight truncate max-w-[120px]">{{ authService.currentUser().name }}</p>
               <p class="text-[10px] text-slate-400 leading-none mt-0.5">{{ authService.currentRoleConfig().name }}</p>
             </div>
             <mat-icon class="text-slate-400 text-base">expand_more</mat-icon>
@@ -288,7 +288,7 @@ import { User, CriticalAuditNotification, CriticalAuditCategory } from '../../mo
 
           @if (showUserDropdown()) {
             <div 
-              class="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-xl border border-slate-200 py-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+              class="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-xl border border-slate-200 py-2 z-50 animate-in fade-in zoom-in-95 duration-150 text-slate-800">
               <div class="px-4 py-2 border-b border-slate-100">
                 <p class="text-xs font-bold uppercase text-slate-400 tracking-wider">Simulador de Roles (RBAC)</p>
                 <p class="text-xs text-slate-600 mt-0.5">Cambia de usuario para probar permisos:</p>

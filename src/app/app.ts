@@ -18,6 +18,7 @@ import { MrpComponent } from './components/mrp/mrp';
 import { CrmComponent } from './components/crm/crm';
 import { AccountingComponent } from './components/accounting/accounting';
 import { CashClosingComponent } from './components/cash-closing/cash-closing';
+import { UserManagementComponent } from './components/user-management/user-management';
 import { AuditLogComponent } from './components/audit-log/audit-log';
 import { BackupManagementComponent } from './components/backup-management/backup-management';
 import { UserManualComponent } from './components/user-manual/user-manual';
@@ -42,6 +43,7 @@ import { KeyboardShortcutsModalComponent } from './components/keyboard-shortcuts
     CrmComponent,
     AccountingComponent,
     CashClosingComponent,
+    UserManagementComponent,
     AuditLogComponent,
     BackupManagementComponent,
     UserManualComponent,

@@ -14,6 +14,7 @@ export type NavTab =
   | 'crm'
   | 'accounting'
   | 'cash-closing'
+  | 'users'
   | 'audit-log'
   | 'backups'
   | 'manual'
@@ -164,12 +165,25 @@ export type NavTab =
         </button>
 
         <button 
+          (click)="selectTab('users')"
+          [class]="activeTab() === 'users' ? 'bg-indigo-600/15 text-indigo-400 font-semibold border-l-4 border-indigo-500 rounded-r-lg' : 'hover:bg-slate-800/90 text-slate-300 rounded-lg'"
+          class="w-full flex items-center justify-between px-3.5 py-2 text-xs transition-all duration-150 text-left">
+          <div class="flex items-center space-x-3">
+            <mat-icon class="text-indigo-400 text-lg">manage_accounts</mat-icon>
+            <span class="font-medium">Gestión de Usuarios (RBAC)</span>
+          </div>
+          <span class="px-1.5 py-0.5 text-[9px] font-mono rounded bg-slate-800 text-indigo-300">
+            {{ authService.users().length }}
+          </span>
+        </button>
+
+        <button 
           (click)="selectTab('audit-log')"
           [class]="activeTab() === 'audit-log' ? 'bg-blue-600/10 text-blue-400 font-semibold border-l-4 border-blue-500 rounded-r-lg' : 'hover:bg-slate-800/90 text-slate-300 rounded-lg'"
           class="w-full flex items-center justify-between px-3.5 py-2 text-xs transition-all duration-150 text-left">
           <div class="flex items-center space-x-3">
             <mat-icon class="text-blue-400 text-lg">shield</mat-icon>
-            <span class="font-medium">Auditoría y Roles</span>
+            <span class="font-medium">Bitácora de Auditoría</span>
           </div>
           <span class="px-1.5 py-0.5 text-[9px] font-mono rounded bg-slate-800 text-slate-400">
             {{ stateService.auditLogs().length }}

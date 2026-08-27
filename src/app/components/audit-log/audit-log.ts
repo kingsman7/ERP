@@ -3,11 +3,12 @@ import { MatIconModule } from '@angular/material/icon';
 import { ErpStateService } from '../../services/erp-state.service';
 import { AuthService } from '../../services/auth.service';
 import { AuditLog } from '../../models/erp.models';
+import { UserManagementComponent } from '../user-management/user-management';
 
 @Component({
   selector: 'app-audit-log',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatIconModule],
+  imports: [MatIconModule, UserManagementComponent],
   template: `
     <div class="space-y-6 pb-12">
       
@@ -35,242 +36,271 @@ import { AuditLog } from '../../models/erp.models';
         </div>
       </div>
 
-      <!-- Critical Events Summary KPI Bento Grid -->
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        
-        <!-- Total Audit Events -->
-        <div class="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs flex items-center space-x-3">
-          <div class="p-2.5 rounded-xl bg-blue-50 text-blue-700">
-            <mat-icon class="text-lg">format_list_bulleted</mat-icon>
-          </div>
-          <div>
-            <span class="text-[10px] uppercase font-bold text-slate-400 block">Total Registros</span>
-            <p class="text-lg font-bold text-slate-900">{{ stateService.auditLogs().length }}</p>
-          </div>
-        </div>
-
-        <!-- Critical Alerts -->
+      <!-- Sub-Navigation Switcher (Audit Trail vs User Management) -->
+      <div class="flex items-center space-x-1.5 p-1 bg-slate-200/70 rounded-xl max-w-fit">
         <button 
           type="button"
-          (click)="filterOnlyCritical.set(!filterOnlyCritical())"
-          class="p-4 rounded-2xl border transition-all cursor-pointer shadow-xs flex items-center space-x-3 text-left w-full"
-          [class]="filterOnlyCritical() ? 'bg-rose-50 border-rose-300 ring-2 ring-rose-400' : 'bg-white border-slate-200 hover:border-rose-200'">
-          <div class="p-2.5 rounded-xl bg-rose-100 text-rose-700 shrink-0">
-            <mat-icon class="text-lg">warning</mat-icon>
-          </div>
-          <div>
-            <span class="text-[10px] uppercase font-bold text-rose-800 block">Eventos Críticos</span>
-            <div class="flex items-center space-x-1.5">
-              <p class="text-lg font-bold text-rose-950">{{ criticalLogsCount() }}</p>
-              <span class="text-[9px] px-1.5 py-0.2 rounded font-bold bg-rose-200 text-rose-900">Filtrar</span>
-            </div>
-          </div>
+          (click)="activeSection.set('AUDIT_LOGS')"
+          class="px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center space-x-2"
+          [class]="activeSection() === 'AUDIT_LOGS' 
+            ? 'bg-white text-slate-900 shadow-xs' 
+            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'">
+          <mat-icon class="text-base text-blue-600">format_list_bulleted</mat-icon>
+          <span>Bitácora de Eventos ({{ stateService.auditLogs().length }})</span>
         </button>
 
-        <!-- Price Change Events -->
-        <div class="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs flex items-center space-x-3">
-          <div class="p-2.5 rounded-xl bg-amber-50 text-amber-700">
-            <mat-icon class="text-lg">price_change</mat-icon>
-          </div>
-          <div>
-            <span class="text-[10px] uppercase font-bold text-slate-400 block">Cambios Precio Base</span>
-            <p class="text-lg font-bold text-slate-900">{{ priceChangesCount() }}</p>
-          </div>
-        </div>
-
-        <!-- Manual Stock Adjustments -->
-        <div class="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs flex items-center space-x-3">
-          <div class="p-2.5 rounded-xl bg-sky-50 text-sky-700">
-            <mat-icon class="text-lg">inventory_2</mat-icon>
-          </div>
-          <div>
-            <span class="text-[10px] uppercase font-bold text-slate-400 block">Stock Manual / Mermas</span>
-            <p class="text-lg font-bold text-slate-900">{{ manualStockAdjustmentsCount() }}</p>
-          </div>
-        </div>
-
+        <button 
+          type="button"
+          (click)="activeSection.set('USER_MANAGEMENT')"
+          class="px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center space-x-2"
+          [class]="activeSection() === 'USER_MANAGEMENT' 
+            ? 'bg-white text-slate-900 shadow-xs' 
+            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'">
+          <mat-icon class="text-base text-indigo-600">manage_accounts</mat-icon>
+          <span>Gestión de Usuarios & Roles ({{ authService.users().length }})</span>
+        </button>
       </div>
 
-      <!-- Filters Bar -->
-      <div class="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-3 text-xs">
-        
-        <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+      @if (activeSection() === 'USER_MANAGEMENT') {
+        <app-user-management />
+      } @else {
+        <!-- Critical Events Summary KPI Bento Grid -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
           
-          <!-- Search Action/Title -->
-          <div class="sm:col-span-2">
-            <span class="block font-semibold text-slate-600 mb-1">Buscar por Acción, Folio o Detalle</span>
-            <div class="relative">
-              <input 
-                type="text" 
-                [value]="searchTerm()"
-                (input)="searchTerm.set($any($event.target).value)"
-                placeholder="Ej: UPDATE_PRODUCT_PRICES, MER-2026, FAC-2026..." 
-                class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl" />
-              <mat-icon class="absolute left-2.5 top-2.5 text-slate-400 text-sm">search</mat-icon>
+          <!-- Total Audit Events -->
+          <div class="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs flex items-center space-x-3">
+            <div class="p-2.5 rounded-xl bg-blue-50 text-blue-700">
+              <mat-icon class="text-lg">format_list_bulleted</mat-icon>
+            </div>
+            <div>
+              <span class="text-[10px] uppercase font-bold text-slate-400 block">Total Registros</span>
+              <p class="text-lg font-bold text-slate-900">{{ stateService.auditLogs().length }}</p>
             </div>
           </div>
 
-          <!-- Filter by Module -->
-          <div>
-            <span class="block font-semibold text-slate-600 mb-1">Módulo del Sistema</span>
-            <select 
-              [value]="selectedModule()"
-              (change)="selectedModule.set($any($event.target).value)"
-              class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800">
-              <option value="ALL">Todos los Módulos</option>
-              <option value="AUTH">AUTH (Seguridad & Login)</option>
-              <option value="INVENTORY">INVENTORY (Inventario & Precios)</option>
-              <option value="PURCHASES">PURCHASES (Compras & CPP)</option>
-              <option value="POS">POS (Facturación & Ventas)</option>
-              <option value="SALES">SALES (Presupuestos)</option>
-              <option value="FINANCE">FINANCE (Caja & Cierres)</option>
-              <option value="BACKUP">BACKUP (Seguridad & BD)</option>
-            </select>
+          <!-- Critical Alerts -->
+          <button 
+            type="button"
+            (click)="filterOnlyCritical.set(!filterOnlyCritical())"
+            class="p-4 rounded-2xl border transition-all cursor-pointer shadow-xs flex items-center space-x-3 text-left w-full"
+            [class]="filterOnlyCritical() ? 'bg-rose-50 border-rose-300 ring-2 ring-rose-400' : 'bg-white border-slate-200 hover:border-rose-200'">
+            <div class="p-2.5 rounded-xl bg-rose-100 text-rose-700 shrink-0">
+              <mat-icon class="text-lg">warning</mat-icon>
+            </div>
+            <div>
+              <span class="text-[10px] uppercase font-bold text-rose-800 block">Eventos Críticos</span>
+              <div class="flex items-center space-x-1.5">
+                <p class="text-lg font-bold text-rose-950">{{ criticalLogsCount() }}</p>
+                <span class="text-[9px] px-1.5 py-0.2 rounded font-bold bg-rose-200 text-rose-900">Filtrar</span>
+              </div>
+            </div>
+          </button>
+
+          <!-- Price Change Events -->
+          <div class="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs flex items-center space-x-3">
+            <div class="p-2.5 rounded-xl bg-amber-50 text-amber-700">
+              <mat-icon class="text-lg">price_change</mat-icon>
+            </div>
+            <div>
+              <span class="text-[10px] uppercase font-bold text-slate-400 block">Cambios Precio Base</span>
+              <p class="text-lg font-bold text-slate-900">{{ priceChangesCount() }}</p>
+            </div>
           </div>
 
-          <!-- Filter by Role -->
-          <div>
-            <span class="block font-semibold text-slate-600 mb-1">Rol de Usuario</span>
-            <select 
-              [value]="selectedRole()"
-              (change)="selectedRole.set($any($event.target).value)"
-              class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800">
-              <option value="ALL">Todos los Roles</option>
-              <option value="ADMIN">ADMIN</option>
-              <option value="OPERATIONS_MANAGER">OPERATIONS_MANAGER</option>
-              <option value="CASHIER_SELLER">CASHIER_SELLER</option>
-              <option value="WAREHOUSE_KEEPER">WAREHOUSE_KEEPER</option>
-              <option value="AUDITOR">AUDITOR</option>
-            </select>
+          <!-- Manual Stock Adjustments -->
+          <div class="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs flex items-center space-x-3">
+            <div class="p-2.5 rounded-xl bg-sky-50 text-sky-700">
+              <mat-icon class="text-lg">inventory_2</mat-icon>
+            </div>
+            <div>
+              <span class="text-[10px] uppercase font-bold text-slate-400 block">Stock Manual / Mermas</span>
+              <p class="text-lg font-bold text-slate-900">{{ manualStockAdjustmentsCount() }}</p>
+            </div>
           </div>
 
         </div>
 
-        <!-- Quick Filter Toggles -->
-        <div class="flex items-center space-x-2 pt-2 border-t border-slate-100 flex-wrap gap-y-1">
-          <span class="text-[11px] font-semibold text-slate-500">Filtrado Rápido:</span>
+        <!-- Filters Bar -->
+        <div class="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-3 text-xs">
           
-          <button 
-            (click)="toggleCriticalFilter()"
-            class="px-2.5 py-1 rounded-lg font-semibold flex items-center space-x-1 transition-colors cursor-pointer"
-            [class]="filterOnlyCritical() ? 'bg-rose-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'">
-            <mat-icon class="text-xs">warning</mat-icon>
-            <span>Solo Eventos Críticos</span>
-          </button>
+          <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+            
+            <!-- Search Action/Title -->
+            <div class="sm:col-span-2">
+              <span class="block font-semibold text-slate-600 mb-1">Buscar por Acción, Folio o Detalle</span>
+              <div class="relative">
+                <input 
+                  type="text" 
+                  [value]="searchTerm()"
+                  (input)="searchTerm.set($any($event.target).value)"
+                  placeholder="Ej: UPDATE_PRODUCT_PRICES, MER-2026, FAC-2026..." 
+                  class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl" />
+                <mat-icon class="absolute left-2.5 top-2.5 text-slate-400 text-sm">search</mat-icon>
+              </div>
+            </div>
 
-          <button 
-            (click)="setSearchFilter('UPDATE_PRODUCT_PRICES')"
-            class="px-2.5 py-1 rounded-lg font-semibold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 flex items-center space-x-1 transition-colors cursor-pointer">
-            <mat-icon class="text-xs">price_change</mat-icon>
-            <span>Precios Base</span>
-          </button>
+            <!-- Filter by Module -->
+            <div>
+              <span class="block font-semibold text-slate-600 mb-1">Módulo del Sistema</span>
+              <select 
+                [value]="selectedModule()"
+                (change)="selectedModule.set($any($event.target).value)"
+                class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800">
+                <option value="ALL">Todos los Módulos</option>
+                <option value="AUTH">AUTH (Seguridad & Login)</option>
+                <option value="INVENTORY">INVENTORY (Inventario & Precios)</option>
+                <option value="PURCHASES">PURCHASES (Compras & CPP)</option>
+                <option value="POS">POS (Facturación & Ventas)</option>
+                <option value="SALES">SALES (Presupuestos)</option>
+                <option value="FINANCE">FINANCE (Caja & Cierres)</option>
+                <option value="BACKUP">BACKUP (Seguridad & BD)</option>
+              </select>
+            </div>
 
-          <button 
-            (click)="setSearchFilter('ADJUST_STOCK')"
-            class="px-2.5 py-1 rounded-lg font-semibold bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 flex items-center space-x-1 transition-colors cursor-pointer">
-            <mat-icon class="text-xs">inventory_2</mat-icon>
-            <span>Ajustes de Stock / Merma</span>
-          </button>
+            <!-- Filter by Role -->
+            <div>
+              <span class="block font-semibold text-slate-600 mb-1">Rol de Usuario</span>
+              <select 
+                [value]="selectedRole()"
+                (change)="selectedRole.set($any($event.target).value)"
+                class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800">
+                <option value="ALL">Todos los Roles</option>
+                <option value="ADMIN">ADMIN</option>
+                <option value="OPERATIONS_MANAGER">OPERATIONS_MANAGER</option>
+                <option value="CASHIER_SELLER">CASHIER_SELLER</option>
+                <option value="WAREHOUSE_KEEPER">WAREHOUSE_KEEPER</option>
+                <option value="AUDITOR">AUDITOR</option>
+              </select>
+            </div>
 
-          @if (searchTerm() || filterOnlyCritical() || selectedModule() !== 'ALL' || selectedRole() !== 'ALL') {
+          </div>
+
+          <!-- Quick Filter Toggles -->
+          <div class="flex items-center space-x-2 pt-2 border-t border-slate-100 flex-wrap gap-y-1">
+            <span class="text-[11px] font-semibold text-slate-500">Filtrado Rápido:</span>
+            
             <button 
-              (click)="resetFilters()"
-              class="px-2.5 py-1 rounded-lg font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer">
-              Limpiar filtros
+              (click)="toggleCriticalFilter()"
+              class="px-2.5 py-1 rounded-lg font-semibold flex items-center space-x-1 transition-colors cursor-pointer"
+              [class]="filterOnlyCritical() ? 'bg-rose-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'">
+              <mat-icon class="text-xs">warning</mat-icon>
+              <span>Solo Eventos Críticos</span>
             </button>
-          }
+
+            <button 
+              (click)="setSearchFilter('UPDATE_PRODUCT_PRICES')"
+              class="px-2.5 py-1 rounded-lg font-semibold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 flex items-center space-x-1 transition-colors cursor-pointer">
+              <mat-icon class="text-xs">price_change</mat-icon>
+              <span>Precios Base</span>
+            </button>
+
+            <button 
+              (click)="setSearchFilter('ADJUST_STOCK')"
+              class="px-2.5 py-1 rounded-lg font-semibold bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 flex items-center space-x-1 transition-colors cursor-pointer">
+              <mat-icon class="text-xs">inventory_2</mat-icon>
+              <span>Ajustes de Stock / Merma</span>
+            </button>
+
+            @if (searchTerm() || filterOnlyCritical() || selectedModule() !== 'ALL' || selectedRole() !== 'ALL') {
+              <button 
+                (click)="resetFilters()"
+                class="px-2.5 py-1 rounded-lg font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer">
+                Limpiar filtros
+              </button>
+            }
+          </div>
+
         </div>
 
-      </div>
+        <!-- Audit Logs Table -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider">
+                  <th class="py-3 px-4">Timestamp & IP</th>
+                  <th class="py-3 px-3">Módulo</th>
+                  <th class="py-3 px-3">Acción & Severidad</th>
+                  <th class="py-3 px-3">Usuario & Rol</th>
+                  <th class="py-3 px-3">Descripción de Operación</th>
+                  <th class="py-3 px-4 text-center">Estado / Diff</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 text-slate-700">
+                @for (log of filteredLogs(); track log.id) {
+                  <tr class="hover:bg-slate-50/60 transition-colors" [class.bg-rose-50/20]="isLogCritical(log)">
+                    
+                    <!-- Timestamp & IP -->
+                    <td class="py-3 px-4 whitespace-nowrap">
+                      <p class="font-mono font-medium text-slate-900">{{ log.createdAt }}</p>
+                      <p class="font-mono text-[10px] text-slate-400">IP: {{ log.ipAddress }}</p>
+                    </td>
 
-      <!-- Audit Logs Table -->
-      <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider">
-                <th class="py-3 px-4">Timestamp & IP</th>
-                <th class="py-3 px-3">Módulo</th>
-                <th class="py-3 px-3">Acción & Severidad</th>
-                <th class="py-3 px-3">Usuario & Rol</th>
-                <th class="py-3 px-3">Descripción de Operación</th>
-                <th class="py-3 px-4 text-center">Estado / Diff</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100 text-slate-700">
-              @for (log of filteredLogs(); track log.id) {
-                <tr class="hover:bg-slate-50/60 transition-colors" [class.bg-rose-50/20]="isLogCritical(log)">
-                  
-                  <!-- Timestamp & IP -->
-                  <td class="py-3 px-4 whitespace-nowrap">
-                    <p class="font-mono font-medium text-slate-900">{{ log.createdAt }}</p>
-                    <p class="font-mono text-[10px] text-slate-400">IP: {{ log.ipAddress }}</p>
-                  </td>
+                    <!-- Module Badge -->
+                    <td class="py-3 px-3">
+                      <span class="px-2 py-0.5 rounded-full text-[10px] font-bold"
+                        [class]="getModuleBadgeClass(log.module)">
+                        {{ log.module }}
+                      </span>
+                    </td>
 
-                  <!-- Module Badge -->
-                  <td class="py-3 px-3">
-                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold"
-                      [class]="getModuleBadgeClass(log.module)">
-                      {{ log.module }}
-                    </span>
-                  </td>
+                    <!-- Action Name & Critical Flag -->
+                    <td class="py-3 px-3">
+                      <div class="flex items-center space-x-1.5 flex-wrap">
+                        <span class="font-mono font-bold text-slate-900">{{ log.action }}</span>
+                        @if (isLogCritical(log)) {
+                          <span class="px-1.5 py-0.2 rounded text-[9px] font-extrabold uppercase bg-rose-100 text-rose-800 border border-rose-200 flex items-center space-x-0.5">
+                            <mat-icon class="text-[11px]">warning</mat-icon>
+                            <span>CRÍTICO</span>
+                          </span>
+                        }
+                      </div>
+                    </td>
 
-                  <!-- Action Name & Critical Flag -->
-                  <td class="py-3 px-3">
-                    <div class="flex items-center space-x-1.5 flex-wrap">
-                      <span class="font-mono font-bold text-slate-900">{{ log.action }}</span>
-                      @if (isLogCritical(log)) {
-                        <span class="px-1.5 py-0.2 rounded text-[9px] font-extrabold uppercase bg-rose-100 text-rose-800 border border-rose-200 flex items-center space-x-0.5">
-                          <mat-icon class="text-[11px]">warning</mat-icon>
-                          <span>CRÍTICO</span>
-                        </span>
+                    <!-- User & Role -->
+                    <td class="py-3 px-3">
+                      <p class="font-semibold text-slate-900">{{ log.userName }}</p>
+                      <span class="text-[10px] text-slate-500 font-mono">{{ log.userRole }}</span>
+                    </td>
+
+                    <!-- Title & Description -->
+                    <td class="py-3 px-3 max-w-sm">
+                      <p class="font-semibold text-slate-800">{{ log.details.title }}</p>
+                      <p class="text-[11px] text-slate-500 line-clamp-1">{{ log.details.description }}</p>
+                    </td>
+
+                    <!-- Diff Inspector Trigger -->
+                    <td class="py-3 px-4 text-center">
+                      @if (log.details.previousState || log.details.newState) {
+                        <button 
+                          (click)="inspectDiff(log)"
+                          class="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[11px] font-medium inline-flex items-center space-x-1 transition-colors cursor-pointer">
+                          <mat-icon class="text-xs">data_object</mat-icon>
+                          <span>Ver Diff</span>
+                        </button>
+                      } @else {
+                        <span class="text-[10px] text-slate-400 font-mono">Sin diff</span>
                       }
-                    </div>
-                  </td>
+                    </td>
 
-                  <!-- User & Role -->
-                  <td class="py-3 px-3">
-                    <p class="font-semibold text-slate-900">{{ log.userName }}</p>
-                    <span class="text-[10px] text-slate-500 font-mono">{{ log.userRole }}</span>
-                  </td>
+                  </tr>
+                } @empty {
+                  <tr>
+                    <td colspan="6" class="text-center py-10 text-slate-400">
+                      No se encontraron registros de auditoría que coincidan con los filtros seleccionados.
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
 
-                  <!-- Title & Description -->
-                  <td class="py-3 px-3 max-w-sm">
-                    <p class="font-semibold text-slate-800">{{ log.details.title }}</p>
-                    <p class="text-[11px] text-slate-500 line-clamp-1">{{ log.details.description }}</p>
-                  </td>
-
-                  <!-- Diff Inspector Trigger -->
-                  <td class="py-3 px-4 text-center">
-                    @if (log.details.previousState || log.details.newState) {
-                      <button 
-                        (click)="inspectDiff(log)"
-                        class="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[11px] font-medium inline-flex items-center space-x-1 transition-colors cursor-pointer">
-                        <mat-icon class="text-xs">data_object</mat-icon>
-                        <span>Ver Diff</span>
-                      </button>
-                    } @else {
-                      <span class="text-[10px] text-slate-400 font-mono">Sin diff</span>
-                    }
-                  </td>
-
-                </tr>
-              } @empty {
-                <tr>
-                  <td colspan="6" class="text-center py-10 text-slate-400">
-                    No se encontraron registros de auditoría que coincidan con los filtros seleccionados.
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
+          <div class="px-4 py-3 bg-slate-50 border-t border-slate-200 text-xs text-slate-500 flex justify-between items-center">
+            <span>Mostrando {{ filteredLogs().length }} eventos de auditoría ({{ criticalLogsCount() }} críticos)</span>
+            <span class="font-mono text-[11px] text-slate-400">Garantía de No-Repudio (Inmutable PostgreSQL ACID)</span>
+          </div>
         </div>
-
-        <div class="px-4 py-3 bg-slate-50 border-t border-slate-200 text-xs text-slate-500 flex justify-between items-center">
-          <span>Mostrando {{ filteredLogs().length }} eventos de auditoría ({{ criticalLogsCount() }} críticos)</span>
-          <span class="font-mono text-[11px] text-slate-400">Garantía de No-Repudio (Inmutable PostgreSQL ACID)</span>
-        </div>
-      </div>
+      }
 
       <!-- ========================================================= -->
       <!-- MODAL: INSPECTOR DE DIFF ESTADO ANTERIOR VS NUEVO (JSON) -->
@@ -349,6 +379,7 @@ export class AuditLogComponent {
   stateService = inject(ErpStateService);
   authService = inject(AuthService);
 
+  activeSection = signal<'AUDIT_LOGS' | 'USER_MANAGEMENT'>('AUDIT_LOGS');
   searchTerm = signal<string>('');
   selectedModule = signal<string>('ALL');
   selectedRole = signal<string>('ALL');

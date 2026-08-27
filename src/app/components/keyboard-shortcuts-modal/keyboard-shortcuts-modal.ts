@@ -10,12 +10,10 @@ import { KeyboardShortcutsService, ShortcutDefinition, ShortcutCategory } from '
   imports: [CommonModule, FormsModule, MatIconModule],
   template: `
     <div 
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-in fade-in duration-150"
-      (click)="closeOnBackdrop($event)">
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-in fade-in duration-150">
       
       <div 
-        class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-150"
-        (click)="$event.stopPropagation()">
+        class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-150">
         
         <!-- Search & Header Bar (Bento Dark/Light Header) -->
         <div class="p-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
@@ -129,9 +127,10 @@ import { KeyboardShortcutsService, ShortcutDefinition, ShortcutCategory } from '
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
               @for (item of filteredShortcuts(); track item.id) {
-                <div 
+                <button 
+                  type="button"
                   (click)="executeShortcut(item)"
-                  class="p-3.5 bg-white rounded-xl border border-slate-200/90 hover:border-blue-400 hover:shadow-md transition-all cursor-pointer flex items-center justify-between group">
+                  class="w-full text-left p-3.5 bg-white rounded-xl border border-slate-200/90 hover:border-blue-400 hover:shadow-md transition-all cursor-pointer flex items-center justify-between group">
                   
                   <div class="flex items-center space-x-3 min-w-0">
                     <div 
@@ -165,7 +164,7 @@ import { KeyboardShortcutsService, ShortcutDefinition, ShortcutCategory } from '
                     </mat-icon>
                   </div>
 
-                </div>
+                </button>
               }
             </div>
 
@@ -232,11 +231,5 @@ export class KeyboardShortcutsModalComponent implements AfterViewInit {
 
   closeModal(): void {
     this.shortcutService.showPalette.set(false);
-  }
-
-  closeOnBackdrop(event: MouseEvent): void {
-    if (event.target === event.currentTarget) {
-      this.closeModal();
-    }
   }
 }
