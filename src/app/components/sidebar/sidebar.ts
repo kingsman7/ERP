@@ -44,6 +44,7 @@ export type NavTab =
           </div>
         </button>
 
+        @if (canAccess('inventory:view')) {
         <button 
           (click)="selectTab('inventory')"
           [class]="activeTab() === 'inventory' ? 'bg-blue-600/10 text-blue-400 font-semibold border-l-4 border-blue-500 rounded-r-lg' : 'hover:bg-slate-800/90 text-slate-300 rounded-lg'"
@@ -58,7 +59,9 @@ export type NavTab =
             </span>
           }
         </button>
+        }
 
+        @if (canAccess('kardex:view')) {
         <button 
           (click)="selectTab('kardex')"
           [class]="activeTab() === 'kardex' ? 'bg-blue-600/10 text-blue-400 font-semibold border-l-4 border-blue-500 rounded-r-lg' : 'hover:bg-slate-800/90 text-slate-300 rounded-lg'"
@@ -68,7 +71,9 @@ export type NavTab =
             <span class="font-medium">Kardex Valorado (CPP)</span>
           </div>
         </button>
+        }
 
+        @if (canAccess('purchases:manage', 'purchases:receive')) {
         <button 
           (click)="selectTab('purchases')"
           [class]="activeTab() === 'purchases' ? 'bg-blue-600/10 text-blue-400 font-semibold border-l-4 border-blue-500 rounded-r-lg' : 'hover:bg-slate-800/90 text-slate-300 rounded-lg'"
@@ -78,7 +83,9 @@ export type NavTab =
             <span class="font-medium">Compras y Proveedores</span>
           </div>
         </button>
+        }
 
+        @if (canAccess('sales:pos', 'sales:manage')) {
         <button 
           (click)="selectTab('sales-pos')"
           [class]="activeTab() === 'sales-pos' ? 'bg-blue-600/10 text-blue-400 font-semibold border-l-4 border-blue-500 rounded-r-lg' : 'hover:bg-slate-800/90 text-slate-300 rounded-lg'"
@@ -91,7 +98,9 @@ export type NavTab =
             F10
           </span>
         </button>
+        }
 
+        @if (canAccess('quotes:manage', 'quotes:create')) {
         <button 
           (click)="selectTab('quotes')"
           [class]="activeTab() === 'quotes' ? 'bg-blue-600/10 text-blue-400 font-semibold border-l-4 border-blue-500 rounded-r-lg' : 'hover:bg-slate-800/90 text-slate-300 rounded-lg'"
@@ -104,6 +113,7 @@ export type NavTab =
             {{ stateService.quotes().length }}
           </span>
         </button>
+        }
 
         <!-- FASE 2 SECTION -->
         <div class="pt-3 px-3 pb-2 text-[10px] font-bold text-amber-400 uppercase tracking-widest flex items-center justify-between">
@@ -111,6 +121,7 @@ export type NavTab =
           <span class="px-1 py-0.2 bg-amber-500/20 text-amber-300 text-[8px] rounded">ACTIVO</span>
         </div>
 
+        @if (canAccess('mrp:manage')) {
         <button 
           (click)="selectTab('mrp')"
           [class]="activeTab() === 'mrp' ? 'bg-amber-600/10 text-amber-400 font-semibold border-l-4 border-amber-500 rounded-r-lg' : 'hover:bg-slate-800/90 text-slate-300 rounded-lg'"
@@ -123,7 +134,9 @@ export type NavTab =
             {{ stateService.productionOrders().length }}
           </span>
         </button>
+        }
 
+        @if (canAccess('crm:manage')) {
         <button 
           (click)="selectTab('crm')"
           [class]="activeTab() === 'crm' ? 'bg-violet-600/10 text-violet-400 font-semibold border-l-4 border-violet-500 rounded-r-lg' : 'hover:bg-slate-800/90 text-slate-300 rounded-lg'"
@@ -136,7 +149,9 @@ export type NavTab =
             {{ stateService.crmDeals().length }}
           </span>
         </button>
+        }
 
+        @if (canAccess('accounting:view')) {
         <button 
           (click)="selectTab('accounting')"
           [class]="activeTab() === 'accounting' ? 'bg-emerald-600/10 text-emerald-400 font-semibold border-l-4 border-emerald-500 rounded-r-lg' : 'hover:bg-slate-800/90 text-slate-300 rounded-lg'"
@@ -149,11 +164,13 @@ export type NavTab =
             {{ stateService.journalEntries().length }}
           </span>
         </button>
+        }
 
         <div class="pt-3 px-3 pb-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
           Finanzas & Seguridad
         </div>
 
+        @if (canAccess('cash:shift')) {
         <button 
           (click)="selectTab('cash-closing')"
           [class]="activeTab() === 'cash-closing' ? 'bg-blue-600/10 text-blue-400 font-semibold border-l-4 border-blue-500 rounded-r-lg' : 'hover:bg-slate-800/90 text-slate-300 rounded-lg'"
@@ -163,7 +180,9 @@ export type NavTab =
             <span class="font-medium">Cierre de Caja (Z)</span>
           </div>
         </button>
+        }
 
+        @if (canAccess('security:manage')) {
         <button 
           (click)="selectTab('users')"
           [class]="activeTab() === 'users' ? 'bg-indigo-600/15 text-indigo-400 font-semibold border-l-4 border-indigo-500 rounded-r-lg' : 'hover:bg-slate-800/90 text-slate-300 rounded-lg'"
@@ -176,7 +195,9 @@ export type NavTab =
             {{ authService.users().length }}
           </span>
         </button>
+        }
 
+        @if (canAccess('audit:view')) {
         <button 
           (click)="selectTab('audit-log')"
           [class]="activeTab() === 'audit-log' ? 'bg-blue-600/10 text-blue-400 font-semibold border-l-4 border-blue-500 rounded-r-lg' : 'hover:bg-slate-800/90 text-slate-300 rounded-lg'"
@@ -189,7 +210,9 @@ export type NavTab =
             {{ stateService.auditLogs().length }}
           </span>
         </button>
+        }
 
+        @if (canAccess('security:manage')) {
         <button 
           (click)="selectTab('backups')"
           [class]="activeTab() === 'backups' ? 'bg-indigo-600/15 text-indigo-400 font-semibold border-l-4 border-indigo-500 rounded-r-lg' : 'hover:bg-slate-800/90 text-slate-300 rounded-lg'"
@@ -202,6 +225,7 @@ export type NavTab =
             JSON
           </span>
         </button>
+        }
 
         <button 
           (click)="selectTab('manual')"
@@ -259,6 +283,10 @@ export class SidebarComponent {
 
   activeTab = input.required<NavTab>();
   tabChange = output<NavTab>();
+
+  canAccess(...permissions: string[]): boolean {
+    return permissions.some(permission => this.authService.hasPermission(permission));
+  }
 
   selectTab(tab: NavTab) {
     this.tabChange.emit(tab);
