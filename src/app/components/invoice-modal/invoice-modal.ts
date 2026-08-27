@@ -1,6 +1,7 @@
-import { Component, ChangeDetectionStrategy, input, output } from '@angular/core';
+import { Component, ChangeDetectionStrategy, input, output, inject } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { Invoice } from '../../models/erp.models';
+import { ErpStateService } from '../../services/erp-state.service';
 
 @Component({
   selector: 'app-invoice-modal',
@@ -38,11 +39,18 @@ import { Invoice } from '../../models/erp.models';
                   <div class="w-8 h-8 rounded-lg bg-emerald-700 text-white flex items-center justify-center font-black text-base">
                     N
                   </div>
-                  <span class="font-bold text-lg text-slate-900 tracking-tight">4-inLine Corp</span>
+                  <span class="font-bold text-lg text-slate-900 tracking-tight">{{ stateService.companyProfile().legalName }}</span>
                 </div>
-                <p class="text-xs text-slate-500 mt-1">RIF: J-50493821-4 • Providencia Administrativa SENIAT</p>
-                <p class="text-xs text-slate-500">Av. Francisco de Miranda, Centro Financiero Torre Alpha, Piso 8</p>
-                <p class="text-xs text-slate-500">facturacion&#64;4-inLine.com • +58 212 500-8800</p>
+                <p class="text-xs text-slate-600 font-semibold mt-1">
+                  RIF: {{ stateService.companyProfile().taxId }} • 
+                  @if (stateService.companyProfile().isSpecialTaxpayer) {
+                    <span class="text-indigo-700 font-bold">Sujeto Pasivo Especial (Agente de Percepción IGTF)</span>
+                  } @else {
+                    <span class="text-slate-600">Contribuyente Ordinario</span>
+                  }
+                </p>
+                <p class="text-xs text-slate-500">{{ stateService.companyProfile().address }}</p>
+                <p class="text-xs text-slate-500">{{ stateService.companyProfile().email }} • {{ stateService.companyProfile().phone }}</p>
               </div>
 
               <div class="text-right border border-slate-200 bg-slate-50/80 p-3 rounded-xl min-w-[210px]">
@@ -81,7 +89,7 @@ import { Invoice } from '../../models/erp.models';
               <div class="border-l-0 sm:border-l sm:border-slate-200 sm:pl-3">
                 <span class="font-bold text-slate-400 uppercase tracking-wider block text-[10px] mb-0.5">Tipo de Cambio Oficial</span>
                 <p class="font-mono font-bold text-slate-800">
-                  Tasa BCV: Bs. {{ (inv.bcvRate || 36.54).toFixed(2) }} / USD
+                  Tasa BCV: Bs. {{ (inv.bcvRate || 36.50).toFixed(2) }} / USD
                 </p>
                 <p class="text-[10px] text-slate-500">
                   Origen: {{ inv.rateOrigin === 'API_BCV' ? 'Oficial BCV' : 'Manual' }} • Base: {{ inv.paymentCurrency || 'USD' }}
@@ -153,15 +161,20 @@ import { Invoice } from '../../models/erp.models';
                   }
                 </div>
 
-                @if (inv.taxDetails.appliesIgtf) {
-                  <div class="p-2.5 bg-amber-50/70 border border-amber-200/80 rounded-xl text-[11px] text-amber-900 space-y-0.5">
-                    <p class="font-bold flex items-center space-x-1">
-                      <mat-icon class="text-sm text-amber-600">account_balance</mat-icon>
-                      <span>Aplicación IGTF Ley Vigente (3.00%)</span>
+                @if (inv.taxDetails.appliesIgtf && inv.taxDetails.igtfAmount > 0) {
+                  <div class="p-2.5 bg-indigo-50/80 border border-indigo-200 rounded-xl text-[11px] text-indigo-950 space-y-0.5">
+                    <p class="font-bold flex items-center space-x-1 text-indigo-900">
+                      <mat-icon class="text-sm text-indigo-600">account_balance</mat-icon>
+                      <span>Percepción IGTF 3.00% (SENIAT - Pago en Moneda Extranjera)</span>
                     </p>
-                    <p class="text-[10px] text-amber-800">
-                      Base IGTF: \${{ inv.taxDetails.igtfBase.toFixed(2) }} • Monto Impuesto: \${{ inv.taxDetails.igtfAmount.toFixed(2) }}
+                    <p class="text-[10px] text-indigo-700">
+                      Base Imponible IGTF: \${{ inv.taxDetails.igtfBase.toFixed(2) }} (Bs. {{ (inv.taxDetails.igtfBase * (inv.bcvRate || 36.50)).toFixed(2) }}) • Impuesto Percibido: \${{ inv.taxDetails.igtfAmount.toFixed(2) }}
                     </p>
+                  </div>
+                } @else {
+                  <div class="p-2 bg-slate-50 border border-slate-200/70 rounded-xl text-[10px] text-slate-600 flex items-center space-x-1.5">
+                    <mat-icon class="text-xs text-emerald-600">verified</mat-icon>
+                    <span><strong>Exento de IGTF (0.00%):</strong> Operación cancelada en Bolívares / Medios Electrónicos Nacionales según normativa SENIAT.</span>
                   </div>
                 }
               </div>
@@ -192,9 +205,9 @@ import { Invoice } from '../../models/erp.models';
                   <span class="font-mono font-medium">\${{ (inv.taxDetails.ivaAmount || (inv.taxTotal - (inv.taxDetails.igtfAmount || 0))).toFixed(2) }}</span>
                 </div>
 
-                @if (inv.taxDetails.appliesIgtf) {
-                  <div class="flex justify-between text-amber-700 font-medium">
-                    <span>IGTF (3% Divisas):</span>
+                @if (inv.taxDetails.appliesIgtf && inv.taxDetails.igtfAmount > 0) {
+                  <div class="flex justify-between text-indigo-800 font-semibold">
+                    <span>Percepción IGTF (3% Divisas):</span>
                     <span class="font-mono">+\${{ inv.taxDetails.igtfAmount.toFixed(2) }}</span>
                   </div>
                 }
@@ -209,7 +222,7 @@ import { Invoice } from '../../models/erp.models';
                 <div class="flex justify-between text-xs font-bold text-slate-800">
                   <span>TOTAL EN BOLÍVARES (VES):</span>
                   <span class="font-mono text-indigo-700">
-                    Bs. {{ (inv.totalVes || (inv.total * (inv.bcvRate || 36.54))).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+                    Bs. {{ (inv.totalVes || (inv.total * (inv.bcvRate || 36.50))).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
                   </span>
                 </div>
 
@@ -253,6 +266,7 @@ import { Invoice } from '../../models/erp.models';
 export class InvoiceModal {
   invoice = input<Invoice | null>(null);
   closeModal = output<void>();
+  readonly stateService = inject(ErpStateService);
 
   printInvoice() {
     if (typeof window !== 'undefined') {

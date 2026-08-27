@@ -275,19 +275,40 @@ interface CartItem {
                     <mat-icon class="text-slate-500 text-base">person</mat-icon>
                     <span class="text-xs font-semibold text-slate-800">Cliente / Receptor Fiscal</span>
                   </div>
-                  <span class="text-[10px] text-slate-500 font-mono">
-                    {{ selectedCustomer()?.taxId }}
-                  </span>
+                  <button 
+                    type="button"
+                    (click)="openNewCustomerModal()"
+                    title="Registrar nuevo cliente en el catálogo"
+                    class="px-2 py-0.5 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-[11px] font-bold flex items-center space-x-1 transition-colors cursor-pointer shadow-2xs">
+                    <mat-icon class="text-xs">person_add</mat-icon>
+                    <span>+ Nuevo Cliente</span>
+                  </button>
                 </div>
 
-                <select 
-                  [value]="selectedCustomerId()"
-                  (change)="selectedCustomerId.set($any($event.target).value)"
-                  class="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-emerald-500">
-                  @for (c of stateService.customers(); track c.id) {
-                    <option [value]="c.id">{{ c.name }} ({{ c.taxId }})</option>
-                  }
-                </select>
+                <div class="flex items-center gap-1.5">
+                  <select 
+                    [value]="selectedCustomerId()"
+                    (change)="selectedCustomerId.set($any($event.target).value)"
+                    class="flex-1 px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                    @for (c of stateService.customers(); track c.id) {
+                      <option [value]="c.id">{{ c.name }} ({{ c.taxId }})</option>
+                    }
+                  </select>
+                  <button
+                    type="button"
+                    (click)="openNewCustomerModal()"
+                    title="Registrar nuevo cliente en el catálogo"
+                    class="p-1.5 bg-white border border-slate-200 hover:border-emerald-500 hover:text-emerald-700 rounded-xl text-slate-600 transition-colors cursor-pointer shrink-0">
+                    <mat-icon class="text-base">person_add</mat-icon>
+                  </button>
+                </div>
+
+                @if (selectedCustomer(); as cust) {
+                  <div class="flex items-center justify-between text-[10px] text-slate-500 px-0.5 pt-0.5 border-t border-slate-100/60">
+                    <span class="font-mono font-semibold text-slate-700">{{ cust.taxId }}</span>
+                    <span class="truncate max-w-[200px] text-slate-400">{{ cust.email || cust.phone || cust.customerType }}</span>
+                  </div>
+                }
               </div>
 
               <!-- Cart Item List -->
@@ -349,6 +370,32 @@ interface CartItem {
               <!-- Cart Calculations & Tax Summary -->
               <div class="p-3.5 border-t border-slate-100 bg-slate-50/50 space-y-2 text-xs">
                 
+                <!-- Fiscal Regime & IGTF Indicator -->
+                <div class="px-2.5 py-1.5 rounded-xl border flex items-center justify-between text-[11px]"
+                  [class.bg-indigo-50]="stateService.companyProfile().isSpecialTaxpayer"
+                  [class.border-indigo-200]="stateService.companyProfile().isSpecialTaxpayer"
+                  [class.bg-slate-100]="!stateService.companyProfile().isSpecialTaxpayer"
+                  [class.border-slate-200]="!stateService.companyProfile().isSpecialTaxpayer">
+                  <div class="flex items-center space-x-1.5 truncate">
+                    <mat-icon class="text-xs" [class.text-indigo-600]="stateService.companyProfile().isSpecialTaxpayer" [class.text-slate-500]="!stateService.companyProfile().isSpecialTaxpayer">
+                      {{ stateService.companyProfile().isSpecialTaxpayer ? 'verified_user' : 'storefront' }}
+                    </mat-icon>
+                    <span class="truncate font-semibold" [class.text-indigo-900]="stateService.companyProfile().isSpecialTaxpayer" [class.text-slate-700]="!stateService.companyProfile().isSpecialTaxpayer">
+                      {{ stateService.companyProfile().isSpecialTaxpayer ? 'Sujeto Pasivo Especial SENIAT' : 'Contribuyente Ordinario' }}
+                    </span>
+                  </div>
+                  <button 
+                    (click)="toggleCompanyFiscalSpecial()" 
+                    title="Alternar estado fiscal entre Sujeto Pasivo Especial y Ordinario"
+                    class="text-[10px] font-bold underline px-1.5 py-0.5 rounded transition-colors cursor-pointer"
+                    [class.text-indigo-700]="stateService.companyProfile().isSpecialTaxpayer"
+                    [class.hover:bg-indigo-100]="stateService.companyProfile().isSpecialTaxpayer"
+                    [class.text-slate-600]="!stateService.companyProfile().isSpecialTaxpayer"
+                    [class.hover:bg-slate-200]="!stateService.companyProfile().isSpecialTaxpayer">
+                    {{ stateService.companyProfile().isSpecialTaxpayer ? 'Cambiar a Ordinario' : 'Cambiar a Especial' }}
+                  </button>
+                </div>
+
                 <div class="flex justify-between text-slate-500">
                   <span>Subtotal Bruto:</span>
                   <span class="font-mono font-medium text-slate-800">\${{ cartSubtotalGross().toFixed(2) }}</span>
@@ -371,14 +418,37 @@ interface CartItem {
                   <span class="font-mono font-medium text-slate-800">\${{ computedTaxDetails().ivaAmount.toFixed(2) }}</span>
                 </div>
 
-                <!-- IGTF Alert & Toggle -->
-                @if (computedTaxDetails().appliesIgtf) {
-                  <div class="flex justify-between text-indigo-700 bg-indigo-50/80 px-2 py-1 rounded-lg border border-indigo-100">
-                    <span class="font-medium flex items-center space-x-1">
-                      <mat-icon class="text-sm">account_balance</mat-icon>
-                      <span>Percepción IGTF 3% (Divisas):</span>
-                    </span>
-                    <span class="font-mono font-bold">\${{ computedTaxDetails().igtfAmount.toFixed(2) }}</span>
+                <!-- IGTF Alert & SENIAT Status -->
+                @if (computedTaxDetails().appliesIgtf && computedTaxDetails().igtfAmount > 0) {
+                  <div class="flex justify-between items-center text-indigo-700 bg-indigo-50/90 px-2.5 py-1.5 rounded-xl border border-indigo-200/80">
+                    <div>
+                      <span class="font-semibold flex items-center space-x-1 text-[11px]">
+                        <mat-icon class="text-xs">account_balance</mat-icon>
+                        <span>Percepción IGTF 3% (Divisas / SENIAT):</span>
+                      </span>
+                      <span class="block text-[9px] text-indigo-500 font-normal">Base imponible: \${{ computedTaxDetails().igtfBase.toFixed(2) }}</span>
+                    </div>
+                    <div class="text-right">
+                      <span class="font-mono font-bold text-xs">\${{ computedTaxDetails().igtfAmount.toFixed(2) }}</span>
+                      <span class="block text-[9px] text-indigo-600 font-mono">Bs. {{ (computedTaxDetails().igtfAmount * stateService.bcvState().usdRate).toFixed(2) }}</span>
+                    </div>
+                  </div>
+                } @else {
+                  <div class="flex justify-between items-center text-slate-500 bg-slate-100/70 px-2.5 py-1.5 rounded-xl border border-slate-200/60 text-[11px]">
+                    <div>
+                      <span class="font-medium flex items-center space-x-1">
+                        <mat-icon class="text-xs text-emerald-600">verified</mat-icon>
+                        <span>Alícuota IGTF: <strong class="text-emerald-700">0.00% (No Aplica)</strong></span>
+                      </span>
+                      <span class="block text-[9px] text-slate-400">
+                        @if (!computedTaxDetails().isSpecialTaxpayer) {
+                          Emisor es Contribuyente Ordinario
+                        } @else {
+                          Exento: Pago en Bolívares / Medios Electrónicos Nacionales
+                        }
+                      </span>
+                    </div>
+                    <span class="font-mono font-semibold text-slate-600">$0.00</span>
                   </div>
                 }
 
@@ -401,7 +471,7 @@ interface CartItem {
                     <span class="block text-[10px] font-semibold text-slate-500 mb-0.5">Moneda de Cobro</span>
                     <select 
                       [value]="selectedPaymentCurrency()"
-                      (change)="selectedPaymentCurrency.set($any($event.target).value)"
+                      (change)="onPaymentCurrencyChange($any($event.target).value)"
                       class="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none">
                       <option value="USD">USD ($ Dólares)</option>
                       <option value="VES">VES (Bs. Bolívares BCV)</option>
@@ -413,15 +483,15 @@ interface CartItem {
                     <span class="block text-[10px] font-semibold text-slate-500 mb-0.5">Método de Pago</span>
                     <select 
                       [value]="selectedPaymentMethod()"
-                      (change)="selectedPaymentMethod.set($any($event.target).value)"
+                      (change)="onPaymentMethodChange($any($event.target).value)"
                       class="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none">
-                      <option value="EFECTIVO_USD">Efectivo USD (IGTF 3%)</option>
-                      <option value="EFECTIVO">Efectivo Bolívares</option>
-                      <option value="PAGO_MOVIL">Pago Móvil</option>
-                      <option value="PUNTO_VENTA_DEBITO">Punto de Venta Débito</option>
-                      <option value="TARJETA_CREDITO">Tarjeta de Crédito</option>
+                      <option value="EFECTIVO_USD">Efectivo USD (Divisas)</option>
+                      <option value="EFECTIVO">Efectivo Bolívares (VES)</option>
+                      <option value="PAGO_MOVIL">Pago Móvil (VES)</option>
+                      <option value="PUNTO_VENTA_DEBITO">Punto de Venta Débito (VES)</option>
+                      <option value="TARJETA_CREDITO">Tarjeta de Crédito (VES)</option>
                       <option value="TRANSFERENCIA">Transferencia Bancaria</option>
-                      <option value="ZELLE">Zelle / Wire</option>
+                      <option value="ZELLE">Zelle / Wire (USD)</option>
                       <option value="CREDITO">Crédito Comercial</option>
                     </select>
                   </div>
@@ -706,6 +776,120 @@ interface CartItem {
         </div>
       }
 
+      <!-- ========================================================= -->
+      <!-- MODAL: REGISTRAR NUEVO CLIENTE / RECEPTOR FISCAL -->
+      <!-- ========================================================= -->
+      @if (showNewCustomerModal()) {
+        <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            
+            <div class="px-6 py-4 bg-emerald-700 text-white flex items-center justify-between">
+              <div class="flex items-center space-x-2">
+                <mat-icon>person_add</mat-icon>
+                <h3 class="font-semibold text-sm">Registrar Nuevo Cliente / Receptor Fiscal</h3>
+              </div>
+              <button (click)="showNewCustomerModal.set(false)" class="text-white/80 hover:text-white cursor-pointer">
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+
+            <form (submit)="saveNewCustomer($event)" class="p-6 space-y-4 text-xs">
+              
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label for="pos-cust-taxid" class="block font-semibold text-slate-700 mb-1">Documento / RIF / Cédula *</label>
+                  <input 
+                    id="pos-cust-taxid"
+                    type="text" 
+                    [value]="newCustomerTaxId()" 
+                    (input)="newCustomerTaxId.set($any($event.target).value)" 
+                    placeholder="Ej: J-12345678-0 o V-18234567" 
+                    required 
+                    class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-900 uppercase focus:bg-white focus:ring-1 focus:ring-emerald-500 focus:outline-none" />
+                </div>
+
+                <div>
+                  <label for="pos-cust-type" class="block font-semibold text-slate-700 mb-1">Tipo de Cliente *</label>
+                  <select 
+                    id="pos-cust-type"
+                    [value]="newCustomerType()" 
+                    (change)="newCustomerType.set($any($event.target).value)"
+                    class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:bg-white focus:ring-1 focus:ring-emerald-500 focus:outline-none">
+                    <option value="EMPRESA">Empresa / Jurídico (J / G)</option>
+                    <option value="PERSONA_NATURAL">Persona Natural (V / E)</option>
+                    <option value="FINAL_CONSUMIDOR">Consumidor Final</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label for="pos-cust-name" class="block font-semibold text-slate-700 mb-1">Razón Social o Nombre Completo *</label>
+                <input 
+                  id="pos-cust-name"
+                  type="text" 
+                  [value]="newCustomerName()" 
+                  (input)="newCustomerName.set($any($event.target).value)" 
+                  placeholder="Ej: Inversiones Los Andes C.A." 
+                  required 
+                  class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-medium focus:bg-white focus:ring-1 focus:ring-emerald-500 focus:outline-none" />
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label for="pos-cust-email" class="block font-semibold text-slate-700 mb-1">Correo Electrónico (Factura Digital)</label>
+                  <input 
+                    id="pos-cust-email"
+                    type="email" 
+                    [value]="newCustomerEmail()" 
+                    (input)="newCustomerEmail.set($any($event.target).value)" 
+                    placeholder="contacto@empresa.com" 
+                    class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:bg-white focus:ring-1 focus:ring-emerald-500 focus:outline-none" />
+                </div>
+
+                <div>
+                  <label for="pos-cust-phone" class="block font-semibold text-slate-700 mb-1">Teléfono de Contacto</label>
+                  <input 
+                    id="pos-cust-phone"
+                    type="tel" 
+                    [value]="newCustomerPhone()" 
+                    (input)="newCustomerPhone.set($any($event.target).value)" 
+                    placeholder="+58 412 1234567" 
+                    class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:bg-white focus:ring-1 focus:ring-emerald-500 focus:outline-none" />
+                </div>
+              </div>
+
+              <div>
+                <label for="pos-cust-address" class="block font-semibold text-slate-700 mb-1">Dirección Fiscal / Ubicación</label>
+                <input 
+                  id="pos-cust-address"
+                  type="text" 
+                  [value]="newCustomerAddress()" 
+                  (input)="newCustomerAddress.set($any($event.target).value)" 
+                  placeholder="Av. Principal, Edificio Torre Norte, Piso 4" 
+                  class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:bg-white focus:ring-1 focus:ring-emerald-500 focus:outline-none" />
+              </div>
+
+              <div class="pt-3 border-t border-slate-100 flex items-center justify-end space-x-2">
+                <button 
+                  type="button" 
+                  (click)="showNewCustomerModal.set(false)" 
+                  class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl transition-colors cursor-pointer">
+                  Cancelar
+                </button>
+                <button 
+                  type="submit" 
+                  class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-xs flex items-center space-x-1.5 transition-colors cursor-pointer">
+                  <mat-icon class="text-sm">save</mat-icon>
+                  <span>Guardar y Seleccionar</span>
+                </button>
+              </div>
+
+            </form>
+
+          </div>
+        </div>
+      }
+
     </div>
   `
 })
@@ -718,6 +902,15 @@ export class SalesPosComponent {
   openInvoiceView = output<Invoice>();
 
   activeSalesTab = signal<'pos' | 'history'>('pos');
+
+  // New Customer Modal Signals
+  showNewCustomerModal = signal<boolean>(false);
+  newCustomerTaxId = signal<string>('');
+  newCustomerName = signal<string>('');
+  newCustomerEmail = signal<string>('');
+  newCustomerPhone = signal<string>('');
+  newCustomerAddress = signal<string>('');
+  newCustomerType = signal<'EMPRESA' | 'PERSONA_NATURAL' | 'FINAL_CONSUMIDOR'>('EMPRESA');
 
   constructor() {
     effect(() => {
@@ -866,17 +1059,20 @@ export class SalesPosComponent {
     }
 
     const ivaAmount = Number((taxable * ivaRate).toFixed(2));
-    
-    // IGTF 3% applies if foreign currency (USD or EUR) paid in cash or foreign method
-    const isForeignMethod = this.selectedPaymentCurrency() === 'USD' || 
-                            this.selectedPaymentCurrency() === 'EUR' ||
-                            this.selectedPaymentMethod() === 'EFECTIVO_USD' ||
-                            this.selectedPaymentMethod() === 'EFECTIVO_EUR' ||
-                            this.selectedPaymentMethod() === 'ZELLE';
+    const isSpecialTaxpayer = this.stateService.companyProfile().isSpecialTaxpayer;
+    const paymentMethod = this.selectedPaymentMethod();
+    const paymentCurrency = this.selectedPaymentCurrency();
 
-    const appliesIgtf = this.manualIgtfOverride() !== null 
-      ? Boolean(this.manualIgtfOverride()) 
-      : isForeignMethod;
+    const isBolivares = this.stateService.isBolivaresPaymentMethod(paymentMethod, paymentCurrency);
+    const isDivisas = this.stateService.isForeignCurrencyPaymentMethod(paymentMethod, paymentCurrency);
+
+    let appliesIgtf = false;
+    if (this.manualIgtfOverride() !== null) {
+      appliesIgtf = Boolean(this.manualIgtfOverride());
+    } else {
+      // SENIAT Rule: Only Special Taxpayers perceive 3% IGTF, and only on payments in foreign currencies / crypto
+      appliesIgtf = isSpecialTaxpayer && isDivisas && !isBolivares;
+    }
 
     const baseForIgtf = taxable + exempt + ivaAmount;
     const igtfAmount = appliesIgtf ? Number((baseForIgtf * 0.03).toFixed(2)) : 0;
@@ -888,8 +1084,11 @@ export class SalesPosComponent {
       ivaAmount,
       appliesIgtf,
       igtfPercent: 3.0,
-      igtfBase: baseForIgtf,
-      igtfAmount
+      igtfBase: appliesIgtf ? baseForIgtf : 0,
+      igtfAmount,
+      isSpecialTaxpayer,
+      isBolivares,
+      isDivisas
     };
   });
 
@@ -908,6 +1107,41 @@ export class SalesPosComponent {
     const eurRate = this.stateService.bcvState().eurRate;
     return Number(((this.grandTotalUsd() * usdRate) / eurRate).toFixed(2));
   });
+
+  toggleCompanyFiscalSpecial() {
+    const current = this.stateService.companyProfile();
+    const updated = !current.isSpecialTaxpayer;
+    this.stateService.updateCompanyProfile({ isSpecialTaxpayer: updated });
+    this.stateService.notify(
+      'info',
+      'Régimen Fiscal Actualizado',
+      updated 
+        ? 'Empresa configurada como Sujeto Pasivo Especial (Agente de Percepción IGTF 3%).'
+        : 'Empresa configurada como Contribuyente Ordinario (No percibe IGTF).'
+    );
+  }
+
+  onPaymentMethodChange(method: PaymentMethod) {
+    this.selectedPaymentMethod.set(method);
+    if (method === 'PAGO_MOVIL' || method === 'PUNTO_VENTA_DEBITO' || method === 'TARJETA_CREDITO' || method === 'EFECTIVO') {
+      this.selectedPaymentCurrency.set('VES');
+    } else if (method === 'EFECTIVO_USD' || method === 'ZELLE') {
+      this.selectedPaymentCurrency.set('USD');
+    } else if (method === 'EFECTIVO_EUR') {
+      this.selectedPaymentCurrency.set('EUR');
+    }
+  }
+
+  onPaymentCurrencyChange(curr: 'USD' | 'VES' | 'EUR') {
+    this.selectedPaymentCurrency.set(curr);
+    if (curr === 'VES' && (this.selectedPaymentMethod() === 'EFECTIVO_USD' || this.selectedPaymentMethod() === 'EFECTIVO_EUR')) {
+      this.selectedPaymentMethod.set('EFECTIVO');
+    } else if (curr === 'USD' && this.selectedPaymentMethod() === 'EFECTIVO') {
+      this.selectedPaymentMethod.set('EFECTIVO_USD');
+    } else if (curr === 'EUR' && this.selectedPaymentMethod() === 'EFECTIVO') {
+      this.selectedPaymentMethod.set('EFECTIVO_EUR');
+    }
+  }
 
   isCashPayment(): boolean {
     const m = this.selectedPaymentMethod();
@@ -1004,6 +1238,8 @@ export class SalesPosComponent {
     }));
 
     const targetAmount = this.selectedPaymentCurrency() === 'VES' ? this.grandTotalVes() : this.grandTotalUsd();
+    const isDivisas = this.computedTaxDetails().isDivisas;
+    const isBolivares = this.computedTaxDetails().isBolivares;
 
     const payments: PaymentRecord[] = [
       {
@@ -1011,7 +1247,7 @@ export class SalesPosComponent {
         amount: targetAmount,
         currency: this.selectedPaymentCurrency(),
         reference: this.isCashPayment() ? 'CONTADO_CAJA' : 'REF-' + Math.floor(Math.random() * 90000 + 10000),
-        isForeignCurrency: this.selectedPaymentCurrency() === 'USD' || this.selectedPaymentCurrency() === 'EUR'
+        isForeignCurrency: isDivisas && !isBolivares
       }
     ];
 
@@ -1075,6 +1311,38 @@ export class SalesPosComponent {
       this.stateService.notify('success', 'Descarga Completada', `Se han exportado los renglones detallados de ${list.length} facturas a CSV.`);
     } else {
       this.stateService.notify('error', 'Error al Exportar', 'Ocurrió un error al generar el archivo CSV.');
+    }
+  }
+
+  openNewCustomerModal() {
+    this.newCustomerTaxId.set('');
+    this.newCustomerName.set('');
+    this.newCustomerEmail.set('');
+    this.newCustomerPhone.set('');
+    this.newCustomerAddress.set('');
+    this.newCustomerType.set('EMPRESA');
+    this.showNewCustomerModal.set(true);
+  }
+
+  saveNewCustomer(event: Event) {
+    event.preventDefault();
+    if (!this.newCustomerTaxId().trim() || !this.newCustomerName().trim()) {
+      this.stateService.notify('error', 'Datos Incompletos', 'El documento y la razón social son obligatorios.');
+      return;
+    }
+
+    const res = this.stateService.createCustomer({
+      taxId: this.newCustomerTaxId().trim(),
+      name: this.newCustomerName().trim(),
+      email: this.newCustomerEmail().trim(),
+      phone: this.newCustomerPhone().trim(),
+      address: this.newCustomerAddress().trim(),
+      customerType: this.newCustomerType()
+    });
+
+    if (res.success && res.customer) {
+      this.selectedCustomerId.set(res.customer.id);
+      this.showNewCustomerModal.set(false);
     }
   }
 }

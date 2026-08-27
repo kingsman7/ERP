@@ -7,6 +7,7 @@ import {
   CurrencyCode,
   BcvExchangeRateState,
   InvoiceTaxDetails,
+  CompanyFiscalProfile,
   Warehouse,
   KardexMovement,
   Supplier,
@@ -32,7 +33,8 @@ import {
   JournalEntryLine,
   ErpFullBackupPayload,
   CriticalAuditNotification,
-  CriticalAuditCategory
+  CriticalAuditCategory,
+  PaymentMethod
 } from '../models/erp.models';
 import { AuthService } from './auth.service';
 import { ApiService } from './api.service';
@@ -78,6 +80,37 @@ export class ErpStateService {
     status: 'SYNCED',
     bcvOfficialDate: '18/08/2026'
   });
+
+  // Perfil Fiscal de la Empresa Emisora (SENIAT)
+  readonly companyProfile = signal<CompanyFiscalProfile>({
+    legalName: '4-inLine Corp, C.A.',
+    tradeName: '4-inLine Corp',
+    taxId: 'J-50493821-4',
+    isSpecialTaxpayer: true, // Sujeto Pasivo Especial (SENIAT) - Agente de Percepción del 3% IGTF
+    specialTaxpayerDesignationNumber: 'SNAT/2022/000013',
+    address: 'Av. Francisco de Miranda, Centro Financiero Torre Alpha, Piso 8, Caracas, Venezuela',
+    phone: '+58 212 500-8800',
+    email: 'facturacion@4-inLine.com',
+    defaultIvaRate: 0.16,
+    igtfRate: 0.03
+  });
+
+  updateCompanyProfile(updated: Partial<CompanyFiscalProfile>) {
+    this.companyProfile.update(prev => ({ ...prev, ...updated }));
+    this.saveState();
+  }
+
+  setSpecialTaxpayerStatus(isSpecial: boolean) {
+    this.companyProfile.update(prev => ({ ...prev, isSpecialTaxpayer: isSpecial }));
+    this.saveState();
+    this.notify(
+      'info',
+      'Régimen Fiscal Actualizado',
+      isSpecial 
+        ? 'Empresa configurada como Sujeto Pasivo Especial (Agente de Percepción IGTF 3%).'
+        : 'Empresa configurada como Contribuyente Ordinario (No actúa como agente de percepción IGTF).'
+    );
+  }
 
   // Core Reactive Signals
   readonly warehouses = signal<Warehouse[]>([
@@ -1412,6 +1445,7 @@ export class ErpStateService {
           if (parsed.crmDeals) this.crmDeals.set(parsed.crmDeals);
           if (parsed.accounts) this.accounts.set(parsed.accounts);
           if (parsed.journalEntries) this.journalEntries.set(parsed.journalEntries);
+          if (parsed.companyProfile) this.companyProfile.set(parsed.companyProfile);
         }
       }
     } catch {
@@ -1437,7 +1471,8 @@ export class ErpStateService {
           productionOrders: this.productionOrders(),
           crmDeals: this.crmDeals(),
           accounts: this.accounts(),
-          journalEntries: this.journalEntries()
+          journalEntries: this.journalEntries(),
+          companyProfile: this.companyProfile()
         };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
       }
@@ -1868,6 +1903,126 @@ export class ErpStateService {
   // ==========================================
   // TRANSACTION 2: REGISTRO DE VENTA / POS FACTURACIÓN RÁPIDA (MULTIMONEDA, 5 PRECIOS, IGTF, DESCUENTO GLOBAL)
   // ==========================================
+
+  /**
+   * Determina si un método de pago califica como pago en Bolívares (Moneda Nacional).
+   * Según normativa SENIAT, los pagos en Bolívares NO están sujetos al 3% de IGTF (0%).
+   */
+  isBolivaresPaymentMethod(method: PaymentMethod, currency?: CurrencyCode): boolean {
+    if (method === 'PAGO_MOVIL' || method === 'PUNTO_VENTA_DEBITO' || method === 'TARJETA_CREDITO') {
+      return true;
+    }
+    if ((method === 'EFECTIVO' || method === 'TRANSFERENCIA' || method === 'CREDITO') && (currency === 'VES' || !currency)) {
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Determina si un método de pago califica como pago en Divisas / Moneda Extranjera / Criptoactivos.
+   * (Efectivo USD/EUR, Zelle, plataformas internacionales, criptomonedas, etc.)
+   */
+  isForeignCurrencyPaymentMethod(method: PaymentMethod, currency?: CurrencyCode): boolean {
+    if (method === 'EFECTIVO_USD' || method === 'EFECTIVO_EUR' || method === 'ZELLE') {
+      return true;
+    }
+    if ((method === 'EFECTIVO' || method === 'TRANSFERENCIA' || method === 'CREDITO') && (currency === 'USD' || currency === 'EUR')) {
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Evalúa y calcula la percepción de IGTF 3% bajo las providencias y normativas del SENIAT:
+   * 1. Calificación del Emisor: La empresa debe ser Sujeto Pasivo Especial (Contribuyente Especial).
+   * 2. Medio de Pago: Pago en divisas en efectivo, transferencias/plataformas internacionales o criptoactivos.
+   * 3. Pagos en Bolívares (Pago Móvil, Punto de Venta, Efectivo Bs, Transferencias en Bs): NO APLICA (0%).
+   * 4. Base de cálculo: 3% sobre el monto total efectivamente cancelado en moneda extranjera (incluye IVA proporcional).
+   */
+  calculateIgtfDetails(
+    payments: PaymentRecord[],
+    paymentCurrency: CurrencyCode,
+    netSubtotal: number,
+    ivaAmount: number,
+    manualOverride?: boolean | null
+  ): { appliesIgtf: boolean; igtfPercent: number; igtfBase: number; igtfAmount: number } {
+    const isSpecialTaxpayer = this.companyProfile().isSpecialTaxpayer;
+
+    // Si la empresa es un Contribuyente Ordinario (no especial), no actúa como agente de percepción del IGTF 3%
+    if (!isSpecialTaxpayer) {
+      return { appliesIgtf: false, igtfPercent: 0, igtfBase: 0, igtfAmount: 0 };
+    }
+
+    if (manualOverride !== undefined && manualOverride !== null) {
+      if (!manualOverride) {
+        return { appliesIgtf: false, igtfPercent: 0, igtfBase: 0, igtfAmount: 0 };
+      }
+      const fullBase = Number((netSubtotal + ivaAmount).toFixed(2));
+      return {
+        appliesIgtf: true,
+        igtfPercent: 3.0,
+        igtfBase: fullBase,
+        igtfAmount: Number((fullBase * 0.03).toFixed(2))
+      };
+    }
+
+    const totalInvoiceAmount = Number((netSubtotal + ivaAmount).toFixed(2));
+
+    // Determinar si los pagos son en Bolívares o en Divisas
+    let foreignPaidAmountUsd = 0;
+    let allBolivares = true;
+
+    if (payments.length > 0) {
+      for (const p of payments) {
+        const isBs = this.isBolivaresPaymentMethod(p.method, p.currency || paymentCurrency);
+        const isDivisa = this.isForeignCurrencyPaymentMethod(p.method, p.currency || paymentCurrency) || p.isForeignCurrency;
+
+        if (isBs) {
+          // Pago en Bolívares: no suma a IGTF
+          continue;
+        } else if (isDivisa) {
+          allBolivares = false;
+          const amtUsd = p.currency === 'VES'
+            ? (p.amount / this.bcvState().usdRate)
+            : (p.currency === 'EUR' ? (p.amount * this.bcvState().eurRate) / this.bcvState().usdRate : p.amount);
+          foreignPaidAmountUsd += amtUsd;
+        } else if (p.currency === 'USD' || p.currency === 'EUR') {
+          allBolivares = false;
+          foreignPaidAmountUsd += p.amount;
+        }
+      }
+    } else {
+      // Si no hay pagos detallados, evaluar la moneda de cobro
+      if (paymentCurrency === 'VES') {
+        allBolivares = true;
+      } else {
+        allBolivares = false;
+        foreignPaidAmountUsd = totalInvoiceAmount;
+      }
+    }
+
+    if (allBolivares || foreignPaidAmountUsd <= 0.001) {
+      // Pago en Bolívares -> Exento de IGTF (0%)
+      return {
+        appliesIgtf: false,
+        igtfPercent: 0,
+        igtfBase: 0,
+        igtfAmount: 0
+      };
+    }
+
+    // Aplica percepción del 3% sobre el monto efectivamente pagado en divisas
+    const igtfBase = Math.min(totalInvoiceAmount, foreignPaidAmountUsd);
+    const igtfAmount = Number((igtfBase * 0.03).toFixed(2));
+
+    return {
+      appliesIgtf: true,
+      igtfPercent: 3.0,
+      igtfBase: Number(igtfBase.toFixed(2)),
+      igtfAmount
+    };
+  }
+
   registerSaleInvoice(
     customerId: string,
     warehouseId: string,
@@ -1881,7 +2036,7 @@ export class ErpStateService {
       priceLevelApplied?: PriceLevelKey;
       customIvaRate?: number;
       originQuoteNumber?: string;
-      appliesIgtfManual?: boolean;
+      appliesIgtfManual?: boolean | null;
     }
   ): { success: boolean; invoiceNumber?: string; message?: string; invoice?: Invoice } {
     const user = this.authService.currentUser();
@@ -2034,21 +2189,18 @@ export class ErpStateService {
     const ivaRateFinal = options?.customIvaRate !== undefined ? options.customIvaRate : 0.16;
     const ivaAmount = Number((netTaxableBase * ivaRateFinal).toFixed(2));
 
-    // IGTF Calculation (3% when payment method or currency is foreign cash/divisa)
-    const isForeignPayment = payments.some(p => 
-      p.method === 'EFECTIVO_USD' || 
-      p.method === 'EFECTIVO_EUR' || 
-      p.method === 'ZELLE' || 
-      p.isForeignCurrency || 
-      p.currency === 'USD' || 
-      p.currency === 'EUR' ||
-      paymentCurrency === 'USD' || 
-      paymentCurrency === 'EUR'
+    // IGTF Calculation (SENIAT 3% perception rule)
+    const igtfResult = this.calculateIgtfDetails(
+      payments,
+      paymentCurrency,
+      netSubtotal,
+      ivaAmount,
+      options?.appliesIgtfManual
     );
-    const appliesIgtf = Boolean(options?.appliesIgtfManual !== undefined ? options.appliesIgtfManual : isForeignPayment);
-    const igtfPercent = appliesIgtf ? 3.0 : 0.0;
-    const igtfBase = appliesIgtf ? (netSubtotal + ivaAmount) : 0;
-    const igtfAmount = appliesIgtf ? Number((igtfBase * (igtfPercent / 100)).toFixed(2)) : 0;
+    const appliesIgtf = igtfResult.appliesIgtf;
+    const igtfPercent = igtfResult.igtfPercent;
+    const igtfBase = igtfResult.igtfBase;
+    const igtfAmount = igtfResult.igtfAmount;
 
     const taxTotal = Number((ivaAmount + igtfAmount).toFixed(2));
     const grandTotalUsd = Number((netSubtotal + taxTotal).toFixed(2));
@@ -2062,7 +2214,7 @@ export class ErpStateService {
       ivaAmount,
       appliesIgtf,
       igtfPercent,
-      igtfBase: Number(igtfBase.toFixed(2)),
+      igtfBase,
       igtfAmount
     };
 
@@ -2212,7 +2364,19 @@ export class ErpStateService {
   // ==========================================
   // TRANSACTION 3: CONVERSIÓN RÁPIDA DE PRESUPUESTO EN FACTURA
   // ==========================================
-  convertQuoteToInvoice(quoteId: string, warehouseId?: string): { success: boolean; invoiceNumber?: string; message?: string } {
+  convertQuoteToInvoice(
+    quoteId: string,
+    options?: {
+      warehouseId?: string;
+      payments?: PaymentRecord[];
+      paymentCurrency?: CurrencyCode;
+      invoiceType?: 'FACTURA_ELECTRONICA' | 'BOLETA_POS' | 'TICKET_VENTA';
+      appliesIgtfManual?: boolean | null;
+      customIvaRate?: number;
+      globalDiscountPercent?: number;
+      priceLevelApplied?: PriceLevelKey;
+    }
+  ): { success: boolean; invoiceNumber?: string; invoice?: Invoice; message?: string } {
     const quote = this.quotes().find(q => q.id === quoteId);
     if (!quote) return { success: false, message: 'Presupuesto no encontrado.' };
 
@@ -2220,29 +2384,39 @@ export class ErpStateService {
       return { success: false, message: 'Este presupuesto ya fue convertido a factura previamente.' };
     }
 
-    const whId = warehouseId || this.warehouses()[0].id;
+    const whId = options?.warehouseId || this.warehouses()[0]?.id || 'wh-01';
     const saleItems = quote.items.map(item => ({
       productId: item.productId,
       quantity: item.quantity,
       discountPercent: item.discountPercent
     }));
 
-    // Default payment as Contado/Transfer
-    const payments: PaymentRecord[] = [
-      { method: 'TRANSFERENCIA', amount: quote.total, reference: `COT-CONVERT-${quote.quoteNumber}` }
-    ];
+    const paymentCurr = options?.paymentCurrency || 'USD';
+    const payments = options?.payments && options.payments.length > 0
+      ? options.payments
+      : [
+          {
+            method: (paymentCurr === 'VES' ? 'TRANSFERENCIA' : 'EFECTIVO_USD') as PaymentMethod,
+            amount: paymentCurr === 'VES' ? (quote.totalVes || (quote.total * this.bcvState().usdRate)) : quote.total,
+            currency: paymentCurr,
+            reference: `COT-CONVERT-${quote.quoteNumber}`
+          }
+        ];
 
     const result = this.registerSaleInvoice(
       quote.customerId,
       whId,
       saleItems,
       payments,
-      'FACTURA_ELECTRONICA',
+      options?.invoiceType || 'FACTURA_ELECTRONICA',
       {
         baseCurrency: quote.baseCurrency || 'USD',
-        paymentCurrency: 'USD',
-        priceLevelApplied: quote.priceLevelApplied || 'price1',
-        originQuoteNumber: quote.quoteNumber
+        paymentCurrency: paymentCurr,
+        priceLevelApplied: options?.priceLevelApplied || quote.priceLevelApplied || 'price1',
+        originQuoteNumber: quote.quoteNumber,
+        appliesIgtfManual: options?.appliesIgtfManual,
+        customIvaRate: options?.customIvaRate,
+        globalDiscountPercent: options?.globalDiscountPercent
       }
     );
 
@@ -2263,7 +2437,7 @@ export class ErpStateService {
         { invoiceNumber: result.invoiceNumber, quoteStatusAfter: 'CONVERTIDO_A_FACTURA' }
       );
 
-      this.notify('success', 'Presupuesto Convertido', `El presupuesto ${quote.quoteNumber} se convirtió en ${result.invoiceNumber}`);
+      this.notify('success', 'Presupuesto Convertido', `El presupuesto ${quote.quoteNumber} se convirtió en la Factura ${result.invoiceNumber}`);
       this.saveState();
     }
 
@@ -2577,6 +2751,56 @@ export class ErpStateService {
     this.logAudit('CREATE_SUPPLIER', 'PURCHASES', `Nuevo Proveedor: ${sup.name}`, `Registro de proveedor ${sup.name} (${sup.taxId}).`, null, newSup as unknown as Record<string, unknown>);
     this.notify('success', 'Proveedor Registrado', `Proveedor ${newSup.name} añadido exitosamente.`);
     this.saveState();
+  }
+
+  // Create Customer Helper
+  createCustomer(data: {
+    taxId: string;
+    name: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+    customerType?: 'EMPRESA' | 'PERSONA_NATURAL' | 'FINAL_CONSUMIDOR';
+  }): { success: boolean; customer?: Customer; message?: string } {
+    if (!data.taxId || data.taxId.trim().length < 3) {
+      return { success: false, message: 'El Documento / RIF / Cédula es obligatorio.' };
+    }
+    if (!data.name || data.name.trim().length < 2) {
+      return { success: false, message: 'La Razón Social o Nombre del cliente es obligatorio.' };
+    }
+
+    const cleanTaxId = data.taxId.trim().toUpperCase();
+    const existing = this.customers().find(c => c.taxId.toUpperCase() === cleanTaxId);
+    if (existing) {
+      return { 
+        success: false, 
+        message: `Ya existe un cliente registrado con el documento ${cleanTaxId} (${existing.name}).`, 
+        customer: existing 
+      };
+    }
+
+    const newCustomer: Customer = {
+      id: 'cust-' + Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 6),
+      taxId: cleanTaxId,
+      name: data.name.trim(),
+      email: data.email ? data.email.trim() : '',
+      phone: data.phone ? data.phone.trim() : '',
+      address: data.address ? data.address.trim() : '',
+      customerType: data.customerType || 'EMPRESA'
+    };
+
+    this.customers.update(custs => [newCustomer, ...custs]);
+    this.logAudit(
+      'CREATE_CUSTOMER',
+      'SALES',
+      `Nuevo Cliente: ${newCustomer.name}`,
+      `Registro de nuevo cliente / receptor fiscal ${newCustomer.name} (${newCustomer.taxId}).`,
+      null,
+      newCustomer as unknown as Record<string, unknown>
+    );
+    this.notify('success', 'Cliente Registrado', `Cliente ${newCustomer.name} (${newCustomer.taxId}) registrado con éxito.`);
+    this.saveState();
+    return { success: true, customer: newCustomer };
   }
 
   // Create Quote Helper

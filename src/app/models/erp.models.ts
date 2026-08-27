@@ -27,7 +27,7 @@ export interface AuditLog {
   userId: string;
   userName: string;
   userRole: UserRole;
-  action: 'CREATE_INVOICE' | 'ADJUST_STOCK' | 'PURCHASE_RECEIPT' | 'CONVERT_QUOTE' | 'CREATE_QUOTE' | 'CASH_CLOSING' | 'USER_LOGIN' | 'CREATE_PRODUCT' | 'CREATE_SUPPLIER' | 'SYNC_BCV_RATES' | 'UPDATE_EXCHANGE_RATE' | 'UPDATE_PRODUCT_PRICES' | 'CREATE_BOM' | 'UPDATE_BOM' | 'CREATE_PRODUCTION_ORDER' | 'COMPLETE_PRODUCTION_ORDER' | 'CANCEL_PRODUCTION_ORDER' | 'CREATE_CRM_DEAL' | 'UPDATE_CRM_DEAL' | 'CREATE_JOURNAL_ENTRY' | 'CONFIG_BACKUP_SCHEDULE' | 'CREATE_BACKUP' | 'RESTORE_DATABASE';
+  action: 'CREATE_INVOICE' | 'ADJUST_STOCK' | 'PURCHASE_RECEIPT' | 'CONVERT_QUOTE' | 'CREATE_QUOTE' | 'CASH_CLOSING' | 'USER_LOGIN' | 'CREATE_PRODUCT' | 'CREATE_SUPPLIER' | 'CREATE_CUSTOMER' | 'UPDATE_CUSTOMER' | 'SYNC_BCV_RATES' | 'UPDATE_EXCHANGE_RATE' | 'UPDATE_PRODUCT_PRICES' | 'CREATE_BOM' | 'UPDATE_BOM' | 'CREATE_PRODUCTION_ORDER' | 'COMPLETE_PRODUCTION_ORDER' | 'CANCEL_PRODUCTION_ORDER' | 'CREATE_CRM_DEAL' | 'UPDATE_CRM_DEAL' | 'CREATE_JOURNAL_ENTRY' | 'CONFIG_BACKUP_SCHEDULE' | 'CREATE_BACKUP' | 'RESTORE_DATABASE';
   module: 'INVENTORY' | 'AUTH' | 'PURCHASES' | 'SALES' | 'POS' | 'FINANCE' | 'MRP' | 'CRM' | 'ACCOUNTING' | 'BACKUP';
   isCritical?: boolean;
   criticalCategory?: 'PRICE_CHANGE' | 'MANUAL_STOCK_ADJUSTMENT' | 'INVOICE_CANCEL' | 'DB_RESTORE' | 'SECURITY_ROLE';
@@ -252,12 +252,25 @@ export type PaymentMethod =
   | 'ZELLE' 
   | 'CREDITO';
 
+export interface CompanyFiscalProfile {
+  legalName: string;
+  tradeName: string;
+  taxId: string; // RIF ej. J-50493821-4
+  isSpecialTaxpayer: boolean; // Sujeto Pasivo Especial (SENIAT) - Agente de percepción IGTF 3%
+  specialTaxpayerDesignationNumber?: string; // Providencia administrativa SENIAT
+  address: string;
+  phone: string;
+  email: string;
+  defaultIvaRate: number; // 0.16 (16%)
+  igtfRate: number; // 0.03 (3%)
+}
+
 export interface PaymentRecord {
   method: PaymentMethod;
   amount: number; // amount in payment currency or base currency
   currency?: CurrencyCode; // 'USD' | 'VES' | 'EUR'
   reference?: string;
-  isForeignCurrency?: boolean; // triggers IGTF 3% if cash/foreign
+  isForeignCurrency?: boolean; // triggers IGTF 3% if cash/foreign and issuer is Special Taxpayer
 }
 
 export interface InvoiceTaxDetails {
@@ -271,6 +284,8 @@ export interface InvoiceTaxDetails {
   igtfAmount: number;    // Monto IGTF calculado
 }
 
+export type InvoiceType = 'FACTURA_ELECTRONICA' | 'BOLETA_POS' | 'TICKET_VENTA';
+
 export interface Invoice {
   id: string;
   invoiceNumber: string; // e.g. "FAC-2026-0089"
@@ -279,7 +294,7 @@ export interface Invoice {
   customerTaxId: string;
   warehouseId: string;
   date: string;
-  type: 'FACTURA_ELECTRONICA' | 'BOLETA_POS' | 'TICKET_VENTA';
+  type: InvoiceType;
   status: 'EMITIDA' | 'ANULADA';
   items: InvoiceItem[];
   
