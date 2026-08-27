@@ -1,16 +1,10 @@
-import {
-  AngularNodeAppEngine,
-  createNodeRequestHandler,
-  isMainModule,
-  writeResponseToNodeResponse,
-} from '@angular/ssr/node';
-import express from 'express';
-import {join} from 'node:path';
+import { AngularAppEngine, createRequestHandler } from '@angular/ssr';
+import { getAllowedHosts, getContext, getTrustProxyHeaders } from '@netlify/angular-runtime/app-engine.js';
 
-const browserDistFolder = join(import.meta.dirname, '../browser');
-
-const app = express();
-app.use(express.json());
+const angularAppEngine = new AngularAppEngine({
+  allowedHosts: getAllowedHosts(),
+  trustProxyHeaders: getTrustProxyHeaders(),
+});
 
 // In-Memory initial seed data for API routes
 const MOCK_PRODUCTS = [
@@ -97,112 +91,82 @@ const MOCK_SUPPLIERS = [
   { id: 'sup-02', taxId: 'J-40192833-4', name: 'ElectroGlobal S.A.C.', contactPerson: 'Lic. Mariana Vega', email: 'contacto@electroglobal.corp' }
 ];
 
-// ERP REST API Routes
-app.get('/api/products', (req, res) => {
-  res.json(MOCK_PRODUCTS);
-});
-
-app.post('/api/products', (req, res) => {
-  const newProduct = req.body;
-  newProduct.id = newProduct.id || `prod-${Date.now()}`;
-  MOCK_PRODUCTS.push(newProduct);
-  res.status(201).json(newProduct);
-});
-
-app.get('/api/warehouses', (req, res) => {
-  res.json(MOCK_WAREHOUSES);
-});
-
-app.get('/api/customers', (req, res) => {
-  res.json(MOCK_CUSTOMERS);
-});
-
-app.get('/api/suppliers', (req, res) => {
-  res.json(MOCK_SUPPLIERS);
-});
-
-app.get('/api/invoices', (req, res) => {
-  res.json([]);
-});
-
-app.post('/api/invoices', (req, res) => {
-  const newInvoice = req.body;
-  res.status(201).json(newInvoice);
-});
-
-app.get('/api/kardex', (req, res) => {
-  res.json([]);
-});
-
-app.get('/api/mrp/boms', (req, res) => {
-  res.json([]);
-});
-
-app.get('/api/mrp/orders', (req, res) => {
-  res.json([]);
-});
-
-app.get('/api/crm/deals', (req, res) => {
-  res.json([]);
-});
-
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
-});
-
-const angularApp = new AngularNodeAppEngine();
-
 /**
- * Example Express Rest API endpoints can be defined here.
- * Uncomment and define endpoints as necessary.
- *
- * Example:
- * ```ts
- * app.get('/api/{*splat}', (req, res) => {
- *   // Handle API request
- * });
- * ```
+ * Handles the mock ERP REST API routes previously served via Express.
+ * Returns `undefined` when the request isn't an API route so it falls through to Angular rendering.
  */
+async function handleApiRequest(request: Request): Promise<Response | undefined> {
+  const { pathname } = new URL(request.url);
 
-/**
- * Serve static files from /browser
- */
-app.use(
-  express.static(browserDistFolder, {
-    maxAge: '1y',
-    index: false,
-    redirect: false,
-  }),
-);
-
-/**
- * Handle all other requests by rendering the Angular application.
- */
-app.use((req, res, next) => {
-  angularApp
-    .handle(req)
-    .then((response) =>
-      response ? writeResponseToNodeResponse(response, res) : next(),
-    )
-    .catch(next);
-});
-
-/**
- * Start the server if this module is the main entry point, or it is ran via PM2.
- * The server listens on the port defined by the `PORT` environment variable, or defaults to 4000.
- */
-if (isMainModule(import.meta.url) || process.env['pm_id']) {
-  const port = process.env['PORT'] || 4000;
-  app.listen(port, (error) => {
-    if (error) {
-      throw error;
+  if (pathname === '/api/products') {
+    if (request.method === 'GET') {
+      return Response.json(MOCK_PRODUCTS);
     }
+    if (request.method === 'POST') {
+      const newProduct = await request.json();
+      newProduct.id = newProduct.id || `prod-${Date.now()}`;
+      MOCK_PRODUCTS.push(newProduct);
+      return Response.json(newProduct, { status: 201 });
+    }
+  }
 
-    console.log(`Node Express server listening on http://localhost:${port}`);
-  });
+  if (pathname === '/api/warehouses' && request.method === 'GET') {
+    return Response.json(MOCK_WAREHOUSES);
+  }
+
+  if (pathname === '/api/customers' && request.method === 'GET') {
+    return Response.json(MOCK_CUSTOMERS);
+  }
+
+  if (pathname === '/api/suppliers' && request.method === 'GET') {
+    return Response.json(MOCK_SUPPLIERS);
+  }
+
+  if (pathname === '/api/invoices') {
+    if (request.method === 'GET') {
+      return Response.json([]);
+    }
+    if (request.method === 'POST') {
+      const newInvoice = await request.json();
+      return Response.json(newInvoice, { status: 201 });
+    }
+  }
+
+  if (pathname === '/api/kardex' && request.method === 'GET') {
+    return Response.json([]);
+  }
+
+  if (pathname === '/api/mrp/boms' && request.method === 'GET') {
+    return Response.json([]);
+  }
+
+  if (pathname === '/api/mrp/orders' && request.method === 'GET') {
+    return Response.json([]);
+  }
+
+  if (pathname === '/api/crm/deals' && request.method === 'GET') {
+    return Response.json([]);
+  }
+
+  if (pathname === '/api/health' && request.method === 'GET') {
+    return Response.json({ status: 'OK', timestamp: new Date().toISOString() });
+  }
+
+  return undefined;
+}
+
+export async function netlifyAppEngineHandler(request: Request): Promise<Response> {
+  const apiResponse = await handleApiRequest(request);
+  if (apiResponse) {
+    return apiResponse;
+  }
+
+  const context = getContext();
+  const result = await angularAppEngine.handle(request, context);
+  return result || new Response('Not found', { status: 404 });
 }
 
 /**
- * Request handler used by the Angular CLI (for dev-server and during build) or Firebase Cloud Functions.
+ * The request handler used by the Angular CLI (dev-server and during build).
  */
-export const reqHandler = createNodeRequestHandler(app);
+export const reqHandler = createRequestHandler(netlifyAppEngineHandler);
