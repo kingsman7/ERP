@@ -547,7 +547,7 @@ import { ErpBackupMetadata, BackupScheduleFrequency } from '../../models/erp.mod
           <div class="flex items-center justify-between">
             <div>
               <h2 class="text-base font-bold text-slate-900">Estructura del Payload JSON & Colecciones Respaldadas</h2>
-              <p class="text-xs text-slate-500">Módulos serializados de NexusERP incluidos en cada archivo de exportación e importación.</p>
+              <p class="text-xs text-slate-500">Módulos serializados de 4-inLine incluidos en cada archivo de exportación e importación.</p>
             </div>
             <button 
               (click)="copySampleJson()"
@@ -682,7 +682,7 @@ import { ErpBackupMetadata, BackupScheduleFrequency } from '../../models/erp.mod
             <div class="border-2 border-dashed border-slate-300 hover:border-indigo-500 rounded-2xl p-8 text-center bg-slate-50/50 transition-colors">
               <mat-icon class="text-4xl text-slate-400 mb-2">cloud_upload</mat-icon>
               <div class="text-xs font-bold text-slate-800">Arrastre su archivo .json aquí o haga clic para seleccionar</div>
-              <p class="text-[11px] text-slate-500 mt-1">Formato admitido: NexusERP Full Backup JSON (*.json)</p>
+              <p class="text-[11px] text-slate-500 mt-1">Formato admitido: 4-inLine Full Backup JSON (*.json)</p>
               <input 
                 type="file" 
                 accept=".json" 
@@ -901,7 +901,7 @@ export class BackupManagementComponent {
   sampleJsonPreview = `{
   "version": "2.5.0-Enterprise",
   "exportDate": "2026-08-19T15:45:00.000Z",
-  "system": "NexusERP Enterprise Suite",
+  "system": "4-inLine Enterprise Suite",
   "checksum": "SHA256-4A9B1C2D3E4F",
   "metadata": {
     "backupCode": "BKP-20260819-1545",

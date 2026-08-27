@@ -729,7 +729,7 @@ export class SalesPosComponent {
       } else if (action.actionId === 'POS_PAY') {
         this.activeSalesTab.set('pos');
         if (this.cartItems().length > 0) {
-          this.processSale();
+          this.checkout();
         }
       }
     });

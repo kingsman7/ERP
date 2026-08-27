@@ -35,6 +35,7 @@ import {
   CriticalAuditCategory
 } from '../models/erp.models';
 import { AuthService } from './auth.service';
+import { ApiService } from './api.service';
 
 const STORAGE_KEY = 'nexus_erp_state_v1';
 
@@ -43,6 +44,20 @@ const STORAGE_KEY = 'nexus_erp_state_v1';
 })
 export class ErpStateService {
   private authService = inject(AuthService);
+  private apiService = inject(ApiService);
+
+  constructor() {
+    this.syncWithBackend();
+    this.loadPersistedState();
+  }
+
+  private syncWithBackend() {
+    this.apiService.getProducts().subscribe(data => {
+      if (data && data.length > 0) {
+        console.log('📦 Productos sincronizados desde NestJS Backend:', data);
+      }
+    });
+  }
 
   // Price Level Configurations
   readonly priceLevelConfigs: PriceLevelConfig[] = [
@@ -448,7 +463,7 @@ export class ErpStateService {
       id: 'cust-03',
       taxId: 'RFC-XAXX010101000',
       name: 'Cliente Mostrador / Venta Rápida',
-      email: 'ventasmostrador@nexuserp.local',
+      email: 'ventasmostrador@4-inLine.local',
       phone: '000-000-0000',
       address: 'Venta Directa Local',
       customerType: 'FINAL_CONSUMIDOR'
@@ -1253,7 +1268,7 @@ export class ErpStateService {
       totalDebit: 400.57,
       totalCredit: 400.57,
       status: 'ASENTADO',
-      createdBy: 'Sistema NexusERP (Automático)',
+      createdBy: 'Sistema 4-inLine (Automático)',
       createdAt: '2026-08-14 14:20:00'
     },
     {
@@ -1272,7 +1287,7 @@ export class ErpStateService {
       totalDebit: 189.00,
       totalCredit: 189.00,
       status: 'ASENTADO',
-      createdBy: 'Sistema MRP NexusERP',
+      createdBy: 'Sistema MRP 4-inLine',
       createdAt: '2026-08-12 15:30:00'
     }
   ]);
@@ -1375,10 +1390,6 @@ export class ErpStateService {
     });
     return revenue > 0 ? ((revenue - cost) / revenue) * 100 : 0;
   });
-
-  constructor() {
-    this.loadPersistedState();
-  }
 
   private loadPersistedState() {
     try {
@@ -2710,7 +2721,7 @@ export class ErpStateService {
       totalDebit,
       totalCredit,
       status: 'ASENTADO',
-      createdBy: user.name || 'Sistema NexusERP Automático',
+      createdBy: user.name || 'Sistema 4-inLine Automático',
       createdAt: nowStr
     };
 

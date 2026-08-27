@@ -53,7 +53,7 @@ interface StageColumn {
         <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
           <div>
             <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Valor Total del Pipeline</p>
-            <h3 class="text-2xl font-bold text-slate-800 mt-1">\${{ stateService.crmPipelineTotalValue().toFixed(2) }}</h3>
+            <h3 class="text-2xl font-bold text-slate-800 mt-1">{{ stateService.crmPipelineTotalValue().toFixed(2) }}</h3>
             <p class="text-[11px] text-slate-400 font-medium mt-0.5">Bs. {{ (stateService.crmPipelineTotalValue() * stateService.bcvState().usdRate).toLocaleString('es-VE', { minimumFractionDigits: 2 }) }}</p>
           </div>
           <div class="w-11 h-11 rounded-xl bg-violet-50 flex items-center justify-center text-violet-600">
@@ -64,7 +64,7 @@ interface StageColumn {
         <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
           <div>
             <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Pipeline Ponderado</p>
-            <h3 class="text-2xl font-bold text-slate-800 mt-1">\${{ stateService.crmWeightedPipelineValue().toFixed(2) }}</h3>
+            <h3 class="text-2xl font-bold text-slate-800 mt-1">{{ stateService.crmWeightedPipelineValue().toFixed(2) }}</h3>
             <p class="text-[11px] text-violet-600 font-medium mt-0.5">Ponderación según probabilidad</p>
           </div>
           <div class="w-11 h-11 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
@@ -138,7 +138,7 @@ interface StageColumn {
               <!-- Stage Total -->
               <div class="text-[11px] text-slate-500 font-mono mb-2 flex justify-between">
                 <span>Total Etapa:</span>
-                <span class="font-bold text-slate-700">\${{ getStageSum(stage.id).toFixed(2) }}</span>
+                <span class="font-bold text-slate-700">{{ getStageSum(stage.id).toFixed(2) }}</span>
               </div>
 
               <!-- Deal Cards List -->
@@ -164,7 +164,7 @@ interface StageColumn {
                     <div class="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between">
                       <div>
                         <span class="text-[10px] text-slate-400 uppercase font-semibold">Valor Estimado</span>
-                        <p class="font-bold text-slate-800 font-mono">\${{ deal.expectedValueUsd.toFixed(2) }}</p>
+                        <p class="font-bold text-slate-800 font-mono">{{ deal.expectedValueUsd.toFixed(2) }}</p>
                       </div>
                       <div class="text-right">
                         <span class="text-[10px] text-slate-400 uppercase font-semibold">Prob.</span>

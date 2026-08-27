@@ -21,16 +21,12 @@ import { User, CriticalAuditNotification, CriticalAuditCategory } from '../../mo
 
         <div class="flex items-center space-x-3">
           <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white text-lg shadow-sm">
-            N
+            4
           </div>
           <div>
             <div class="flex items-center space-x-2">
-              <span class="font-bold text-slate-800 tracking-tight text-base leading-none">NexoCore <span class="text-blue-500">ERP</span></span>
-              <span class="hidden sm:inline-block px-2 py-0.5 text-[10px] font-bold rounded-md bg-blue-50 text-blue-600 border border-blue-200/60 uppercase tracking-wider">
-                MVP Fase 1
-              </span>
+              <span class="font-bold text-slate-800 tracking-tight text-base leading-none">4-InLine <span class="text-blue-500">ERP</span></span>
             </div>
-            <p class="text-[10px] text-slate-400 font-medium leading-none mt-1 hidden sm:block">NestJS • PostgreSQL ACID • Prisma ORM • Angular</p>
           </div>
         </div>
       </div>

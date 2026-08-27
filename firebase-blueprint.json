@@ -2,7 +2,7 @@
   "entities": {
     "ErpBackup": {
       "title": "ErpBackup",
-      "description": "Snapshots de copias de seguridad de todo el sistema ERP NexusERP persistidos en Firestore",
+      "description": "Snapshots de copias de seguridad de todo el sistema ERP 4-inLine persistidos en Firestore",
       "type": "object",
       "properties": {
         "id": {
@@ -72,7 +72,7 @@
         },
         "erpVersion": {
           "type": "string",
-          "description": "Versión del sistema ERP NexusERP"
+          "description": "Versión del sistema ERP 4-inLine"
         },
         "payloadJson": {
           "type": "string",

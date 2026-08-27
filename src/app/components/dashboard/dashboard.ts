@@ -21,7 +21,7 @@ import { Invoice } from '../../models/erp.models';
             <span class="text-xs font-semibold text-emerald-600 font-mono">PostgreSQL ACID • Conectado</span>
           </div>
           <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 mt-1">
-            Centro de Operaciones ERP (Fase 1 & Fase 2 Activas)
+            Centro de Operaciones 4-inLine ERP
           </h1>
           <p class="text-xs text-slate-500 mt-0.5">
             Bienvenido, <span class="text-slate-800 font-semibold">{{ authService.currentUser().name }}</span>. Inventarios valorizados CPP, Manufactura MRP, CRM Pipeline, Facturación BCV y Contabilidad NIIF.

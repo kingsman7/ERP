@@ -65,7 +65,7 @@ export function exportInventoryToCsv(
   bcvRate: number
 ): boolean {
   const dateStr = new Date().toISOString().split('T')[0];
-  const filename = `Inventario_NexusERP_${dateStr}`;
+  const filename = `Inventario_4-inLine_${dateStr}`;
 
   const headers = [
     'ID Sistema',
@@ -155,7 +155,7 @@ export function exportSalesToCsv(
   bcvRate: number
 ): boolean {
   const dateStr = new Date().toISOString().split('T')[0];
-  const filename = `Ventas_Facturacion_NexusERP_${dateStr}`;
+  const filename = `Ventas_Facturacion_4-inLine_${dateStr}`;
 
   const headers = [
     'N° Factura / Comprobante',

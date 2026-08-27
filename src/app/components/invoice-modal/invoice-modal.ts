@@ -38,11 +38,11 @@ import { Invoice } from '../../models/erp.models';
                   <div class="w-8 h-8 rounded-lg bg-emerald-700 text-white flex items-center justify-center font-black text-base">
                     N
                   </div>
-                  <span class="font-bold text-lg text-slate-900 tracking-tight">NexusERP Corp</span>
+                  <span class="font-bold text-lg text-slate-900 tracking-tight">4-inLine Corp</span>
                 </div>
                 <p class="text-xs text-slate-500 mt-1">RIF: J-50493821-4 • Providencia Administrativa SENIAT</p>
                 <p class="text-xs text-slate-500">Av. Francisco de Miranda, Centro Financiero Torre Alpha, Piso 8</p>
-                <p class="text-xs text-slate-500">facturacion&#64;nexuserp.com • +58 212 500-8800</p>
+                <p class="text-xs text-slate-500">facturacion&#64;4-inLine.com • +58 212 500-8800</p>
               </div>
 
               <div class="text-right border border-slate-200 bg-slate-50/80 p-3 rounded-xl min-w-[210px]">

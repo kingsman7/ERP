@@ -1439,6 +1439,13 @@ export class MrpComponent {
         this.openNewBomModal();
       }
     });
+
+    if (this.stateService.boms().length > 0) {
+      this.simulatedBomId.set(this.stateService.boms()[0].id);
+    }
+    if (this.stateService.warehouses().length > 0) {
+      this.simulatedWarehouseId.set(this.stateService.warehouses()[0].id);
+    }
   }
 
   // Modals signals
@@ -1563,15 +1570,6 @@ export class MrpComponent {
       isFullyAvailable: allAvailable
     };
   });
-
-  constructor() {
-    if (this.stateService.boms().length > 0) {
-      this.simulatedBomId.set(this.stateService.boms()[0].id);
-    }
-    if (this.stateService.warehouses().length > 0) {
-      this.simulatedWarehouseId.set(this.stateService.warehouses()[0].id);
-    }
-  }
 
   onStatusFilterChange(event: Event) {
     this.selectedStatusFilter.set((event.target as HTMLSelectElement).value);

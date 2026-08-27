@@ -15,8 +15,8 @@ import { exportToCsv } from '../utils/csv-exporter';
 export class EmailNotificationService {
   private stateService = inject(ErpStateService);
 
-  private readonly CONFIG_KEY = 'nexuserp_email_config_v1';
-  private readonly ALERTS_KEY = 'nexuserp_email_alerts_v1';
+  private readonly CONFIG_KEY = '4-inLine_email_config_v1';
+  private readonly ALERTS_KEY = '4-inLine_email_alerts_v1';
 
   // Config Signal
   readonly config = signal<EmailNotificationConfig>(this.loadInitialConfig());
@@ -114,8 +114,8 @@ export class EmailNotificationService {
     return {
       enabled: true,
       recipients: ['ae.barrios@hotmail.com', 'compras@empresa.com', 'gerencia.mrp@empresa.com'],
-      senderName: 'NexusERP MRP Alert Center',
-      senderEmail: 'mrp-alerts@nexuserp.io',
+      senderName: '4-inLine MRP Alert Center',
+      senderEmail: 'mrp-alerts@4-inLine.io',
       smtpHost: 'smtp.sendgrid.net',
       smtpPort: 587,
       useTls: true,
@@ -418,7 +418,7 @@ export class EmailNotificationService {
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Alerta de Reorden de Inventario MRP - NexusERP</title>
+  <title>Alerta de Reorden de Inventario MRP - 4-inLine</title>
   <style>
     body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px; color: #1e293b; }
     .container { max-width: 620px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
@@ -526,7 +526,7 @@ export class EmailNotificationService {
     <div class="footer">
       <p><strong>Destinatarios Notificados:</strong> ${recipients.join(', ')}</p>
       <p><strong>Fecha y Hora de Emisión:</strong> ${time} | Tasa Oficial BCV: Bs. ${bcvRate.toFixed(2)} / USD</p>
-      <p style="margin-top: 8px; color: #94a3b8;">NexusERP Cloud v2.4 • Servidor SMTP Transaccional: ${this.config().smtpHost}:${this.config().smtpPort}</p>
+      <p style="margin-top: 8px; color: #94a3b8;">4-inLine Cloud v2.4 • Servidor SMTP Transaccional: ${this.config().smtpHost}:${this.config().smtpPort}</p>
     </div>
   </div>
 </body>

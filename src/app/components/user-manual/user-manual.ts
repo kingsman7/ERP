@@ -18,7 +18,7 @@ import { AuthService } from '../../services/auth.service';
             <mat-icon class="text-xl">menu_book</mat-icon>
           </div>
           <div>
-            <h1 class="text-xl font-bold text-slate-900 tracking-tight">Manual de Usuario Oficial NexusERP</h1>
+            <h1 class="text-xl font-bold text-slate-900 tracking-tight">Manual de Usuario Oficial 4-inLine</h1>
             <p class="text-xs text-slate-500">Guía integral paso a paso con ejemplos prácticos para cada módulo del sistema.</p>
           </div>
         </div>
@@ -66,7 +66,7 @@ import { AuthService } from '../../services/auth.service';
               Documentación Oficial v2.5
             </div>
             <h1 class="text-3xl md:text-4xl font-black text-slate-900 tracking-tight">
-              NexusERP Enterprise Suite
+              4-inLine Enterprise Suite
             </h1>
             <p class="text-sm text-slate-600 font-medium mt-1">
               Manual Operativo de Usuario, Flujos Transaccionales y Guía de Administración
@@ -87,7 +87,7 @@ import { AuthService } from '../../services/auth.service';
           </div>
           
           <p class="text-xs text-slate-600">
-            NexusERP implementa un modelo de Control de Acceso Basado en Roles (RBAC) estricto con tokens stateless. Cada usuario cuenta con un perfil definido que determina los permisos de visualización, edición, anulación o aprobación.
+            4-inLine implementa un modelo de Control de Acceso Basado en Roles (RBAC) estricto con tokens stateless. Cada usuario cuenta con un perfil definido que determina los permisos de visualización, edición, anulación o aprobación.
           </p>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
@@ -151,7 +151,7 @@ import { AuthService } from '../../services/auth.service';
           </div>
 
           <p class="text-xs text-slate-600">
-            NexusERP mantiene la valorización continua del inventario mediante la fórmula estándar de Costo Promedio Ponderado:
+            4-inLine mantiene la valorización continua del inventario mediante la fórmula estándar de Costo Promedio Ponderado:
           </p>
 
           <div class="p-4 rounded-xl bg-slate-900 text-slate-100 font-mono text-xs text-center border border-slate-800">
@@ -209,7 +209,7 @@ import { AuthService } from '../../services/auth.service';
           </div>
 
           <p class="text-xs text-slate-600">
-            NexusERP genera asientos de diario automáticos para cada evento operativo:
+            4-inLine genera asientos de diario automáticos para cada evento operativo:
           </p>
 
           <div class="overflow-x-auto">
@@ -250,7 +250,7 @@ import { AuthService } from '../../services/auth.service';
           </div>
 
           <p class="text-xs text-slate-600">
-            Para garantizar la resiliencia y continuidad del negocio, NexusERP integra un subsistema de respaldos en la nube sobre Google Cloud Firestore:
+            Para garantizar la resiliencia y continuidad del negocio, 4-inLine integra un subsistema de respaldos en la nube sobre Google Cloud Firestore:
           </p>
 
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
@@ -288,7 +288,7 @@ import { AuthService } from '../../services/auth.service';
 
         <!-- FOOTER SIGN OFF -->
         <div class="pt-8 border-t border-slate-200 text-center text-xs text-slate-500">
-          <p class="font-semibold text-slate-700">NexusERP Enterprise MVP Core Suite — Manual de Operaciones</p>
+          <p class="font-semibold text-slate-700">4-inLine Enterprise MVP Core Suite — Manual de Operaciones</p>
           <p class="text-[11px] text-slate-400 mt-1">Todos los derechos reservados. Diseñado para alta disponibilidad y auditoría empresarial.</p>
         </div>
 
@@ -306,12 +306,12 @@ export class UserManualComponent {
   }
 
   downloadMarkdownManual() {
-    const mdContent = `# MANUAL DE USUARIO OFICIAL - NEXUSERP ENTERPRISE SUITE
+    const mdContent = `# MANUAL DE USUARIO OFICIAL - 4-inLine ENTERPRISE SUITE
 **Versión:** 2.5.0 Enterprise NIIF
 **Fecha:** Agosto 2026
 
 ## 1. INTRODUCCIÓN Y ARQUITECTURA
-NexusERP es una plataforma integral de gestión empresarial diseñada bajo arquitectura modular, reactiva (Angular Signals) y segura (RBAC + Stateless Tokens).
+4-inLine es una plataforma integral de gestión empresarial diseñada bajo arquitectura modular, reactiva (Angular Signals) y segura (RBAC + Stateless Tokens).
 
 ## 2. ROLES DE USUARIO Y PERMISOS
 - **Super Administrador:** Acceso irrestricto, configuración contable y copias de seguridad en la nube.
@@ -344,7 +344,7 @@ NexusERP es una plataforma integral de gestión empresarial diseñada bajo arqui
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'Manual_de_Usuario_NexusERP.md';
+    a.download = 'Manual_de_Usuario_4-inLine.md';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

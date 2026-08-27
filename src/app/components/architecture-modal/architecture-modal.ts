@@ -311,7 +311,7 @@ model KardexMovement &#123;
 
         <!-- Modal Footer -->
         <div class="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
-          <span class="text-xs text-slate-500">NexusERP v1.0.0 • Stack NestJS + PostgreSQL + Prisma + Angular</span>
+          <span class="text-xs text-slate-500">4-inLine v1.0.0 • Stack NestJS + PostgreSQL + Prisma + Angular</span>
           <button (click)="closeModal.emit()" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-medium transition-colors shadow-xs">
             Cerrar Ficha
           </button>

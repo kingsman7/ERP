@@ -165,7 +165,7 @@ export class ErpBackupService {
 
     if (now >= nextRun && !this.isBackingUp()) {
       console.log('⏰ Executing scheduled automatic ERP backup to Firestore...');
-      this.createBackup('SCHEDULED', 'Respaldo automático programado del sistema NexusERP')
+      this.createBackup('SCHEDULED', 'Respaldo automático programado del sistema 4-inLine')
         .then(result => {
           if (result.success) {
             const nowIso = new Date().toISOString();
@@ -235,7 +235,7 @@ export class ErpBackupService {
 
   async createBackup(
     type: BackupType = 'MANUAL',
-    description = 'Respaldo completo de la base de datos NexusERP',
+    description = 'Respaldo completo de la base de datos 4-inLine',
     options?: { downloadJson?: boolean; name?: string }
   ): Promise<{ success: boolean; backup?: ErpBackupMetadata; error?: string }> {
     this.isBackingUp.set(true);
@@ -296,7 +296,7 @@ export class ErpBackupService {
       const fullPayload: ErpFullBackupPayload = {
         version: '2.5.0-Enterprise',
         exportDate: timestampIso,
-        system: 'NexusERP Enterprise Suite',
+        system: '4-inLine Enterprise Suite',
         checksum: '',
         metadata: backupMeta,
         data: {
@@ -343,7 +343,7 @@ export class ErpBackupService {
 
       // 5. Download JSON if requested or configured
       if (options?.downloadJson || this.scheduleConfig().autoDownloadJson) {
-        this.downloadBackupAsJson(fullPayload, `NexusERP_Respaldo_${backupCode}_${dateStr.slice(0, 8)}.json`);
+        this.downloadBackupAsJson(fullPayload, `4-inLine_Respaldo_${backupCode}_${dateStr.slice(0, 8)}.json`);
       }
 
       this.erpState.notify(
@@ -394,7 +394,7 @@ export class ErpBackupService {
         // Look in local cache
         const local = this.cloudBackups().find(b => b.id === backupId);
         if (local && local.payloadJson) {
-          this.triggerBrowserDownload(local.payloadJson, `NexusERP_Respaldo_${local.backupCode}.json`);
+          this.triggerBrowserDownload(local.payloadJson, `4-inLine_Respaldo_${local.backupCode}.json`);
           return true;
         }
         this.erpState.notify('error', 'Error de Descarga', 'No se encontró el contenido del archivo en Firestore.');
@@ -402,7 +402,7 @@ export class ErpBackupService {
       }
 
       const parsed: ErpFullBackupPayload = JSON.parse(payloadString);
-      const fileName = `NexusERP_Respaldo_${parsed.metadata?.backupCode || backupId}.json`;
+      const fileName = `4-inLine_Respaldo_${parsed.metadata?.backupCode || backupId}.json`;
       this.triggerBrowserDownload(payloadString, fileName);
       this.erpState.notify('success', 'Descarga Completa', `Archivo ${fileName} generado correctamente.`);
       return true;
@@ -496,7 +496,7 @@ export class ErpBackupService {
           const parsedPayload: ErpFullBackupPayload = JSON.parse(content);
 
           if (!parsedPayload.data || typeof parsedPayload.data !== 'object') {
-            resolve({ success: false, recordsRestored: 0, error: 'El archivo no contiene un formato de respaldo válido de NexusERP' });
+            resolve({ success: false, recordsRestored: 0, error: 'El archivo no contiene un formato de respaldo válido de 4-inLine' });
             return;
           }
 

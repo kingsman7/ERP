@@ -43,7 +43,7 @@ export const DEMO_USERS: User[] = [
   {
     id: 'usr-admin-01',
     name: 'Alejandro Morales (Admin)',
-    email: 'admin.morales@nexuserp.com',
+    email: 'admin.morales@4-inLine.com',
     role: 'ADMIN',
     avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
     lastLogin: '2026-08-18 08:30:15'
@@ -51,7 +51,7 @@ export const DEMO_USERS: User[] = [
   {
     id: 'usr-ops-02',
     name: 'Beatriz Herrera (Operaciones)',
-    email: 'b.herrera@nexuserp.com',
+    email: 'b.herrera@4-inLine.com',
     role: 'OPERATIONS_MANAGER',
     avatarUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=100&auto=format&fit=crop&q=80',
     lastLogin: '2026-08-18 07:45:00'
@@ -59,7 +59,7 @@ export const DEMO_USERS: User[] = [
   {
     id: 'usr-cash-03',
     name: 'Carlos Mendoza (Caja/POS)',
-    email: 'carlos.m@nexuserp.com',
+    email: 'carlos.m@4-inLine.com',
     role: 'CASHIER_SELLER',
     avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80',
     lastLogin: '2026-08-18 08:00:10'
@@ -67,7 +67,7 @@ export const DEMO_USERS: User[] = [
   {
     id: 'usr-wh-04',
     name: 'David Silva (Almacén)',
-    email: 'david.silva@nexuserp.com',
+    email: 'david.silva@4-inLine.com',
     role: 'WAREHOUSE_KEEPER',
     avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80',
     lastLogin: '2026-08-18 06:50:22'
@@ -75,7 +75,7 @@ export const DEMO_USERS: User[] = [
   {
     id: 'usr-aud-05',
     name: 'Elena Ramos (Auditoría)',
-    email: 'elena.auditor@nexuserp.com',
+    email: 'elena.auditor@4-inLine.com',
     role: 'AUDITOR',
     avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&auto=format&fit=crop&q=80',
     lastLogin: '2026-08-18 09:12:04'
