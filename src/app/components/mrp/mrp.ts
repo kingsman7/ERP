@@ -19,7 +19,7 @@ import { Bom, ProductionOrder, Product, EmailAlertLog } from '../../models/erp.m
         <div>
           <div class="flex items-center space-x-2 flex-wrap gap-y-1">
             <span class="px-2 py-0.5 text-[11px] font-bold rounded-md bg-amber-500/10 text-amber-600 border border-amber-500/20">
-              FASE 2 • MANUFACTURA & MRP
+              MANUFACTURA & MRP
             </span>
             <h1 class="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">
               Planificación y Control de Producción (MRP)

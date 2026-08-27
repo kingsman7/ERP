@@ -18,7 +18,7 @@ import { Account, AccountType } from '../../models/erp.models';
         <div>
           <div class="flex items-center space-x-2">
             <span class="px-2 py-0.5 text-[11px] font-bold rounded-md bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
-              FASE 2 • CONTABILIDAD NIIF
+              CONTABILIDAD NIIF
             </span>
             <h1 class="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">
               Contabilidad General, Libro Diario & Balance NIIF

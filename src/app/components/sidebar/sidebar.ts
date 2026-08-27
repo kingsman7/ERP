@@ -25,7 +25,7 @@ export type NavTab =
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [MatIconModule],
   template: `
-    <aside class="w-64 bg-[#0f172a] text-slate-300 flex flex-col justify-between h-[calc(100vh-4rem)] sticky top-16 border-r border-slate-800 select-none">
+    <aside class="w-64 bg-[#0f172a] text-slate-300 flex flex-col justify-between h-[calc(100vh-4rem)] sticky top-0 border-r border-slate-800 select-none">
       
       <!-- Top Navigation Links (Bento Style) -->
       <div class="py-4 px-3 space-y-1 overflow-y-auto">
@@ -107,7 +107,7 @@ export type NavTab =
 
         <!-- FASE 2 SECTION -->
         <div class="pt-3 px-3 pb-2 text-[10px] font-bold text-amber-400 uppercase tracking-widest flex items-center justify-between">
-          <span>Avanzado (Fase 2)</span>
+          <span>Avanzado</span>
           <span class="px-1 py-0.2 bg-amber-500/20 text-amber-300 text-[8px] rounded">ACTIVO</span>
         </div>
 
