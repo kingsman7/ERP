@@ -44,6 +44,13 @@ import { Invoice } from '../../models/erp.models';
           </button>
 
           <button 
+            (click)="navigate.emit('treasury')"
+            class="px-3.5 py-2 bg-sky-500/10 hover:bg-sky-500/20 text-sky-800 rounded-xl text-xs font-semibold flex items-center space-x-1.5 border border-sky-500/30 transition-all">
+            <mat-icon class="text-base text-sky-600">account_balance_wallet</mat-icon>
+            <span>Tesorería & CxC</span>
+          </button>
+
+          <button 
             (click)="navigate.emit('accounting')"
             class="px-3.5 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-800 rounded-xl text-xs font-semibold flex items-center space-x-1.5 border border-emerald-500/30 transition-all">
             <mat-icon class="text-base text-emerald-600">account_balance</mat-icon>

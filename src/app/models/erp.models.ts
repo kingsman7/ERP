@@ -27,8 +27,8 @@ export interface AuditLog {
   userId: string;
   userName: string;
   userRole: UserRole;
-  action: 'CREATE_INVOICE' | 'ADJUST_STOCK' | 'PURCHASE_RECEIPT' | 'CONVERT_QUOTE' | 'CREATE_QUOTE' | 'UPDATE_QUOTE_STATUS' | 'CASH_CLOSING' | 'USER_LOGIN' | 'CREATE_PRODUCT' | 'CREATE_SUPPLIER' | 'CREATE_CUSTOMER' | 'UPDATE_CUSTOMER' | 'SYNC_BCV_RATES' | 'UPDATE_EXCHANGE_RATE' | 'UPDATE_PRODUCT_PRICES' | 'CREATE_BOM' | 'UPDATE_BOM' | 'CREATE_PRODUCTION_ORDER' | 'COMPLETE_PRODUCTION_ORDER' | 'CANCEL_PRODUCTION_ORDER' | 'CREATE_CRM_DEAL' | 'UPDATE_CRM_DEAL' | 'CREATE_JOURNAL_ENTRY' | 'CONFIG_BACKUP_SCHEDULE' | 'CREATE_BACKUP' | 'RESTORE_DATABASE' | 'CREATE_DISPATCH_GUIDE' | 'UPDATE_DISPATCH_STATUS' | 'RECEIVE_DELIVERY' | 'RECEIVE_DELIVERY_ORDER' | 'CANCEL_DISPATCH_GUIDE' | 'INVOICE_DISPATCH_GUIDE';
-  module: 'INVENTORY' | 'AUTH' | 'PURCHASES' | 'SALES' | 'POS' | 'FINANCE' | 'MRP' | 'CRM' | 'ACCOUNTING' | 'BACKUP' | 'LOGISTICS';
+  action: 'CREATE_INVOICE' | 'ADJUST_STOCK' | 'PURCHASE_RECEIPT' | 'CONVERT_QUOTE' | 'CREATE_QUOTE' | 'UPDATE_QUOTE_STATUS' | 'CASH_CLOSING' | 'USER_LOGIN' | 'CREATE_PRODUCT' | 'CREATE_SUPPLIER' | 'CREATE_CUSTOMER' | 'UPDATE_CUSTOMER' | 'SYNC_BCV_RATES' | 'UPDATE_EXCHANGE_RATE' | 'UPDATE_PRODUCT_PRICES' | 'CREATE_BOM' | 'UPDATE_BOM' | 'CREATE_PRODUCTION_ORDER' | 'COMPLETE_PRODUCTION_ORDER' | 'CANCEL_PRODUCTION_ORDER' | 'CREATE_CRM_DEAL' | 'UPDATE_CRM_DEAL' | 'CREATE_JOURNAL_ENTRY' | 'CONFIG_BACKUP_SCHEDULE' | 'CREATE_BACKUP' | 'RESTORE_DATABASE' | 'CREATE_DISPATCH_GUIDE' | 'UPDATE_DISPATCH_STATUS' | 'RECEIVE_DELIVERY' | 'RECEIVE_DELIVERY_ORDER' | 'CANCEL_DISPATCH_GUIDE' | 'INVOICE_DISPATCH_GUIDE' | 'CREATE_BANK_ACCOUNT' | 'UPDATE_BANK_ACCOUNT' | 'RECORD_CXC_PAYMENT' | 'RECORD_CXP_PAYMENT' | 'RECORD_BANK_TRANSFER' | 'CREATE_PAYABLE_BILL';
+  module: 'INVENTORY' | 'AUTH' | 'PURCHASES' | 'SALES' | 'POS' | 'FINANCE' | 'MRP' | 'CRM' | 'ACCOUNTING' | 'BACKUP' | 'LOGISTICS' | 'TREASURY';
   isCritical?: boolean;
   criticalCategory?: 'PRICE_CHANGE' | 'MANUAL_STOCK_ADJUSTMENT' | 'INVOICE_CANCEL' | 'DB_RESTORE' | 'SECURITY_ROLE';
   details: {
@@ -761,7 +761,7 @@ export interface JournalEntry {
   entryNumber: string; // e.g. "ASIENTO-2026-0045"
   date: string;
   concept: string;
-  referenceType: 'VENTA' | 'COMPRA' | 'PRODUCCION' | 'AJUSTE' | 'MANUAL' | 'CIERRE_CAJA';
+  referenceType: 'VENTA' | 'COMPRA' | 'PRODUCCION' | 'AJUSTE' | 'MANUAL' | 'CIERRE_CAJA' | 'COBRO_CXC' | 'PAGO_CXP' | 'TRANSFERENCIA_BANCO';
   referenceId?: string;
   lines: JournalEntryLine[];
   totalDebit: number;
@@ -909,10 +909,144 @@ export interface ErpFullBackupPayload {
     users: User[];
     auditLogs: AuditLog[];
     emailAlertLogs: EmailAlertLog[];
+    bankAccounts?: BankAccount[];
+    payableBills?: PayableBill[];
+    treasuryTransactions?: TreasuryTransaction[];
     notificationConfig?: EmailNotificationConfig;
     backupScheduleConfig?: BackupScheduleConfig;
   };
 }
+
+// ============================================================================
+// FASE 2: MODELOS DE TESORERÍA, BANCOS, CUENTAS POR COBRAR (CxC) Y POR PAGAR (CxP)
+// ============================================================================
+
+export type BankAccountType = 
+  | 'CORRIENTE_VES' 
+  | 'AHORRO_VES' 
+  | 'CUSTODIA_DIVISAS_VES' 
+  | 'EXTRANJERA_USD' 
+  | 'CAJA_EFECTIVO_USD' 
+  | 'CAJA_EFECTIVO_VES' 
+  | 'BILLETERA_DIGITAL';
+
+export interface BankAccount {
+  id: string;
+  accountName: string; // e.g. "Banesco Corriente Principal"
+  bankName: string; // e.g. "Banesco Banco Universal"
+  accountNumber: string; // e.g. "0134-0987-12-0001928374"
+  accountType: BankAccountType;
+  currency: 'VES' | 'USD' | 'EUR';
+  balance: number; // Saldo en moneda de la cuenta
+  balanceUsd: number; // Saldo equivalente en USD
+  balanceVes: number; // Saldo equivalente en Bolívares
+  glAccountCode: string; // Cuenta contable NIIF (e.g. "1.1.01.01" o "1.1.01.02")
+  holderName: string;
+  holderTaxId: string;
+  status: 'ACTIVE' | 'INACTIVE';
+  isDefault?: boolean;
+  notes?: string;
+  updatedAt: string;
+}
+
+export type TreasuryTransactionType = 
+  | 'COBRO_CXC' 
+  | 'PAGO_CXP' 
+  | 'TRANSFERENCIA_BANCO' 
+  | 'INGRESO_EXTRA' 
+  | 'GASTO_OPERATIVO' 
+  | 'VENTA_CONTADO_POS';
+
+export interface TreasuryTransaction {
+  id: string;
+  transactionNumber: string; // e.g. "TES-2026-0045"
+  type: TreasuryTransactionType;
+  date: string;
+  bankAccountId: string;
+  bankAccountName: string;
+  destinationBankAccountId?: string;
+  destinationBankAccountName?: string;
+  amount: number; // Monto en la moneda original de la transacción
+  amountUsd: number; // Equivalente en USD
+  amountVes: number; // Equivalente en VES
+  currency: 'USD' | 'VES' | 'EUR';
+  bcvRate: number;
+  paymentMethod: PaymentMethod;
+  referenceNumber: string; // Número de referencia o confirmación bancaria
+  entityType?: 'CLIENTE' | 'PROVEEDOR' | 'INTERNO' | 'OTRO';
+  entityId?: string;
+  entityName?: string;
+  documentNumber?: string; // Número de factura o factura de compra relacionada
+  concept: string;
+  journalEntryId?: string;
+  status: 'CONCILIADO' | 'PENDIENTE' | 'ANULADO';
+  registeredBy: string;
+  createdAt: string;
+}
+
+export interface CustomerPaymentReceipt {
+  id: string;
+  receiptNumber: string; // e.g. "REC-2026-0012"
+  invoiceId: string;
+  invoiceNumber: string;
+  date: string;
+  amountUsd: number;
+  amountVes: number;
+  currencyPaid: 'USD' | 'VES' | 'EUR';
+  bcvRate: number;
+  paymentMethod: PaymentMethod;
+  bankAccountId: string;
+  bankAccountName: string;
+  referenceNumber: string;
+  receivedBy: string;
+  notes?: string;
+}
+
+export interface SupplierPaymentReceipt {
+  id: string;
+  paymentNumber: string; // e.g. "OP-2026-0012"
+  payableBillId: string;
+  billNumber: string;
+  date: string;
+  amountUsd: number;
+  amountVes: number;
+  currencyPaid: 'USD' | 'VES' | 'EUR';
+  bcvRate: number;
+  paymentMethod: PaymentMethod;
+  bankAccountId: string;
+  bankAccountName: string;
+  referenceNumber: string;
+  approvedBy: string;
+  notes?: string;
+}
+
+export type PayableBillStatus = 'PENDIENTE' | 'PARCIAL' | 'PAGADO' | 'VENCIDO' | 'ANULADO';
+
+export interface PayableBill {
+  id: string;
+  billNumber: string; // e.g. "FP-2026-0034"
+  purchaseOrderId?: string;
+  purchaseOrderNumber?: string;
+  supplierId: string;
+  supplierName: string;
+  supplierTaxId: string;
+  issueDate: string;
+  dueDate: string;
+  totalAmountUsd: number;
+  totalAmountVes: number;
+  paidAmountUsd: number;
+  paidAmountVes: number;
+  balanceUsd: number;
+  balanceVes: number;
+  status: PayableBillStatus;
+  glAccountExpenseCode: string; // e.g. "5.1.01.01" (Costo) o "6.1.01.01" (Gasto)
+  glAccountPayableCode: string; // e.g. "2.1.01.01" (Cuentas por Pagar Proveedores)
+  category: string;
+  notes?: string;
+  payments: SupplierPaymentReceipt[];
+  createdAt: string;
+}
+
 
 
 

@@ -17,6 +17,7 @@ import { QuotesComponent } from './components/quotes/quotes';
 import { LogisticsComponent } from './components/logistics/logistics';
 import { MrpComponent } from './components/mrp/mrp';
 import { CrmComponent } from './components/crm/crm';
+import { TreasuryComponent } from './components/treasury/treasury';
 import { AccountingComponent } from './components/accounting/accounting';
 import { CashClosingComponent } from './components/cash-closing/cash-closing';
 import { UserManagementComponent } from './components/user-management/user-management';
@@ -45,6 +46,7 @@ import { KeyboardShortcutsModalComponent } from './components/keyboard-shortcuts
     LogisticsComponent,
     MrpComponent,
     CrmComponent,
+    TreasuryComponent,
     AccountingComponent,
     CashClosingComponent,
     UserManagementComponent,

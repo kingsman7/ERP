@@ -40,7 +40,13 @@ import {
   DispatchItem,
   CarrierType,
   TransportReason,
-  DeliveryReceptionDetails
+  DeliveryReceptionDetails,
+  BankAccount,
+  TreasuryTransaction,
+  CustomerPaymentReceipt,
+  SupplierPaymentReceipt,
+  PayableBill,
+  PayableBillStatus
 } from '../models/erp.models';
 import { AuthService } from './auth.service';
 import { ApiService } from './api.service';
@@ -1551,6 +1557,336 @@ export class ErpStateService {
     }
   ]);
 
+  // ============================================================================
+  // FASE 2: SEÑALES REACTIVAS DE TESORERÍA, BANCOS, CxC Y CxP
+  // ============================================================================
+  readonly bankAccounts = signal<BankAccount[]>([
+    {
+      id: 'bank-01',
+      accountName: 'Banesco Banco Universal - Cta Corriente Principal',
+      bankName: 'Banesco',
+      accountNumber: '0134-0987-12-0001928374',
+      accountType: 'CORRIENTE_VES',
+      currency: 'VES',
+      balance: 450000.00,
+      balanceUsd: 12328.76,
+      balanceVes: 450000.00,
+      glAccountCode: '1.1.01.02',
+      holderName: 'Corporación Industrial 4-InLine C.A.',
+      holderTaxId: 'J-50493821-4',
+      status: 'ACTIVE',
+      isDefault: true,
+      updatedAt: '2026-08-28 10:00:00'
+    },
+    {
+      id: 'bank-02',
+      accountName: 'Banco Mercantil - Cta Recaudadora & Pago Móvil',
+      bankName: 'Mercantil',
+      accountNumber: '0105-0123-45-1234567890',
+      accountType: 'CORRIENTE_VES',
+      currency: 'VES',
+      balance: 185000.00,
+      balanceUsd: 5068.49,
+      balanceVes: 185000.00,
+      glAccountCode: '1.1.01.02',
+      holderName: 'Corporación Industrial 4-InLine C.A.',
+      holderTaxId: 'J-50493821-4',
+      status: 'ACTIVE',
+      isDefault: false,
+      updatedAt: '2026-08-28 10:00:00'
+    },
+    {
+      id: 'bank-03',
+      accountName: 'Banesco Panamá - Divisas USD Corporativo',
+      bankName: 'Banesco Panamá',
+      accountNumber: 'PA98-BANE-0012-9876-5432',
+      accountType: 'EXTRANJERA_USD',
+      currency: 'USD',
+      balance: 14200.00,
+      balanceUsd: 14200.00,
+      balanceVes: 518300.00,
+      glAccountCode: '1.1.01.02',
+      holderName: 'Corporación Industrial 4-InLine C.A.',
+      holderTaxId: 'J-50493821-4',
+      status: 'ACTIVE',
+      isDefault: false,
+      updatedAt: '2026-08-28 10:00:00'
+    },
+    {
+      id: 'bank-04',
+      accountName: 'JPMorgan Chase / Zelle Oficial',
+      bankName: 'Chase Bank / Zelle',
+      accountNumber: 'pagos@4inline.com',
+      accountType: 'BILLETERA_DIGITAL',
+      currency: 'USD',
+      balance: 8500.00,
+      balanceUsd: 8500.00,
+      balanceVes: 310250.00,
+      glAccountCode: '1.1.01.02',
+      holderName: 'Corporación Industrial 4-InLine C.A.',
+      holderTaxId: 'J-50493821-4',
+      status: 'ACTIVE',
+      isDefault: false,
+      updatedAt: '2026-08-28 10:00:00'
+    },
+    {
+      id: 'bank-05',
+      accountName: 'Caja Bóveda - Efectivo Divisas USD',
+      bankName: 'Bóveda Principal',
+      accountNumber: 'CAJA-USD-01',
+      accountType: 'CAJA_EFECTIVO_USD',
+      currency: 'USD',
+      balance: 2450.00,
+      balanceUsd: 2450.00,
+      balanceVes: 89425.00,
+      glAccountCode: '1.1.01.01',
+      holderName: 'Custodia Tesorería',
+      holderTaxId: 'J-50493821-4',
+      status: 'ACTIVE',
+      isDefault: false,
+      updatedAt: '2026-08-28 10:00:00'
+    }
+  ]);
+
+  readonly payableBills = signal<PayableBill[]>([
+    {
+      id: 'pb-01',
+      billNumber: 'FP-2026-0038',
+      purchaseOrderId: 'po-01',
+      purchaseOrderNumber: 'OC-2026-0038',
+      supplierId: 'sup-01',
+      supplierName: 'Distribuidora Industrial del Norte S.A.',
+      supplierTaxId: 'J-30948572-1',
+      issueDate: '2026-08-10',
+      dueDate: '2026-09-09',
+      totalAmountUsd: 1218.00,
+      totalAmountVes: 44457.00,
+      paidAmountUsd: 0,
+      paidAmountVes: 0,
+      balanceUsd: 1218.00,
+      balanceVes: 44457.00,
+      status: 'PENDIENTE',
+      glAccountExpenseCode: '1.1.03.01',
+      glAccountPayableCode: '2.1.01.01',
+      category: 'Mercancía e Inventario',
+      notes: 'Compra de 25 Taladros Percutores. Crédito comercial acordado a 30 días.',
+      payments: [],
+      createdAt: '2026-08-10 09:30:00'
+    },
+    {
+      id: 'pb-02',
+      billNumber: 'FP-2026-0041',
+      supplierId: 'sup-02',
+      supplierName: 'Importadora & Mayorista Eléctrica C.A.',
+      supplierTaxId: 'J-40192834-5',
+      issueDate: '2026-08-05',
+      dueDate: '2026-08-20',
+      totalAmountUsd: 2982.00,
+      totalAmountVes: 108843.00,
+      paidAmountUsd: 1000.00,
+      paidAmountVes: 36500.00,
+      balanceUsd: 1982.00,
+      balanceVes: 72343.00,
+      status: 'VENCIDO',
+      glAccountExpenseCode: '1.1.03.01',
+      glAccountPayableCode: '2.1.01.01',
+      category: 'Suministros Eléctricos',
+      notes: 'Bobinas de Cable Cat6 y Disyuntores. Abono de $1,000.00 registrado.',
+      payments: [
+        {
+          id: 'pay-001',
+          paymentNumber: 'OP-2026-0001',
+          payableBillId: 'pb-02',
+          billNumber: 'FP-2026-0041',
+          date: '2026-08-15 11:00:00',
+          amountUsd: 1000.00,
+          amountVes: 36500.00,
+          currencyPaid: 'USD',
+          bcvRate: 36.50,
+          paymentMethod: 'TRANSFERENCIA',
+          bankAccountId: 'bank-03',
+          bankAccountName: 'Banesco Panamá',
+          referenceNumber: 'TRF-PA-89012',
+          approvedBy: 'Alejandro Morales (Admin)',
+          notes: 'Abono parcial de tesorería'
+        }
+      ],
+      createdAt: '2026-08-05 14:00:00'
+    },
+    {
+      id: 'pb-03',
+      billNumber: 'FP-2026-0045',
+      supplierId: 'sup-03',
+      supplierName: 'Fábrica Nacional de Tornillos y Fijaciones C.A.',
+      supplierTaxId: 'J-50182934-2',
+      issueDate: '2026-08-18',
+      dueDate: '2026-09-02',
+      totalAmountUsd: 580.00,
+      totalAmountVes: 21170.00,
+      paidAmountUsd: 0,
+      paidAmountVes: 0,
+      balanceUsd: 580.00,
+      balanceVes: 21170.00,
+      status: 'PENDIENTE',
+      glAccountExpenseCode: '1.1.03.01',
+      glAccountPayableCode: '2.1.01.01',
+      category: 'Fijaciones & Ferretería',
+      notes: 'Lote de tornillos drywall y tacos de fijación.',
+      payments: [],
+      createdAt: '2026-08-18 10:00:00'
+    }
+  ]);
+
+  readonly treasuryTransactions = signal<TreasuryTransaction[]>([
+    {
+      id: 'tx-001',
+      transactionNumber: 'TES-2026-0001',
+      type: 'COBRO_CXC',
+      date: '2026-08-14 14:20:00',
+      bankAccountId: 'bank-01',
+      bankAccountName: 'Banesco Corriente Principal',
+      amount: 10021.81,
+      amountUsd: 274.57,
+      amountVes: 10021.81,
+      currency: 'VES',
+      bcvRate: 36.50,
+      paymentMethod: 'TRANSFERENCIA',
+      referenceNumber: 'TRF-BBVA-90812',
+      entityType: 'CLIENTE',
+      entityId: 'cust-01',
+      entityName: 'Constructora San Martín S.A.C.',
+      documentNumber: 'FAC-2026-0081',
+      concept: 'Cobro de Factura FAC-2026-0081 por venta de herramientas',
+      journalEntryId: 'as-001',
+      status: 'CONCILIADO',
+      registeredBy: 'Carlos Mendoza',
+      createdAt: '2026-08-14 14:20:00'
+    },
+    {
+      id: 'tx-002',
+      transactionNumber: 'TES-2026-0002',
+      type: 'PAGO_CXP',
+      date: '2026-08-15 11:00:00',
+      bankAccountId: 'bank-03',
+      bankAccountName: 'Banesco Panamá',
+      amount: 1000.00,
+      amountUsd: 1000.00,
+      amountVes: 36500.00,
+      currency: 'USD',
+      bcvRate: 36.50,
+      paymentMethod: 'TRANSFERENCIA',
+      referenceNumber: 'TRF-PA-89012',
+      entityType: 'PROVEEDOR',
+      entityId: 'sup-02',
+      entityName: 'Importadora & Mayorista Eléctrica C.A.',
+      documentNumber: 'FP-2026-0041',
+      concept: 'Abono a Factura Proveedor FP-2026-0041',
+      status: 'CONCILIADO',
+      registeredBy: 'Alejandro Morales (Admin)',
+      createdAt: '2026-08-15 11:00:00'
+    }
+  ]);
+
+  // Computed Treasury & Banking Metrics
+  readonly totalBankLiquidityUsd = computed(() => {
+    return this.bankAccounts().reduce((sum, b) => sum + (b.status === 'ACTIVE' ? b.balanceUsd : 0), 0);
+  });
+
+  readonly totalBankLiquidityVes = computed(() => {
+    return this.bankAccounts().reduce((sum, b) => sum + (b.status === 'ACTIVE' ? b.balanceVes : 0), 0);
+  });
+
+  // Clientes con cuentas por cobrar (facturas con saldo pendiente)
+  readonly customerReceivables = computed(() => {
+    const rate = this.bcvState().usdRate || 36.50;
+    const invs = this.invoices().filter(inv => inv.status === 'EMITIDA');
+    
+    return invs.map(inv => {
+      const paidUsd = (inv.payments || []).reduce((s, p) => {
+        if (p.method === 'CREDITO') return s;
+        if (p.currency === 'VES') {
+          return s + (p.amount / (inv.bcvRate || rate));
+        }
+        return s + p.amount;
+      }, 0);
+      
+      const balanceUsd = Math.max(0, Number((inv.total - paidUsd).toFixed(2)));
+      const balanceVes = Number((balanceUsd * (inv.bcvRate || rate)).toFixed(2));
+      const isCredit = inv.payments?.some(p => p.method === 'CREDITO') || paidUsd < inv.total;
+      
+      const invDate = new Date(inv.date.replace(' ', 'T'));
+      const dueDate = new Date(invDate.getTime() + 15 * 24 * 60 * 60 * 1000);
+      const isOverdue = Date.now() > dueDate.getTime() && balanceUsd > 0.01;
+      
+      let status: 'COBRADO' | 'PENDIENTE' | 'PARCIAL' | 'VENCIDO' = 'COBRADO';
+      if (balanceUsd > 0.01) {
+        if (isOverdue) {
+          status = 'VENCIDO';
+        } else if (paidUsd > 0.01) {
+          status = 'PARCIAL';
+        } else {
+          status = 'PENDIENTE';
+        }
+      }
+
+      return {
+        id: 'cxc-' + inv.id,
+        invoiceId: inv.id,
+        invoiceNumber: inv.invoiceNumber,
+        customerId: inv.customerId,
+        customerName: inv.customerName,
+        customerTaxId: inv.customerTaxId,
+        date: inv.date,
+        dueDate: dueDate.toISOString().substring(0, 10),
+        totalUsd: inv.total,
+        totalVes: inv.totalVes,
+        paidUsd: Number(paidUsd.toFixed(2)),
+        paidVes: Number((paidUsd * (inv.bcvRate || rate)).toFixed(2)),
+        balanceUsd,
+        balanceVes,
+        status,
+        bcvRate: inv.bcvRate || rate,
+        isCredit
+      };
+    });
+  });
+
+  readonly pendingCustomerReceivables = computed(() => {
+    return this.customerReceivables().filter(r => r.balanceUsd > 0.01);
+  });
+
+  readonly totalReceivablesUsd = computed(() => {
+    return this.pendingCustomerReceivables().reduce((sum, r) => sum + r.balanceUsd, 0);
+  });
+
+  readonly totalReceivablesVes = computed(() => {
+    return this.pendingCustomerReceivables().reduce((sum, r) => sum + r.balanceVes, 0);
+  });
+
+  readonly overdueReceivablesCount = computed(() => {
+    return this.customerReceivables().filter(r => r.status === 'VENCIDO').length;
+  });
+
+  readonly totalPayablesUsd = computed(() => {
+    return this.payableBills()
+      .filter(b => b.status !== 'PAGADO' && b.status !== 'ANULADO')
+      .reduce((sum, b) => sum + b.balanceUsd, 0);
+  });
+
+  readonly totalPayablesVes = computed(() => {
+    return this.payableBills()
+      .filter(b => b.status !== 'PAGADO' && b.status !== 'ANULADO')
+      .reduce((sum, b) => sum + b.balanceVes, 0);
+  });
+
+  readonly overduePayablesCount = computed(() => {
+    return this.payableBills().filter(b => b.status === 'VENCIDO').length;
+  });
+
+  readonly netTreasuryPositionUsd = computed(() => {
+    return this.totalBankLiquidityUsd() + this.totalReceivablesUsd() - this.totalPayablesUsd();
+  });
+
   // Computed Accounting Balances
   readonly totalAccountingAssets = computed(() => {
     return this.accounts()
@@ -1680,6 +2016,9 @@ export class ErpStateService {
           if (parsed.crmDeals) this.crmDeals.set(parsed.crmDeals);
           if (parsed.accounts) this.accounts.set(parsed.accounts);
           if (parsed.journalEntries) this.journalEntries.set(parsed.journalEntries);
+          if (parsed.bankAccounts) this.bankAccounts.set(parsed.bankAccounts);
+          if (parsed.payableBills) this.payableBills.set(parsed.payableBills);
+          if (parsed.treasuryTransactions) this.treasuryTransactions.set(parsed.treasuryTransactions);
           if (parsed.companyProfile) this.companyProfile.set(parsed.companyProfile);
         }
       }
@@ -1709,6 +2048,9 @@ export class ErpStateService {
           crmDeals: this.crmDeals(),
           accounts: this.accounts(),
           journalEntries: this.journalEntries(),
+          bankAccounts: this.bankAccounts(),
+          payableBills: this.payableBills(),
+          treasuryTransactions: this.treasuryTransactions(),
           companyProfile: this.companyProfile()
         };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -3908,7 +4250,7 @@ export class ErpStateService {
   // ============================================================================
 
   generateAutomatedJournalEntry(
-    referenceType: 'VENTA' | 'COMPRA' | 'PRODUCCION' | 'AJUSTE' | 'MANUAL' | 'CIERRE_CAJA',
+    referenceType: 'VENTA' | 'COMPRA' | 'PRODUCCION' | 'AJUSTE' | 'MANUAL' | 'CIERRE_CAJA' | 'COBRO_CXC' | 'PAGO_CXP' | 'TRANSFERENCIA_BANCO',
     referenceId: string,
     concept: string,
     lines: JournalEntryLine[]
@@ -4000,6 +4342,587 @@ export class ErpStateService {
     this.notify('success', 'Asiento Contable Registrado', `Asiento ${entry.entryNumber} mayorizado correctamente.`);
     this.saveState();
     return { success: true, entryNumber: entry.entryNumber };
+  }
+
+  // ============================================================================
+  // FASE 2: MÉTODOS TRANSACCIONALES DE TESORERÍA, BANCOS, CxC Y CxP
+  // ============================================================================
+
+  // 1. Registro de Cobro de Factura de Cliente (CxC)
+  recordCxcCollection(data: {
+    invoiceId: string;
+    amountUsd: number;
+    amountVes?: number;
+    paymentMethod: PaymentMethod;
+    bankAccountId: string;
+    referenceNumber: string;
+    notes?: string;
+  }): { success: boolean; message?: string; receipt?: CustomerPaymentReceipt } {
+    const inv = this.invoices().find(i => i.id === data.invoiceId);
+    if (!inv) return { success: false, message: 'Factura no encontrada.' };
+
+    const bank = this.bankAccounts().find(b => b.id === data.bankAccountId);
+    if (!bank) return { success: false, message: 'Cuenta bancaria o de caja no encontrada.' };
+
+    const rate = inv.bcvRate || this.bcvState().usdRate || 36.50;
+    const amountUsd = Number(data.amountUsd.toFixed(2));
+    const amountVes = data.amountVes ? Number(data.amountVes.toFixed(2)) : Number((amountUsd * rate).toFixed(2));
+    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    const user = this.authService.currentUser();
+    const receiptNumber = 'REC-2026-' + (this.treasuryTransactions().length + 1).toString().padStart(4, '0');
+
+    const newPaymentRecord: PaymentRecord = {
+      method: data.paymentMethod,
+      amount: bank.currency === 'VES' ? amountVes : amountUsd,
+      currency: bank.currency,
+      reference: data.referenceNumber,
+      isForeignCurrency: bank.currency === 'USD' || bank.currency === 'EUR'
+    };
+
+    // Actualizar factura agregando el pago
+    const updatedPayments = [...(inv.payments || []), newPaymentRecord];
+    this.invoices.update(invs =>
+      invs.map(item => item.id === inv.id ? { ...item, payments: updatedPayments } : item)
+    );
+
+    // Actualizar saldo de la cuenta bancaria
+    this.bankAccounts.update(banks =>
+      banks.map(b => {
+        if (b.id === bank.id) {
+          const deltaBal = b.currency === 'VES' ? amountVes : amountUsd;
+          const newBal = b.balance + deltaBal;
+          return {
+            ...b,
+            balance: Number(newBal.toFixed(2)),
+            balanceUsd: Number((b.currency === 'VES' ? newBal / rate : newBal).toFixed(2)),
+            balanceVes: Number((b.currency === 'VES' ? newBal : newBal * rate).toFixed(2)),
+            updatedAt: nowStr
+          };
+        }
+        return b;
+      })
+    );
+
+    // Registrar transacción de tesorería
+    const txId = 'tx-' + Date.now().toString(36);
+    const newTx: TreasuryTransaction = {
+      id: txId,
+      transactionNumber: 'TES-2026-' + (this.treasuryTransactions().length + 1).toString().padStart(4, '0'),
+      type: 'COBRO_CXC',
+      date: nowStr,
+      bankAccountId: bank.id,
+      bankAccountName: bank.accountName,
+      amount: bank.currency === 'VES' ? amountVes : amountUsd,
+      amountUsd,
+      amountVes,
+      currency: bank.currency,
+      bcvRate: rate,
+      paymentMethod: data.paymentMethod,
+      referenceNumber: data.referenceNumber || 'N/A',
+      entityType: 'CLIENTE',
+      entityId: inv.customerId,
+      entityName: inv.customerName,
+      documentNumber: inv.invoiceNumber,
+      concept: `Cobro CxC Factura ${inv.invoiceNumber} - ${inv.customerName}${data.notes ? ' (' + data.notes + ')' : ''}`,
+      status: 'CONCILIADO',
+      registeredBy: user.name || 'Admin',
+      createdAt: nowStr
+    };
+
+    // Generar Asiento Contable Automático: Debe Banco / Haber Cuentas por Cobrar
+    const bankAccountGl = this.accounts().find(a => a.code === bank.glAccountCode) || this.accounts().find(a => a.code === '1.1.01.02')!;
+    const cxcAccountGl = this.accounts().find(a => a.code === '1.1.02.01')!;
+
+    const journalEntry = this.generateAutomatedJournalEntry(
+      'COBRO_CXC',
+      inv.invoiceNumber,
+      `Cobro CxC Factura ${inv.invoiceNumber} de ${inv.customerName}`,
+      [
+        {
+          accountId: bankAccountGl.id,
+          accountCode: bankAccountGl.code,
+          accountName: bankAccountGl.name,
+          description: `Ingreso a ${bank.bankName} (${data.paymentMethod}) Ref: ${data.referenceNumber}`,
+          debit: amountUsd,
+          credit: 0
+        },
+        {
+          accountId: cxcAccountGl.id,
+          accountCode: cxcAccountGl.code,
+          accountName: cxcAccountGl.name,
+          description: `Abono/Cancelación deuda cliente ${inv.customerName}`,
+          debit: 0,
+          credit: amountUsd
+        }
+      ]
+    );
+
+    newTx.journalEntryId = journalEntry.id;
+    this.treasuryTransactions.update(txs => [newTx, ...txs]);
+
+    const receipt: CustomerPaymentReceipt = {
+      id: 'rec-' + Date.now().toString(36),
+      receiptNumber,
+      invoiceId: inv.id,
+      invoiceNumber: inv.invoiceNumber,
+      date: nowStr,
+      amountUsd,
+      amountVes,
+      currencyPaid: bank.currency,
+      bcvRate: rate,
+      paymentMethod: data.paymentMethod,
+      bankAccountId: bank.id,
+      bankAccountName: bank.accountName,
+      referenceNumber: data.referenceNumber,
+      receivedBy: user.name || 'Admin',
+      notes: data.notes
+    };
+
+    this.logAudit(
+      'RECORD_CXC_PAYMENT',
+      'TREASURY',
+      `Cobro Registrado ${inv.invoiceNumber}`,
+      `Cobro de $${amountUsd.toFixed(2)} (Bs. ${amountVes.toLocaleString('es-VE')}) acreditado en ${bank.accountName}. Asiento ${journalEntry.entryNumber}.`,
+      null,
+      receipt as unknown as Record<string, unknown>
+    );
+
+    this.notify('success', 'Cobro Registrado con Éxito', `Se registró cobro de $${amountUsd.toFixed(2)} para la factura ${inv.invoiceNumber}.`);
+    this.saveState();
+    return { success: true, receipt };
+  }
+
+  // 2. Registro de Pago a Factura de Proveedor (CxP)
+  recordCxpPayment(data: {
+    payableBillId: string;
+    amountUsd: number;
+    amountVes?: number;
+    paymentMethod: PaymentMethod;
+    bankAccountId: string;
+    referenceNumber: string;
+    notes?: string;
+  }): { success: boolean; message?: string; receipt?: SupplierPaymentReceipt } {
+    const bill = this.payableBills().find(b => b.id === data.payableBillId);
+    if (!bill) return { success: false, message: 'Factura por pagar no encontrada.' };
+
+    const bank = this.bankAccounts().find(b => b.id === data.bankAccountId);
+    if (!bank) return { success: false, message: 'Cuenta bancaria o de caja no encontrada.' };
+
+    const rate = this.bcvState().usdRate || 36.50;
+    const amountUsd = Number(data.amountUsd.toFixed(2));
+    const amountVes = data.amountVes ? Number(data.amountVes.toFixed(2)) : Number((amountUsd * rate).toFixed(2));
+
+    if (amountUsd > bill.balanceUsd + 0.05) {
+      return { success: false, message: `El monto a pagar ($${amountUsd.toFixed(2)}) supera el saldo pendiente ($${bill.balanceUsd.toFixed(2)}).` };
+    }
+
+    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    const user = this.authService.currentUser();
+    const paymentNumber = 'OP-2026-' + (this.treasuryTransactions().length + 1).toString().padStart(4, '0');
+
+    const paymentReceipt: SupplierPaymentReceipt = {
+      id: 'pay-' + Date.now().toString(36),
+      paymentNumber,
+      payableBillId: bill.id,
+      billNumber: bill.billNumber,
+      date: nowStr,
+      amountUsd,
+      amountVes,
+      currencyPaid: bank.currency,
+      bcvRate: rate,
+      paymentMethod: data.paymentMethod,
+      bankAccountId: bank.id,
+      bankAccountName: bank.accountName,
+      referenceNumber: data.referenceNumber,
+      approvedBy: user.name || 'Admin',
+      notes: data.notes
+    };
+
+    const newPaidUsd = Number((bill.paidAmountUsd + amountUsd).toFixed(2));
+    const newPaidVes = Number((newPaidUsd * rate).toFixed(2));
+    const newBalanceUsd = Math.max(0, Number((bill.totalAmountUsd - newPaidUsd).toFixed(2)));
+    const newBalanceVes = Number((newBalanceUsd * rate).toFixed(2));
+    const newStatus: PayableBillStatus = newBalanceUsd <= 0.01 ? 'PAGADO' : 'PARCIAL';
+
+    // Actualizar la factura por pagar
+    this.payableBills.update(bills =>
+      bills.map(item =>
+        item.id === bill.id
+          ? {
+              ...item,
+              paidAmountUsd: newPaidUsd,
+              paidAmountVes: newPaidVes,
+              balanceUsd: newBalanceUsd,
+              balanceVes: newBalanceVes,
+              status: newStatus,
+              payments: [paymentReceipt, ...(item.payments || [])]
+            }
+          : item
+      )
+    );
+
+    // Actualizar saldo de la cuenta bancaria (Deducción)
+    this.bankAccounts.update(banks =>
+      banks.map(b => {
+        if (b.id === bank.id) {
+          const deltaBal = b.currency === 'VES' ? amountVes : amountUsd;
+          const newBal = b.balance - deltaBal;
+          return {
+            ...b,
+            balance: Number(newBal.toFixed(2)),
+            balanceUsd: Number((b.currency === 'VES' ? newBal / rate : newBal).toFixed(2)),
+            balanceVes: Number((b.currency === 'VES' ? newBal : newBal * rate).toFixed(2)),
+            updatedAt: nowStr
+          };
+        }
+        return b;
+      })
+    );
+
+    // Registrar transacción de tesorería
+    const txId = 'tx-' + Date.now().toString(36);
+    const newTx: TreasuryTransaction = {
+      id: txId,
+      transactionNumber: 'TES-2026-' + (this.treasuryTransactions().length + 1).toString().padStart(4, '0'),
+      type: 'PAGO_CXP',
+      date: nowStr,
+      bankAccountId: bank.id,
+      bankAccountName: bank.accountName,
+      amount: bank.currency === 'VES' ? amountVes : amountUsd,
+      amountUsd,
+      amountVes,
+      currency: bank.currency,
+      bcvRate: rate,
+      paymentMethod: data.paymentMethod,
+      referenceNumber: data.referenceNumber || 'N/A',
+      entityType: 'PROVEEDOR',
+      entityId: bill.supplierId,
+      entityName: bill.supplierName,
+      documentNumber: bill.billNumber,
+      concept: `Pago CxP Factura Proveedor ${bill.billNumber} - ${bill.supplierName}${data.notes ? ' (' + data.notes + ')' : ''}`,
+      status: 'CONCILIADO',
+      registeredBy: user.name || 'Admin',
+      createdAt: nowStr
+    };
+
+    // Generar Asiento Contable Automático: Debe CxP Proveedores / Haber Banco
+    const cxpAccountGl = this.accounts().find(a => a.code === '2.1.01.01')!;
+    const bankAccountGl = this.accounts().find(a => a.code === bank.glAccountCode) || this.accounts().find(a => a.code === '1.1.01.02')!;
+
+    const journalEntry = this.generateAutomatedJournalEntry(
+      'PAGO_CXP',
+      bill.billNumber,
+      `Pago CxP Factura Proveedor ${bill.billNumber} de ${bill.supplierName}`,
+      [
+        {
+          accountId: cxpAccountGl.id,
+          accountCode: cxpAccountGl.code,
+          accountName: cxpAccountGl.name,
+          description: `Cancelación obligación comercial con ${bill.supplierName}`,
+          debit: amountUsd,
+          credit: 0
+        },
+        {
+          accountId: bankAccountGl.id,
+          accountCode: bankAccountGl.code,
+          accountName: bankAccountGl.name,
+          description: `Desembolso desde ${bank.bankName} (${data.paymentMethod}) Ref: ${data.referenceNumber}`,
+          debit: 0,
+          credit: amountUsd
+        }
+      ]
+    );
+
+    newTx.journalEntryId = journalEntry.id;
+    this.treasuryTransactions.update(txs => [newTx, ...txs]);
+
+    this.logAudit(
+      'RECORD_CXP_PAYMENT',
+      'TREASURY',
+      `Pago a Proveedor ${bill.billNumber}`,
+      `Desembolso de $${amountUsd.toFixed(2)} (Bs. ${amountVes.toLocaleString('es-VE')}) ejecutado desde ${bank.accountName} a favor de ${bill.supplierName}. Asiento ${journalEntry.entryNumber}.`,
+      null,
+      paymentReceipt as unknown as Record<string, unknown>
+    );
+
+    this.notify('success', 'Pago a Proveedor Registrado', `Orden de pago ${paymentNumber} procesada por $${amountUsd.toFixed(2)}.`);
+    this.saveState();
+    return { success: true, receipt: paymentReceipt };
+  }
+
+  // 3. Crear Nueva Factura de Compra / Cuenta por Pagar (CxP)
+  createPayableBill(data: {
+    billNumber: string;
+    supplierId: string;
+    issueDate: string;
+    dueDate: string;
+    totalAmountUsd: number;
+    category?: string;
+    notes?: string;
+    purchaseOrderId?: string;
+    purchaseOrderNumber?: string;
+  }): { success: boolean; message?: string; bill?: PayableBill } {
+    const supplier = this.suppliers().find(s => s.id === data.supplierId);
+    if (!supplier) return { success: false, message: 'Proveedor no encontrado.' };
+
+    const rate = this.bcvState().usdRate || 36.50;
+    const totalAmountUsd = Number(data.totalAmountUsd.toFixed(2));
+    const totalAmountVes = Number((totalAmountUsd * rate).toFixed(2));
+    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+
+    const newBill: PayableBill = {
+      id: 'pb-' + Date.now().toString(36),
+      billNumber: data.billNumber.trim().toUpperCase(),
+      purchaseOrderId: data.purchaseOrderId,
+      purchaseOrderNumber: data.purchaseOrderNumber,
+      supplierId: supplier.id,
+      supplierName: supplier.name,
+      supplierTaxId: supplier.taxId,
+      issueDate: data.issueDate,
+      dueDate: data.dueDate,
+      totalAmountUsd,
+      totalAmountVes,
+      paidAmountUsd: 0,
+      paidAmountVes: 0,
+      balanceUsd: totalAmountUsd,
+      balanceVes: totalAmountVes,
+      status: 'PENDIENTE',
+      glAccountExpenseCode: '1.1.03.01', // Mercancías por defecto
+      glAccountPayableCode: '2.1.01.01', // CxP Proveedores
+      category: data.category || 'Mercancía e Insumos',
+      notes: data.notes,
+      payments: [],
+      createdAt: nowStr
+    };
+
+    // Asiento contable de compra a crédito: Debe Inventario/Costo, Haber CxP Proveedores
+    const expenseGl = this.accounts().find(a => a.code === '1.1.03.01') || this.accounts().find(a => a.code === '5.1.01.01')!;
+    const cxpGl = this.accounts().find(a => a.code === '2.1.01.01')!;
+
+    const journal = this.generateAutomatedJournalEntry(
+      'COMPRA',
+      newBill.billNumber,
+      `Reconocimiento de Factura por Pagar ${newBill.billNumber} (${supplier.name})`,
+      [
+        {
+          accountId: expenseGl.id,
+          accountCode: expenseGl.code,
+          accountName: expenseGl.name,
+          description: `Compra a crédito de insumos/mercancía`,
+          debit: totalAmountUsd,
+          credit: 0
+        },
+        {
+          accountId: cxpGl.id,
+          accountCode: cxpGl.code,
+          accountName: cxpGl.name,
+          description: `Obligación comercial CxP con ${supplier.name}`,
+          debit: 0,
+          credit: totalAmountUsd
+        }
+      ]
+    );
+
+    this.payableBills.update(bills => [newBill, ...bills]);
+    this.logAudit(
+      'CREATE_PAYABLE_BILL',
+      'TREASURY',
+      `Factura por Pagar Registrada ${newBill.billNumber}`,
+      `Registro de factura de proveedor ${supplier.name} por $${totalAmountUsd.toFixed(2)}. Vence el ${data.dueDate}. Asiento ${journal.entryNumber}.`,
+      null,
+      newBill as unknown as Record<string, unknown>
+    );
+
+    this.notify('success', 'Cuenta por Pagar Registrada', `Factura ${newBill.billNumber} añadida con vencimiento ${data.dueDate}.`);
+    this.saveState();
+    return { success: true, bill: newBill };
+  }
+
+  // 4. Crear o Actualizar Cuenta Bancaria / Caja
+  createBankAccount(data: Omit<BankAccount, 'id' | 'updatedAt' | 'balanceUsd' | 'balanceVes'>): BankAccount {
+    const rate = this.bcvState().usdRate || 36.50;
+    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    const balanceUsd = data.currency === 'VES' ? Number((data.balance / rate).toFixed(2)) : data.balance;
+    const balanceVes = data.currency === 'VES' ? data.balance : Number((data.balance * rate).toFixed(2));
+
+    const newAcc: BankAccount = {
+      ...data,
+      id: 'bank-' + Date.now().toString(36),
+      balanceUsd,
+      balanceVes,
+      updatedAt: nowStr
+    };
+
+    this.bankAccounts.update(accs => [newAcc, ...accs]);
+    this.logAudit(
+      'CREATE_BANK_ACCOUNT',
+      'TREASURY',
+      `Nueva Cuenta Bancaria: ${newAcc.accountName}`,
+      `Alta de cuenta ${newAcc.bankName} (${newAcc.currency}) con saldo inicial de ${newAcc.currency === 'VES' ? 'Bs. ' + newAcc.balance.toLocaleString('es-VE') : '$' + newAcc.balance.toFixed(2)}.`,
+      null,
+      newAcc as unknown as Record<string, unknown>
+    );
+
+    this.notify('success', 'Cuenta Bancaria Registrada', `Cuenta ${newAcc.accountName} habilitada.`);
+    this.saveState();
+    return newAcc;
+  }
+
+  updateBankAccount(id: string, updates: Partial<BankAccount>): { success: boolean; message?: string } {
+    const target = this.bankAccounts().find(b => b.id === id);
+    if (!target) return { success: false, message: 'Cuenta bancaria no encontrada.' };
+
+    const rate = this.bcvState().usdRate || 36.50;
+    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+
+    this.bankAccounts.update(accs =>
+      accs.map(b => {
+        if (b.id === id) {
+          const updated = { ...b, ...updates, updatedAt: nowStr };
+          const bal = updated.balance;
+          updated.balanceUsd = updated.currency === 'VES' ? Number((bal / rate).toFixed(2)) : bal;
+          updated.balanceVes = updated.currency === 'VES' ? bal : Number((bal * rate).toFixed(2));
+          return updated;
+        }
+        return b;
+      })
+    );
+
+    this.logAudit(
+      'UPDATE_BANK_ACCOUNT',
+      'TREASURY',
+      `Cuenta Actualizada: ${target.accountName}`,
+      `Modificación de parámetros en cuenta ${target.accountName}.`,
+      target as unknown as Record<string, unknown>,
+      updates as unknown as Record<string, unknown>
+    );
+
+    this.notify('info', 'Cuenta Bancaria Actualizada', `Cambios guardados en ${target.accountName}.`);
+    this.saveState();
+    return { success: true };
+  }
+
+  // 5. Transferencia entre Cuentas Bancarias / Caja
+  transferBetweenBankAccounts(data: {
+    sourceBankAccountId: string;
+    destinationBankAccountId: string;
+    amountUsd: number;
+    referenceNumber: string;
+    notes?: string;
+  }): { success: boolean; message?: string } {
+    if (data.sourceBankAccountId === data.destinationBankAccountId) {
+      return { success: false, message: 'La cuenta origen y destino no pueden ser la misma.' };
+    }
+
+    const source = this.bankAccounts().find(b => b.id === data.sourceBankAccountId);
+    const dest = this.bankAccounts().find(b => b.id === data.destinationBankAccountId);
+
+    if (!source || !dest) return { success: false, message: 'Cuentas bancarias no encontradas.' };
+
+    const rate = this.bcvState().usdRate || 36.50;
+    const amountUsd = Number(data.amountUsd.toFixed(2));
+    const amountVes = Number((amountUsd * rate).toFixed(2));
+
+    const sourceDebit = source.currency === 'VES' ? amountVes : amountUsd;
+    if (source.balance < sourceDebit) {
+      return { success: false, message: `Saldo insuficiente en ${source.accountName}. Saldo disponible: ${source.currency === 'VES' ? 'Bs. ' + source.balance.toLocaleString('es-VE') : '$' + source.balance.toFixed(2)}.` };
+    }
+
+    const destCredit = dest.currency === 'VES' ? amountVes : amountUsd;
+    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    const user = this.authService.currentUser();
+
+    // Actualizar saldos
+    this.bankAccounts.update(accs =>
+      accs.map(b => {
+        if (b.id === source.id) {
+          const newBal = b.balance - sourceDebit;
+          return {
+            ...b,
+            balance: Number(newBal.toFixed(2)),
+            balanceUsd: Number((b.currency === 'VES' ? newBal / rate : newBal).toFixed(2)),
+            balanceVes: Number((b.currency === 'VES' ? newBal : newBal * rate).toFixed(2)),
+            updatedAt: nowStr
+          };
+        }
+        if (b.id === dest.id) {
+          const newBal = b.balance + destCredit;
+          return {
+            ...b,
+            balance: Number(newBal.toFixed(2)),
+            balanceUsd: Number((b.currency === 'VES' ? newBal / rate : newBal).toFixed(2)),
+            balanceVes: Number((b.currency === 'VES' ? newBal : newBal * rate).toFixed(2)),
+            updatedAt: nowStr
+          };
+        }
+        return b;
+      })
+    );
+
+    // Asiento contable: Debe Banco Destino / Haber Banco Origen
+    const destGl = this.accounts().find(a => a.code === dest.glAccountCode) || this.accounts().find(a => a.code === '1.1.01.02')!;
+    const sourceGl = this.accounts().find(a => a.code === source.glAccountCode) || this.accounts().find(a => a.code === '1.1.01.02')!;
+
+    const journal = this.generateAutomatedJournalEntry(
+      'TRANSFERENCIA_BANCO',
+      `TRF-${Date.now().toString(36).toUpperCase()}`,
+      `Transferencia entre cuentas: ${source.bankName} ➔ ${dest.bankName}`,
+      [
+        {
+          accountId: destGl.id,
+          accountCode: destGl.code,
+          accountName: destGl.name,
+          description: `Ingreso por transferencia desde ${source.accountName}`,
+          debit: amountUsd,
+          credit: 0
+        },
+        {
+          accountId: sourceGl.id,
+          accountCode: sourceGl.code,
+          accountName: sourceGl.name,
+          description: `Egreso por transferencia hacia ${dest.accountName}`,
+          debit: 0,
+          credit: amountUsd
+        }
+      ]
+    );
+
+    const newTx: TreasuryTransaction = {
+      id: 'tx-' + Date.now().toString(36),
+      transactionNumber: 'TES-2026-' + (this.treasuryTransactions().length + 1).toString().padStart(4, '0'),
+      type: 'TRANSFERENCIA_BANCO',
+      date: nowStr,
+      bankAccountId: source.id,
+      bankAccountName: source.accountName,
+      destinationBankAccountId: dest.id,
+      destinationBankAccountName: dest.accountName,
+      amount: amountUsd,
+      amountUsd,
+      amountVes,
+      currency: 'USD',
+      bcvRate: rate,
+      paymentMethod: 'TRANSFERENCIA',
+      referenceNumber: data.referenceNumber || 'N/A',
+      concept: `Transferencia entre cuentas: de ${source.accountName} a ${dest.accountName}${data.notes ? ' (' + data.notes + ')' : ''}`,
+      journalEntryId: journal.id,
+      status: 'CONCILIADO',
+      registeredBy: user.name || 'Admin',
+      createdAt: nowStr
+    };
+
+    this.treasuryTransactions.update(txs => [newTx, ...txs]);
+    this.logAudit(
+      'RECORD_BANK_TRANSFER',
+      'TREASURY',
+      `Transferencia Bancaria Registrada`,
+      `Traspaso de $${amountUsd.toFixed(2)} desde ${source.accountName} a ${dest.accountName}. Asiento ${journal.entryNumber}.`,
+      null,
+      newTx as unknown as Record<string, unknown>
+    );
+
+    this.notify('success', 'Transferencia Completada', `Se transfirieron $${amountUsd.toFixed(2)} entre cuentas exitosamente.`);
+    this.saveState();
+    return { success: true };
   }
 
   // ============================================================================
@@ -4547,6 +5470,9 @@ export class ErpStateService {
       quotes: this.quotes(),
       customers: this.customers(),
       suppliers: this.suppliers(),
+      bankAccounts: this.bankAccounts(),
+      payableBills: this.payableBills(),
+      treasuryTransactions: this.treasuryTransactions(),
       users: this.authService.availableDemoUsers,
       auditLogs: this.auditLogs(),
       emailAlertLogs: []
@@ -4576,6 +5502,18 @@ export class ErpStateService {
       if (Array.isArray(data.customers) && data.customers.length > 0) {
         this.customers.set(data.customers);
         count += data.customers.length;
+      }
+      if (Array.isArray(data.bankAccounts) && data.bankAccounts.length > 0) {
+        this.bankAccounts.set(data.bankAccounts);
+        count += data.bankAccounts.length;
+      }
+      if (Array.isArray(data.payableBills) && data.payableBills.length > 0) {
+        this.payableBills.set(data.payableBills);
+        count += data.payableBills.length;
+      }
+      if (Array.isArray(data.treasuryTransactions) && data.treasuryTransactions.length > 0) {
+        this.treasuryTransactions.set(data.treasuryTransactions);
+        count += data.treasuryTransactions.length;
       }
       if (Array.isArray(data.inventoryMovements) && data.inventoryMovements.length > 0) {
         this.kardexMovements.set(data.inventoryMovements);

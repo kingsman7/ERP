@@ -247,6 +247,16 @@ export class KeyboardShortcutsService {
       targetNav: 'accounting'
     },
     {
+      id: 'NAV_TREASURY',
+      keys: ['Alt', 'E'],
+      keyDisplay: 'Alt + E',
+      title: 'Tesorería & Bancos (CxC / CxP)',
+      description: 'Gestión de cuentas bancarias, cobros a clientes y pagos a proveedores',
+      category: 'NAVIGATION',
+      icon: 'account_balance_wallet',
+      targetNav: 'treasury'
+    },
+    {
       id: 'NAV_CASH',
       keys: ['Alt', '0'],
       keyDisplay: 'Alt + 0',
@@ -464,6 +474,7 @@ export class KeyboardShortcutsService {
       if (key === '7' || code === 'Digit7' || code === 'Numpad7') return this.getShortcutById('NAV_MRP');
       if (key === '8' || code === 'Digit8' || code === 'Numpad8') return this.getShortcutById('NAV_CRM');
       if (key === '9' || code === 'Digit9' || code === 'Numpad9') return this.getShortcutById('NAV_ACCOUNTING');
+      if (key === 'E' || code === 'KeyE') return this.getShortcutById('NAV_TREASURY');
       if (key === '0' || code === 'Digit0' || code === 'Numpad0') return this.getShortcutById('NAV_CASH');
       if (key === 'B' || code === 'KeyB') return this.getShortcutById('NAV_AUDIT');
       if (key === 'S' || code === 'KeyS') return this.getShortcutById('NAV_BACKUPS');

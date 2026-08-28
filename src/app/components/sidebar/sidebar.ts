@@ -13,6 +13,7 @@ export type NavTab =
   | 'quotes'
   | 'mrp'
   | 'crm'
+  | 'treasury'
   | 'accounting'
   | 'cash-closing'
   | 'users'
@@ -185,6 +186,21 @@ export type NavTab =
         <div class="pt-3 px-3 pb-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
           Finanzas & Seguridad
         </div>
+
+        @if (canAccess('treasury:view', 'treasury:manage', 'all', 'accounting:view', 'purchases:manage', 'sales:manage')) {
+        <button 
+          (click)="selectTab('treasury')"
+          [class]="activeTab() === 'treasury' ? 'bg-sky-600/10 text-sky-400 font-semibold border-l-4 border-sky-500 rounded-r-lg' : 'hover:bg-slate-800/90 text-slate-300 rounded-lg'"
+          class="w-full flex items-center justify-between px-3.5 py-2 text-xs transition-all duration-150 text-left">
+          <div class="flex items-center space-x-3">
+            <mat-icon class="text-sky-400 text-lg">account_balance_wallet</mat-icon>
+            <span class="font-medium">Tesorería (CxC / CxP)</span>
+          </div>
+          <span class="px-1.5 py-0.5 text-[9px] font-mono rounded bg-slate-800 text-sky-400">
+            {{ stateService.bankAccounts().length }}
+          </span>
+        </button>
+        }
 
         @if (canAccess('cash:shift')) {
         <button 

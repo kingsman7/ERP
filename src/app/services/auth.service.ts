@@ -6,15 +6,15 @@ export const SYSTEM_ROLES: RoleConfig[] = [
     id: 'ADMIN',
     name: 'Super Administrador',
     badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-    description: 'Acceso total a configuración, auditoría, finanzas, inventario y seguridad.',
-    permissions: ['all', 'security:manage', 'audit:view', 'inventory:adjust', 'sales:manage', 'purchases:manage', 'reports:export']
+    description: 'Acceso total a configuración, auditoría, finanzas, tesorería, bancos, inventario y seguridad.',
+    permissions: ['all', 'security:manage', 'audit:view', 'inventory:adjust', 'sales:manage', 'purchases:manage', 'reports:export', 'treasury:manage', 'treasury:view', 'accounting:manage']
   },
   {
     id: 'OPERATIONS_MANAGER',
     name: 'Gerente de Operaciones',
     badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    description: 'Gestión de compras, kardex, inventario, reportes de cierre y presupuestos.',
-    permissions: ['inventory:view', 'inventory:adjust', 'purchases:manage', 'sales:view', 'reports:view', 'quotes:manage']
+    description: 'Gestión de compras, tesorería, cuentas por pagar/cobrar, kardex, inventario y presupuestos.',
+    permissions: ['inventory:view', 'inventory:adjust', 'purchases:manage', 'sales:view', 'reports:view', 'quotes:manage', 'treasury:view', 'treasury:manage']
   },
   {
     id: 'CASHIER_SELLER',
