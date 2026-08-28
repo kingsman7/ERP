@@ -27,8 +27,8 @@ export interface AuditLog {
   userId: string;
   userName: string;
   userRole: UserRole;
-  action: 'CREATE_INVOICE' | 'ADJUST_STOCK' | 'PURCHASE_RECEIPT' | 'CONVERT_QUOTE' | 'CREATE_QUOTE' | 'CASH_CLOSING' | 'USER_LOGIN' | 'CREATE_PRODUCT' | 'CREATE_SUPPLIER' | 'CREATE_CUSTOMER' | 'UPDATE_CUSTOMER' | 'SYNC_BCV_RATES' | 'UPDATE_EXCHANGE_RATE' | 'UPDATE_PRODUCT_PRICES' | 'CREATE_BOM' | 'UPDATE_BOM' | 'CREATE_PRODUCTION_ORDER' | 'COMPLETE_PRODUCTION_ORDER' | 'CANCEL_PRODUCTION_ORDER' | 'CREATE_CRM_DEAL' | 'UPDATE_CRM_DEAL' | 'CREATE_JOURNAL_ENTRY' | 'CONFIG_BACKUP_SCHEDULE' | 'CREATE_BACKUP' | 'RESTORE_DATABASE';
-  module: 'INVENTORY' | 'AUTH' | 'PURCHASES' | 'SALES' | 'POS' | 'FINANCE' | 'MRP' | 'CRM' | 'ACCOUNTING' | 'BACKUP';
+  action: 'CREATE_INVOICE' | 'ADJUST_STOCK' | 'PURCHASE_RECEIPT' | 'CONVERT_QUOTE' | 'CREATE_QUOTE' | 'UPDATE_QUOTE_STATUS' | 'CASH_CLOSING' | 'USER_LOGIN' | 'CREATE_PRODUCT' | 'CREATE_SUPPLIER' | 'CREATE_CUSTOMER' | 'UPDATE_CUSTOMER' | 'SYNC_BCV_RATES' | 'UPDATE_EXCHANGE_RATE' | 'UPDATE_PRODUCT_PRICES' | 'CREATE_BOM' | 'UPDATE_BOM' | 'CREATE_PRODUCTION_ORDER' | 'COMPLETE_PRODUCTION_ORDER' | 'CANCEL_PRODUCTION_ORDER' | 'CREATE_CRM_DEAL' | 'UPDATE_CRM_DEAL' | 'CREATE_JOURNAL_ENTRY' | 'CONFIG_BACKUP_SCHEDULE' | 'CREATE_BACKUP' | 'RESTORE_DATABASE' | 'CREATE_DISPATCH_GUIDE' | 'UPDATE_DISPATCH_STATUS' | 'RECEIVE_DELIVERY' | 'RECEIVE_DELIVERY_ORDER' | 'CANCEL_DISPATCH_GUIDE' | 'INVOICE_DISPATCH_GUIDE';
+  module: 'INVENTORY' | 'AUTH' | 'PURCHASES' | 'SALES' | 'POS' | 'FINANCE' | 'MRP' | 'CRM' | 'ACCOUNTING' | 'BACKUP' | 'LOGISTICS';
   isCritical?: boolean;
   criticalCategory?: 'PRICE_CHANGE' | 'MANUAL_STOCK_ADJUSTMENT' | 'INVOICE_CANCEL' | 'DB_RESTORE' | 'SECURITY_ROLE';
   details: {
@@ -138,7 +138,18 @@ export interface Product {
   updatedAt: string;
 }
 
-export type KardexMovementType = 'ENTRADA_COMPRA' | 'SALIDA_VENTA' | 'ENTRADA_PRODUCCION' | 'SALIDA_PRODUCCION' | 'AJUSTE_MERMA' | 'AJUSTE_SOBRANTE' | 'AJUSTE_INVENTARIO' | 'TRANSFERENCIA_ALMACEN';
+export type KardexMovementType = 
+  | 'ENTRADA_COMPRA' 
+  | 'SALIDA_VENTA' 
+  | 'ENTRADA_PRODUCCION' 
+  | 'SALIDA_PRODUCCION' 
+  | 'AJUSTE_MERMA' 
+  | 'AJUSTE_SOBRANTE' 
+  | 'AJUSTE_INVENTARIO' 
+  | 'TRANSFERENCIA_ALMACEN'
+  | 'DESPACHO_GUIA'
+  | 'SALIDA_ORDEN_ENTREGA'
+  | 'ENTRADA_DEVOLUCION_GUIA';
 
 export interface KardexMovement {
   id: string;
@@ -321,6 +332,12 @@ export interface Invoice {
   sellerName: string;
   digitalSeal?: string; // Digital stamp simulation
   quoteOriginNumber?: string;
+  
+  // Trazabilidad SENIAT SNAT/2011/00071
+  dispatchGuideNumbers?: string[];     // e.g. ["GD-2026-0001"]
+  dispatchControlNumbers?: string[];   // e.g. ["00-00000101"] (Control SENIAT obligatorio)
+  deliveryOrderNumbers?: string[];     // e.g. ["OE-2026-0001"]
+  isStockAlreadyDeducted?: boolean;    // Verdadero si el inventario fue rebajado previamente por Guía de Despacho
 }
 
 export interface Quote {
@@ -331,7 +348,7 @@ export interface Quote {
   customerTaxId: string;
   date: string;
   expirationDate: string;
-  status: 'BORRADOR' | 'ENVIADO' | 'APROBADO' | 'CONVERTIDO_A_FACTURA' | 'RECHAZADO';
+  status: 'BORRADOR' | 'ENVIADO' | 'APROBADO' | 'CONVERTIDO_A_FACTURA' | 'ENVIADO_A_DESPACHO' | 'DESPACHADO' | 'RECHAZADO';
   items: InvoiceItem[];
   baseCurrency?: CurrencyCode;
   bcvRate?: number;
@@ -343,8 +360,235 @@ export interface Quote {
   total: number;
   totalVes?: number;
   convertedInvoiceNumber?: string;
+  dispatchedGuideNumber?: string;
   notes?: string;
   createdBy: string;
+}
+
+// ============================================================================
+// SENIAT PROVIDENCIA ADMINISTRATIVA SNAT/2011/00071: GUÍAS DE DESPACHO Y ÓRDENES DE ENTREGA
+// ============================================================================
+
+export type CarrierType = 
+  | 'PROPIO' 
+  | 'TERCERO_EMPRESA' 
+  | 'TERCERO_PARTICULAR';
+
+export type TransportReason = 
+  | 'VENTA' 
+  | 'VENTA_MERCANCIA' 
+  | 'TRASLADO_ALMACEN' 
+  | 'TRASLADO_ENTRE_ALMACENES' 
+  | 'CONSIGNACION' 
+  | 'DEVOLUCION' 
+  | 'DEVOLUCION_PROVEEDOR' 
+  | 'DEMOSTRACION' 
+  | 'DEMOSTRACION_EXHIBICION' 
+  | 'REPARACION_GARANTIA' 
+  | 'REPARACION_MANTENIMIENTO' 
+  | 'OTRO';
+
+export type DispatchGuideStatus = 
+  | 'BORRADOR' 
+  | 'EN_TRANSITO' 
+  | 'EMITIDA' 
+  | 'ENTREGADA' 
+  | 'ENTREGADA_CON_NOVEDAD' 
+  | 'FACTURADA' 
+  | 'ANULADA';
+
+export type DeliveryOrderStatus = 
+  | 'PENDIENTE' 
+  | 'PENDIENTE_DESPACHO' 
+  | 'EN_RUTA' 
+  | 'ENTREGADA' 
+  | 'ENTREGADA_CONFORME' 
+  | 'ENTREGADA_CON_NOVEDAD' 
+  | 'ENTREGADA_PARCIAL' 
+  | 'FACTURADA' 
+  | 'CANCELADA' 
+  | 'ANULADA';
+
+export type ReceptionConformityStatus = 
+  | 'COMPLETO' 
+  | 'PARCIAL' 
+  | 'CON_NOVEDAD';
+
+export interface DispatchItem {
+  productId: string;
+  sku: string;
+  productName: string;
+  unit: string;
+  quantity: number;
+  costPrice: number;
+  unitPrice?: number;
+  salePrice?: number;
+  subtotal?: number;
+  packagesCount?: number;
+  weightKg?: number;
+  volumeM3?: number;
+  totalDeclaredValue?: number;
+  notes?: string;
+}
+
+export interface DeliveryReceptionDetails {
+  receivedByFullName?: string;       // Nombre y Apellido legible de quien recibe
+  receivedByName?: string;
+  receiverIdNumber?: string;         // Cédula de Identidad / RIF del receptor
+  receivedByIdDoc?: string;
+  receivedDate: string;             // Fecha de recepción efectiva (YYYY-MM-DD)
+  receivedTime?: string;             // Hora de recepción efectiva (HH:mm)
+  hasSignature?: boolean;            // Indicador de firma del receptor
+  hasStamp?: boolean;                // Indicador de sello húmedo de la empresa receptora
+  signatureDataUrl?: string;        // Firma digital / trazo capturado en base64
+  receptionStatus?: ReceptionConformityStatus;
+  physicalCondition?: 'CONFORME' | 'CON_NOVEDAD' | 'RECHAZADO';
+  observations?: string;            // Observaciones / Novedades en la entrega
+  attachedProofUrl?: string;        // Comprobante firmado/sellado adjuntado
+  signedProofUrl?: string;          // Alias para compatibilidad de comprobante firmado
+}
+
+export interface DispatchGuide {
+  id: string;
+  guideNumber: string;             // Número de Guía de Despacho, e.g. "GD-2026-0001"
+  controlNumber: string;           // Número de Control Consecutivo y Único SENIAT, e.g. "00-00000101"
+  issueDate: string;               // Fecha y hora de emisión (YYYY-MM-DD HH:mm:ss)
+  dispatchDate?: string;
+  estimatedTransferDate?: string;   // Fecha estimada de inicio de traslado
+  estimatedDeliveryDate?: string;
+  status: DispatchGuideStatus;
+  
+  // Origen (Almacén Emisor)
+  originWarehouseId: string;
+  originWarehouseName: string;
+  originAddress: string;           // Dirección exacta del almacén de salida
+  issuerName?: string;
+  issuerTaxId?: string;
+  
+  // Destino (Cliente / Receptor Fiscal)
+  customerId?: string;
+  customerName: string;
+  customerTaxId: string;           // RIF / Cédula
+  customerAddress?: string;         // Domicilio fiscal
+  destinationAddress: string;      // Dirección exacta de entrega / punto de destino
+  destinationWarehouseId?: string;
+  destinationState?: string;
+  destinationCity?: string;
+  customerPhone?: string;
+  customerContact?: string;
+  recipientContactName?: string;
+  recipientPhone?: string;
+  
+  // Motivo del Traslado (Art. 13 Providencia SNAT/2011/00071)
+  transferReason?: TransportReason;
+  transportReason?: TransportReason;
+  transferReasonDetails?: string;  // Justificación complementaria
+  transportReasonDescription?: string;
+  
+  // Datos del Transportista y Vehículo (Amparo en Vía Pública)
+  carrierType?: CarrierType;
+  carrierName?: string;             // Nombre o Razón Social de la empresa de transporte o transportista
+  carrierTaxId?: string;            // RIF / Cédula del transportista
+  carrierPhone?: string;
+  driverName: string;              // Nombre completo del chofer / conductor
+  driverIdNumber?: string;          // Cédula de Identidad del chofer (e.g. "V-18.452.123")
+  driverIdDoc?: string;
+  driverPhone?: string;
+  driverLicenseNumber?: string;
+  vehicleBrand?: string;            // Marca del vehículo (e.g. "Ford", "Iveco", "Chevrolet")
+  vehicleModel?: string;            // Modelo (e.g. "F-350", "Cargo 1722", "NPR")
+  vehiclePlate: string;            // Placa del vehículo de carga (e.g. "A34BK8D")
+  vehicleColor?: string;           // Color
+  vehicleYear?: number;
+  
+  // Detalle de Mercancía
+  items: DispatchItem[];
+  totalQuantity: number;
+  totalPackages?: number;
+  totalWeightKg?: number;
+  totalVolumeM3?: number;
+  totalValuationCost?: number;      // Total valorado a costo promedio (Kardex)
+  totalEstimatedSale?: number;      // Total valorado a precio de venta
+  totalDeclaredValue?: number;
+  currency?: string;
+  
+  // Trazabilidad de Documentos
+  originQuoteId?: string;
+  originQuoteNumber?: string;      // Pedido de Venta / Cotización de origen
+  relatedDeliveryOrderId?: string; // Orden de Entrega asociada
+  relatedDeliveryOrderNumber?: string;
+  invoicedInvoiceNumber?: string;  // Factura fiscal oficial generada a partir de esta guía
+  invoicedAt?: string;
+  routeDetails?: string;
+  generalObservations?: string;
+  cancelReason?: string;
+  legalNotice?: string;
+  
+  // Auditoría y Metadatos
+  notes?: string;
+  issuedByUserId?: string;
+  issuedByUserName?: string;
+  createdUserId?: string;
+  createdUserName?: string;
+  digitalSecuritySeal?: string;     // Timbre / Sello de seguridad digital de amparo
+  digitalSeal?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DeliveryOrder {
+  id: string;
+  orderNumber: string;             // Número de Orden de Entrega, e.g. "OE-2026-0001"
+  controlNumber: string;           // Número de control consecutivo, e.g. "00-00000201"
+  dispatchGuideId?: string;        // Guía de Despacho enlazada
+  dispatchGuideNumber?: string;
+  dispatchControlNumber?: string;
+  
+  // Cliente & Destino
+  customerId?: string;
+  customerName: string;
+  customerTaxId: string;
+  deliveryAddress: string;
+  warehouseId?: string;
+  warehouseName?: string;
+  contactPerson?: string;
+  contactPhone?: string;
+  
+  // Fechas y Estado
+  issueDate: string;
+  scheduledDate?: string;
+  estimatedDeliveryDate?: string;
+  status: DeliveryOrderStatus;
+  
+  // Artículos Despachados
+  items: DispatchItem[];
+  totalQuantity: number;
+  totalPackages?: number;
+  totalWeightKg?: number;
+  
+  // Transporte
+  carrierType?: CarrierType;
+  carrierName?: string;
+  driverName: string;
+  driverIdNumber?: string;
+  driverIdDoc?: string;
+  driverPhone?: string;
+  vehiclePlate: string;
+  
+  // Bloque de Recepción y Conformidad del Cliente (SENIAT)
+  reception?: DeliveryReceptionDetails;
+  receptionDetails?: DeliveryReceptionDetails;
+  
+  // Trazabilidad
+  specialInstructions?: string;
+  originQuoteNumber?: string;
+  invoicedInvoiceNumber?: string;
+  notes?: string;
+  createdBy?: string;
+  createdUserId?: string;
+  createdUserName?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CashRegisterSession {
@@ -658,6 +902,8 @@ export interface ErpFullBackupPayload {
     invoices: Invoice[];
     cashClosings: CashRegisterSession[];
     quotes: Quote[];
+    dispatchGuides?: DispatchGuide[];
+    deliveryOrders?: DeliveryOrder[];
     customers: Customer[];
     suppliers: Supplier[];
     users: User[];

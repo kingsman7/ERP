@@ -34,7 +34,13 @@ import {
   ErpFullBackupPayload,
   CriticalAuditNotification,
   CriticalAuditCategory,
-  PaymentMethod
+  PaymentMethod,
+  DispatchGuide,
+  DeliveryOrder,
+  DispatchItem,
+  CarrierType,
+  TransportReason,
+  DeliveryReceptionDetails
 } from '../models/erp.models';
 import { AuthService } from './auth.service';
 import { ApiService } from './api.service';
@@ -868,6 +874,226 @@ export class ErpStateService {
     }
   ]);
 
+  readonly dispatchGuides = signal<DispatchGuide[]>([
+    {
+      id: 'gd-01',
+      guideNumber: 'GD-2026-0001',
+      controlNumber: '00-00000101',
+      issueDate: '2026-08-17 11:30:00',
+      estimatedTransferDate: '2026-08-17',
+      status: 'ENTREGADA',
+      originWarehouseId: 'wh-01',
+      originWarehouseName: 'Almacén Central (Bodega Principal)',
+      originAddress: 'Av. Industrial 4050, Nave B, Caracas',
+      customerId: 'cust-04',
+      customerName: 'Inversiones Horizonte & Asociados',
+      customerTaxId: 'B-99120485-6',
+      customerAddress: 'Av. Constitución 2200, Monterrey',
+      destinationAddress: 'Av. Constitución 2200, Edificio Horizonte PB, Monterrey',
+      customerPhone: '+52 81 8150 3344',
+      customerContact: 'Lic. Andrés Salcedo',
+      transferReason: 'VENTA',
+      transferReasonDetails: 'Despacho de pedido programado con recepción en obra.',
+      carrierName: 'Transportes Rápidos de Carga C.A.',
+      carrierTaxId: 'J-31456789-0',
+      driverName: 'José Gregorio Pereira',
+      driverIdNumber: 'V-16.890.432',
+      driverPhone: '+58 414-3322110',
+      vehicleBrand: 'Ford',
+      vehicleModel: 'F-350 Tritón',
+      vehiclePlate: 'A89CD2E',
+      vehicleColor: 'Blanco',
+      items: [
+        {
+          productId: 'prod-02',
+          sku: 'RED-CAT6-305',
+          productName: 'Bobina Cable Red UTP Cat6 100% Cobre 305m',
+          unit: 'UND',
+          quantity: 2,
+          costPrice: 85.00,
+          unitPrice: 118.00,
+          subtotal: 236.00
+        },
+        {
+          productId: 'prod-04',
+          sku: 'ELE-DIS-20A',
+          productName: 'Disyuntor Termomagnético Bipolar 20A 10kA',
+          unit: 'UND',
+          quantity: 10,
+          costPrice: 6.80,
+          unitPrice: 12.30,
+          subtotal: 123.00
+        }
+      ],
+      totalQuantity: 12,
+      totalValuationCost: 238.00,
+      totalEstimatedSale: 359.00,
+      originQuoteId: 'quot-01',
+      originQuoteNumber: 'COT-2026-015',
+      relatedDeliveryOrderId: 'oe-01',
+      relatedDeliveryOrderNumber: 'OE-2026-0001',
+      invoicedInvoiceNumber: undefined,
+      notes: 'Amparo legal para transporte terrestre en vía pública SENIAT Providencia SNAT/2011/00071.',
+      issuedByUserId: 'usr-wh-04',
+      issuedByUserName: 'David Silva (Almacén)',
+      digitalSecuritySeal: 'GD-SEAL-89B4C2D1-SENIAT-00071',
+      createdAt: '2026-08-17 11:30:00',
+      updatedAt: '2026-08-17 15:45:00'
+    },
+    {
+      id: 'gd-02',
+      guideNumber: 'GD-2026-0002',
+      controlNumber: '00-00000102',
+      issueDate: '2026-08-18 09:15:00',
+      estimatedTransferDate: '2026-08-18',
+      status: 'EN_TRANSITO',
+      originWarehouseId: 'wh-01',
+      originWarehouseName: 'Almacén Central (Bodega Principal)',
+      originAddress: 'Av. Industrial 4050, Nave B, Caracas',
+      customerId: 'cust-01',
+      customerName: 'Constructora San Martín S.A.C.',
+      customerTaxId: 'B-77492019-3',
+      customerAddress: 'Av. Las Palmas 500, Edificio Altus Piso 8',
+      destinationAddress: 'Obra Residencial Los Laureles, Parcela 14, El Hatillo',
+      customerPhone: '+52 55 4123 9900',
+      customerContact: 'Ing. Marcos Colmenares',
+      transferReason: 'VENTA',
+      transferReasonDetails: 'Entrega directa en sitio de obra civil.',
+      carrierName: 'Logística & Fletes Express S.R.L.',
+      carrierTaxId: 'J-40982314-8',
+      driverName: 'Ramón Antonio Castillo',
+      driverIdNumber: 'V-14.789.201',
+      driverPhone: '+58 412-5558877',
+      vehicleBrand: 'Iveco',
+      vehicleModel: 'Daily 70C16 Carga Pesada',
+      vehiclePlate: 'A34BK8D',
+      vehicleColor: 'Azul',
+      items: [
+        {
+          productId: 'prod-03',
+          sku: 'PIN-LAT-04L',
+          productName: 'Pintura Látex Super Lavable Blanco Nieve 4L',
+          unit: 'LT',
+          quantity: 15,
+          costPrice: 14.20,
+          unitPrice: 28.50,
+          subtotal: 427.50
+        }
+      ],
+      totalQuantity: 15,
+      totalValuationCost: 213.00,
+      totalEstimatedSale: 427.50,
+      originQuoteNumber: 'COT-2026-016',
+      relatedDeliveryOrderId: 'oe-02',
+      relatedDeliveryOrderNumber: 'OE-2026-0002',
+      notes: 'Carga frágil en cubetas selladas con precinto de seguridad.',
+      issuedByUserId: 'usr-wh-04',
+      issuedByUserName: 'David Silva (Almacén)',
+      digitalSecuritySeal: 'GD-SEAL-33A1F9C8-SENIAT-00071',
+      createdAt: '2026-08-18 09:15:00',
+      updatedAt: '2026-08-18 09:15:00'
+    }
+  ]);
+
+  readonly deliveryOrders = signal<DeliveryOrder[]>([
+    {
+      id: 'oe-01',
+      orderNumber: 'OE-2026-0001',
+      controlNumber: '00-00000201',
+      dispatchGuideId: 'gd-01',
+      dispatchGuideNumber: 'GD-2026-0001',
+      dispatchControlNumber: '00-00000101',
+      customerId: 'cust-04',
+      customerName: 'Inversiones Horizonte & Asociados',
+      customerTaxId: 'B-99120485-6',
+      deliveryAddress: 'Av. Constitución 2200, Edificio Horizonte PB, Monterrey',
+      warehouseId: 'wh-01',
+      warehouseName: 'Almacén Central (Bodega Principal)',
+      issueDate: '2026-08-17 11:30:00',
+      estimatedDeliveryDate: '2026-08-17',
+      status: 'ENTREGADA_CONFORME',
+      items: [
+        {
+          productId: 'prod-02',
+          sku: 'RED-CAT6-305',
+          productName: 'Bobina Cable Red UTP Cat6 100% Cobre 305m',
+          unit: 'UND',
+          quantity: 2,
+          costPrice: 85.00,
+          unitPrice: 118.00,
+          subtotal: 236.00
+        },
+        {
+          productId: 'prod-04',
+          sku: 'ELE-DIS-20A',
+          productName: 'Disyuntor Termomagnético Bipolar 20A 10kA',
+          unit: 'UND',
+          quantity: 10,
+          costPrice: 6.80,
+          unitPrice: 12.30,
+          subtotal: 123.00
+        }
+      ],
+      totalQuantity: 12,
+      carrierName: 'Transportes Rápidos de Carga C.A.',
+      driverName: 'José Gregorio Pereira',
+      driverIdNumber: 'V-16.890.432',
+      vehiclePlate: 'A89CD2E',
+      receptionDetails: {
+        receivedByFullName: 'Andrés Salcedo (Almacén General)',
+        receiverIdNumber: 'V-19.345.678',
+        receivedDate: '2026-08-17',
+        receivedTime: '15:45',
+        hasSignature: true,
+        hasStamp: true,
+        receptionStatus: 'COMPLETO',
+        observations: 'Material recibido en perfecto estado, empaques íntegros y precintos validados.'
+      },
+      originQuoteNumber: 'COT-2026-015',
+      createdBy: 'David Silva (Almacén)',
+      createdAt: '2026-08-17 11:30:00',
+      updatedAt: '2026-08-17 15:45:00'
+    },
+    {
+      id: 'oe-02',
+      orderNumber: 'OE-2026-0002',
+      controlNumber: '00-00000202',
+      dispatchGuideId: 'gd-02',
+      dispatchGuideNumber: 'GD-2026-0002',
+      dispatchControlNumber: '00-00000102',
+      customerId: 'cust-01',
+      customerName: 'Constructora San Martín S.A.C.',
+      customerTaxId: 'B-77492019-3',
+      deliveryAddress: 'Obra Residencial Los Laureles, Parcela 14, El Hatillo',
+      warehouseId: 'wh-01',
+      warehouseName: 'Almacén Central (Bodega Principal)',
+      issueDate: '2026-08-18 09:15:00',
+      estimatedDeliveryDate: '2026-08-18',
+      status: 'EN_RUTA',
+      items: [
+        {
+          productId: 'prod-03',
+          sku: 'PIN-LAT-04L',
+          productName: 'Pintura Látex Super Lavable Blanco Nieve 4L',
+          unit: 'LT',
+          quantity: 15,
+          costPrice: 14.20,
+          unitPrice: 28.50,
+          subtotal: 427.50
+        }
+      ],
+      totalQuantity: 15,
+      carrierName: 'Logística & Fletes Express S.R.L.',
+      driverName: 'Ramón Antonio Castillo',
+      driverIdNumber: 'V-14.789.201',
+      vehiclePlate: 'A34BK8D',
+      originQuoteNumber: 'COT-2026-016',
+      createdBy: 'David Silva (Almacén)',
+      createdAt: '2026-08-18 09:15:00',
+      updatedAt: '2026-08-18 09:15:00'
+    }
+  ]);
+
   readonly auditLogs = signal<AuditLog[]>([
     {
       id: 'aud-001',
@@ -1424,6 +1650,13 @@ export class ErpStateService {
     return revenue > 0 ? ((revenue - cost) / revenue) * 100 : 0;
   });
 
+  // Computed Logistics & Dispatch Stats (SENIAT SNAT/2011/00071)
+  readonly totalDispatchesCount = computed(() => this.dispatchGuides().length);
+  readonly inTransitDispatchesCount = computed(() => this.dispatchGuides().filter(g => g.status === 'EN_TRANSITO').length);
+  readonly deliveredDispatchesCount = computed(() => this.dispatchGuides().filter(g => g.status === 'ENTREGADA').length);
+  readonly pendingInvoiceDispatchesCount = computed(() => this.dispatchGuides().filter(g => (g.status === 'ENTREGADA' || g.status === 'EMITIDA' || g.status === 'EN_TRANSITO') && !g.invoicedInvoiceNumber).length);
+  readonly pendingDeliveryOrdersCount = computed(() => this.deliveryOrders().filter(o => o.status === 'PENDIENTE' || o.status === 'EN_RUTA').length);
+
   private loadPersistedState() {
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
@@ -1435,6 +1668,8 @@ export class ErpStateService {
           if (parsed.purchaseOrders) this.purchaseOrders.set(parsed.purchaseOrders);
           if (parsed.invoices) this.invoices.set(parsed.invoices);
           if (parsed.quotes) this.quotes.set(parsed.quotes);
+          if (parsed.dispatchGuides) this.dispatchGuides.set(parsed.dispatchGuides);
+          if (parsed.deliveryOrders) this.deliveryOrders.set(parsed.deliveryOrders);
           if (parsed.auditLogs) this.auditLogs.set(parsed.auditLogs);
           if (parsed.activeCashSession) this.activeCashSession.set(parsed.activeCashSession);
           if (parsed.cashSessionHistory) this.cashSessionHistory.set(parsed.cashSessionHistory);
@@ -1462,6 +1697,8 @@ export class ErpStateService {
           purchaseOrders: this.purchaseOrders(),
           invoices: this.invoices(),
           quotes: this.quotes(),
+          dispatchGuides: this.dispatchGuides(),
+          deliveryOrders: this.deliveryOrders(),
           auditLogs: this.auditLogs(),
           activeCashSession: this.activeCashSession(),
           cashSessionHistory: this.cashSessionHistory(),
@@ -2037,6 +2274,10 @@ export class ErpStateService {
       customIvaRate?: number;
       originQuoteNumber?: string;
       appliesIgtfManual?: boolean | null;
+      isStockAlreadyDeducted?: boolean;
+      dispatchGuideNumbers?: string[];
+      dispatchControlNumbers?: string[];
+      deliveryOrderNumbers?: string[];
     }
   ): { success: boolean; invoiceNumber?: string; message?: string; invoice?: Invoice } {
     const user = this.authService.currentUser();
@@ -2047,21 +2288,25 @@ export class ErpStateService {
       return { success: false, message: 'Datos incompletos para generar la factura.' };
     }
 
-    // 1. Validate stock availability in selected warehouse
+    const isStockAlreadyDeducted = Boolean(options?.isStockAlreadyDeducted);
+
+    // 1. Validate stock availability in selected warehouse (unless already physically dispatched)
     const currentProducts = [...this.products()];
-    for (const item of items) {
-      const prod = currentProducts.find(p => p.id === item.productId);
-      if (!prod) {
-        return { success: false, message: `Producto con ID ${item.productId} no encontrado.` };
-      }
-      // Servicios exentos o con stock >= 900 no bloquean
-      if (prod.totalStock < 900) {
-        const whStock = prod.stockByWarehouse.find(sw => sw.warehouseId === warehouseId)?.quantity || 0;
-        if (whStock < item.quantity) {
-          return {
-            success: false,
-            message: `Stock insuficiente para "${prod.name}" en ${warehouse.name}. Disponible: ${whStock}, Solicitado: ${item.quantity}`
-          };
+    if (!isStockAlreadyDeducted) {
+      for (const item of items) {
+        const prod = currentProducts.find(p => p.id === item.productId);
+        if (!prod) {
+          return { success: false, message: `Producto con ID ${item.productId} no encontrado.` };
+        }
+        // Servicios exentos o con stock >= 900 no bloquean
+        if (prod.totalStock < 900) {
+          const whStock = prod.stockByWarehouse.find(sw => sw.warehouseId === warehouseId)?.quantity || 0;
+          if (whStock < item.quantity) {
+            return {
+              success: false,
+              message: `Stock insuficiente para "${prod.name}" en ${warehouse.name}. Disponible: ${whStock}, Solicitado: ${item.quantity}`
+            };
+          }
         }
       }
     }
@@ -2086,6 +2331,7 @@ export class ErpStateService {
     for (const item of items) {
       const prodIndex = currentProducts.findIndex(p => p.id === item.productId);
       const prod = currentProducts[prodIndex];
+      if (!prod) continue;
       const itemLevel = item.priceLevel || appliedLevel;
       const unitPrice = this.getProductPriceByLevel(prod, itemLevel);
       const lineGross = unitPrice * item.quantity;
@@ -2122,8 +2368,8 @@ export class ErpStateService {
         total: Number((lineSubtotal + itemTaxAmount).toFixed(2))
       });
 
-      // Update Warehouse stock & Total stock (only if tangible physical stock)
-      if (prod.totalStock < 900) {
+      // Update Warehouse stock & Total stock (only if not already physically deducted by Dispatch Guide)
+      if (!isStockAlreadyDeducted && prod.totalStock < 900) {
         const updatedStockByWh = prod.stockByWarehouse.map(sw => {
           if (sw.warehouseId === warehouseId) {
             return { ...sw, quantity: sw.quantity - item.quantity };
@@ -2247,7 +2493,11 @@ export class ErpStateService {
       sellerId: user.id,
       sellerName: user.name,
       digitalSeal: 'UUID-' + Math.random().toString(36).substring(2, 10).toUpperCase() + '-' + Date.now(),
-      quoteOriginNumber: options?.originQuoteNumber
+      quoteOriginNumber: options?.originQuoteNumber,
+      dispatchGuideNumbers: options?.dispatchGuideNumbers,
+      dispatchControlNumbers: options?.dispatchControlNumbers,
+      deliveryOrderNumbers: options?.deliveryOrderNumbers,
+      isStockAlreadyDeducted
     };
 
     // Update Cash Session if active
@@ -2275,7 +2525,9 @@ export class ErpStateService {
     }
 
     // Atomic write
-    this.products.set(currentProducts);
+    if (!isStockAlreadyDeducted) {
+      this.products.set(currentProducts);
+    }
     this.invoices.update(invs => [newInvoice, ...invs]);
     if (kardexToAdd.length > 0) {
       this.kardexMovements.update(kdx => [...kardexToAdd, ...kdx]);
@@ -2296,7 +2548,9 @@ export class ErpStateService {
         accountId: 'acc-501',
         accountCode: '5.1.01.01',
         accountName: 'Costo de Ventas de Mercancías',
-        description: `Costo promedio de salida mercancías ${invoiceNumber}`,
+        description: isStockAlreadyDeducted
+          ? `Costo de ventas (Previamente amparado en Guía de Despacho ${options?.dispatchGuideNumbers?.join(', ') || ''})`
+          : `Costo promedio de salida mercancías ${invoiceNumber}`,
         debit: Number(totalCostOfGoods.toFixed(2)),
         credit: 0
       },
@@ -2334,7 +2588,9 @@ export class ErpStateService {
         accountId: 'acc-104',
         accountCode: '1.1.03.01',
         accountName: 'Inventario de Mercancías y Productos Terminados',
-        description: `Descargo de inventario por venta ${invoiceNumber}`,
+        description: isStockAlreadyDeducted
+          ? `Descargo diferido facturación ${invoiceNumber} (Amparo Guía(s) ${options?.dispatchGuideNumbers?.join(', ') || ''})`
+          : `Descargo de inventario por venta ${invoiceNumber}`,
         debit: 0,
         credit: Number(totalCostOfGoods.toFixed(2))
       });
@@ -2346,9 +2602,9 @@ export class ErpStateService {
       'CREATE_INVOICE',
       'POS',
       `Emisión ${invoiceNumber} (${invoiceType} - ${paymentCurrency})`,
-      `Factura emitida a ${customer.name}. Nivel: ${appliedLevel}. Total: $${grandTotalUsd.toFixed(2)} (Bs. ${totalVes.toLocaleString('es-VE', { minimumFractionDigits: 2 })}). Tasa BCV: ${bcv.usdRate.toFixed(2)}. IGTF: ${appliesIgtf ? '3%' : '0%'}.`,
+      `Factura emitida a ${customer.name}. Nivel: ${appliedLevel}. Total: $${grandTotalUsd.toFixed(2)} (Bs. ${totalVes.toLocaleString('es-VE', { minimumFractionDigits: 2 })}). Tasa BCV: ${bcv.usdRate.toFixed(2)}. IGTF: ${appliesIgtf ? '3%' : '0%'}.${isStockAlreadyDeducted ? ' Amparo Guía: ' + options?.dispatchGuideNumbers?.join(', ') : ''}`,
       { cliente: customer.name, originQuote: options?.originQuoteNumber || null, tasaBcv: bcv.usdRate, nivelPrecio: appliedLevel },
-      { invoiceNumber, totalUsd: grandTotalUsd, totalVes, items: auditDiff, pagos: payments, taxDetails },
+      { invoiceNumber, totalUsd: grandTotalUsd, totalVes, items: auditDiff, pagos: payments, taxDetails, dispatchGuideNumbers: options?.dispatchGuideNumbers },
       { prismaTransaction: 'ATOMIC_COMPLETED' }
     );
 
@@ -2524,8 +2780,708 @@ export class ErpStateService {
   }
 
   // ==========================================
-  // TRANSACTION 4: AJUSTE DE INVENTARIO / MERMA CON DOCUMENTO DE SOPORTE OBLIGATORIO
+  // TRANSACTION 3C: GUÍAS DE DESPACHO Y ÓRDENES DE ENTREGA (SENIAT SNAT/2011/00071)
   // ==========================================
+
+  generateNextDispatchGuideNumber(): string {
+    const nextSeq = this.dispatchGuides().length + 1;
+    return `GD-2026-${nextSeq.toString().padStart(4, '0')}`;
+  }
+
+  generateNextDispatchControlNumber(): string {
+    const nextSeq = this.dispatchGuides().length + 101;
+    return `00-${nextSeq.toString().padStart(6, '0')}`;
+  }
+
+  generateNextDeliveryOrderNumber(): string {
+    const nextSeq = this.deliveryOrders().length + 1;
+    return `OE-2026-${nextSeq.toString().padStart(4, '0')}`;
+  }
+
+  generateNextDeliveryControlNumber(): string {
+    const nextSeq = this.deliveryOrders().length + 501;
+    return `00-${nextSeq.toString().padStart(6, '0')}`;
+  }
+
+  /**
+   * Crea una Guía de Despacho oficial conforme a la Providencia SENIAT SNAT/2011/00071.
+   * Ampara el traslado de bienes en territorio nacional y descuenta stock automáticamente del Kardex.
+   */
+  createDispatchGuide(payload: {
+    originWarehouseId: string;
+    destinationWarehouseId?: string;
+    customerId?: string;
+    customerName?: string;
+    customerTaxId?: string;
+    destinationAddress: string;
+    destinationState?: string;
+    destinationCity?: string;
+    recipientContactName?: string;
+    recipientPhone?: string;
+    transportReason: TransportReason;
+    transportReasonDescription?: string;
+    carrierType: CarrierType;
+    carrierName?: string;
+    carrierTaxId?: string;
+    carrierPhone?: string;
+    driverName: string;
+    driverIdDoc: string;
+    driverPhone?: string;
+    driverLicenseNumber?: string;
+    vehiclePlate: string;
+    vehicleModel?: string;
+    vehicleBrand?: string;
+    vehicleYear?: number;
+    items: {
+      productId: string;
+      quantity: number;
+      packagesCount?: number;
+      weightKg?: number;
+      volumeM3?: number;
+      notes?: string;
+    }[];
+    originQuoteNumber?: string;
+    originQuoteId?: string;
+    invoicedInvoiceNumber?: string;
+    dispatchDate?: string;
+    estimatedDeliveryDate?: string;
+    routeDetails?: string;
+    generalObservations?: string;
+    customControlNumber?: string;
+  }): {
+    success: boolean;
+    guideNumber?: string;
+    controlNumber?: string;
+    dispatchGuide?: DispatchGuide;
+    deliveryOrder?: DeliveryOrder;
+    message?: string;
+  } {
+    const user = this.authService.currentUser();
+    const originWarehouse = this.warehouses().find(w => w.id === payload.originWarehouseId);
+
+    if (!originWarehouse) {
+      return { success: false, message: 'Almacén de origen no válido.' };
+    }
+
+    if (!payload.items || payload.items.length === 0) {
+      return { success: false, message: 'Debe incluir al menos un producto a despachar.' };
+    }
+
+    if (!payload.destinationAddress || payload.destinationAddress.trim().length < 5) {
+      return { success: false, message: 'La dirección de destino es obligatoria según Providencia SNAT/2011/00071.' };
+    }
+
+    if (!payload.driverName || !payload.driverIdDoc || !payload.vehiclePlate) {
+      return { success: false, message: 'Datos de transporte obligatorios (Conductor, Cédula y Placa del vehículo).' };
+    }
+
+    // 1. Validar disponibilidad de stock en el almacén de despacho
+    const currentProducts = [...this.products()];
+    for (const item of payload.items) {
+      const prod = currentProducts.find(p => p.id === item.productId);
+      if (!prod) {
+        return { success: false, message: `Producto con ID ${item.productId} no encontrado.` };
+      }
+      if (prod.totalStock < 900) {
+        const whStock = prod.stockByWarehouse.find(sw => sw.warehouseId === payload.originWarehouseId)?.quantity || 0;
+        if (whStock < item.quantity) {
+          return {
+            success: false,
+            message: `Stock insuficiente para "${prod.name}" en ${originWarehouse.name}. Disponible: ${whStock}, Requerido: ${item.quantity}`
+          };
+        }
+      }
+    }
+
+    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    const guideNumber = this.generateNextDispatchGuideNumber();
+    const controlNumber = payload.customControlNumber?.trim() || this.generateNextDispatchControlNumber();
+    const deliveryOrderNumber = this.generateNextDeliveryOrderNumber();
+    const deliveryControlNumber = this.generateNextDeliveryControlNumber();
+    const comp = this.companyProfile();
+
+    const dispatchItems: DispatchItem[] = [];
+    const kardexToAdd: KardexMovement[] = [];
+    const auditStockDiff: Record<string, unknown> = {};
+
+    let totalPackages = 0;
+    let totalWeightKg = 0;
+    let totalVolumeM3 = 0;
+    let totalDeclaredValue = 0;
+
+    for (const item of payload.items) {
+      const prodIndex = currentProducts.findIndex(p => p.id === item.productId);
+      const prod = currentProducts[prodIndex];
+      if (!prod) continue;
+
+      const itemValuation = Number((item.quantity * prod.salePrice).toFixed(2));
+      const itemCostTotal = Number((item.quantity * prod.costPrice).toFixed(2));
+      const pkgs = item.packagesCount || Math.ceil(item.quantity);
+      const wKg = item.weightKg || Number((item.quantity * 1.5).toFixed(2));
+      const vM3 = item.volumeM3 || Number((item.quantity * 0.01).toFixed(3));
+
+      totalPackages += pkgs;
+      totalWeightKg += wKg;
+      totalVolumeM3 += vM3;
+      totalDeclaredValue += itemValuation;
+
+      dispatchItems.push({
+        productId: prod.id,
+        sku: prod.sku,
+        productName: prod.name,
+        unit: prod.unit,
+        quantity: item.quantity,
+        packagesCount: pkgs,
+        weightKg: wKg,
+        volumeM3: vM3,
+        costPrice: prod.costPrice,
+        salePrice: prod.salePrice,
+        totalDeclaredValue: itemValuation,
+        notes: item.notes
+      });
+
+      // Descuento físico del inventario en almacén y Kardex
+      if (prod.totalStock < 900) {
+        const updatedStockByWh = prod.stockByWarehouse.map(sw => {
+          if (sw.warehouseId === payload.originWarehouseId) {
+            return { ...sw, quantity: sw.quantity - item.quantity };
+          }
+          return sw;
+        });
+
+        const newTotalStock = prod.totalStock - item.quantity;
+        currentProducts[prodIndex] = {
+          ...prod,
+          totalStock: newTotalStock,
+          stockByWarehouse: updatedStockByWh,
+          updatedAt: nowStr
+        };
+
+        kardexToAdd.push({
+          id: 'kdx-' + Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 6),
+          productId: prod.id,
+          productSku: prod.sku,
+          productName: prod.name,
+          warehouseId: originWarehouse.id,
+          warehouseName: originWarehouse.name,
+          date: nowStr,
+          movementType: 'DESPACHO_GUIA',
+          docReference: guideNumber,
+          justificationReason: `Despacho amparado bajo Guía ${guideNumber} (N° Control SENIAT: ${controlNumber}) - ${payload.transportReason}`,
+          entryQty: 0,
+          entryUnitCost: 0,
+          entryTotalCost: 0,
+          exitQty: item.quantity,
+          exitUnitCost: prod.costPrice,
+          exitTotalCost: itemCostTotal,
+          balanceQty: newTotalStock,
+          balanceAverageCost: prod.costPrice,
+          balanceTotalValuation: Number((newTotalStock * prod.costPrice).toFixed(2)),
+          registeredByUserId: user.id,
+          registeredByUserName: user.name
+        });
+
+        auditStockDiff[prod.sku] = {
+          salidaDespacho: item.quantity,
+          costoUnitario: prod.costPrice,
+          stockRestante: newTotalStock
+        };
+      }
+    }
+
+    const newDispatchGuideId = 'dg-' + Date.now();
+    const newDeliveryOrderId = 'do-' + Date.now();
+
+    const newDispatchGuide: DispatchGuide = {
+      id: newDispatchGuideId,
+      guideNumber,
+      controlNumber,
+      legalNotice: 'Documento emitido conforme a la Providencia Administrativa SENIAT/SNAT/2011/00071 para amparar el traslado de bienes y mercancías en el territorio de la República Bolivariana de Venezuela.',
+      issueDate: nowStr,
+      dispatchDate: payload.dispatchDate || nowStr,
+      estimatedDeliveryDate: payload.estimatedDeliveryDate,
+      status: 'EN_TRANSITO',
+      originWarehouseId: originWarehouse.id,
+      originWarehouseName: originWarehouse.name,
+      originAddress: `${originWarehouse.location || comp.address}, Venezuela`,
+      issuerName: comp.legalName || comp.tradeName,
+      issuerTaxId: comp.taxId,
+      destinationWarehouseId: payload.destinationWarehouseId,
+      customerId: payload.customerId,
+      customerName: payload.customerName || (payload.customerId ? this.customers().find(c => c.id === payload.customerId)?.name : undefined) || 'Cliente Final',
+      customerTaxId: payload.customerTaxId || (payload.customerId ? this.customers().find(c => c.id === payload.customerId)?.taxId : undefined) || 'V-00000000-0',
+      destinationAddress: payload.destinationAddress,
+      destinationState: payload.destinationState,
+      destinationCity: payload.destinationCity,
+      recipientContactName: payload.recipientContactName,
+      recipientPhone: payload.recipientPhone,
+      transportReason: payload.transportReason,
+      transportReasonDescription: payload.transportReasonDescription,
+      carrierType: payload.carrierType,
+      carrierName: payload.carrierName,
+      carrierTaxId: payload.carrierTaxId,
+      carrierPhone: payload.carrierPhone,
+      driverName: payload.driverName,
+      driverIdDoc: payload.driverIdDoc,
+      driverPhone: payload.driverPhone,
+      driverLicenseNumber: payload.driverLicenseNumber,
+      vehiclePlate: payload.vehiclePlate,
+      vehicleModel: payload.vehicleModel,
+      vehicleBrand: payload.vehicleBrand,
+      vehicleYear: payload.vehicleYear,
+      items: dispatchItems,
+      totalQuantity: payload.items.reduce((s, i) => s + i.quantity, 0),
+      totalPackages,
+      totalWeightKg: Number(totalWeightKg.toFixed(2)),
+      totalVolumeM3: Number(totalVolumeM3.toFixed(3)),
+      totalDeclaredValue: Number(totalDeclaredValue.toFixed(2)),
+      currency: 'USD',
+      originQuoteNumber: payload.originQuoteNumber,
+      invoicedInvoiceNumber: payload.invoicedInvoiceNumber,
+      relatedDeliveryOrderId: newDeliveryOrderId,
+      relatedDeliveryOrderNumber: deliveryOrderNumber,
+      routeDetails: payload.routeDetails,
+      generalObservations: payload.generalObservations,
+      createdUserId: user.id,
+      createdUserName: user.name,
+      digitalSeal: 'SENIAT-GD-' + Math.random().toString(36).substring(2, 10).toUpperCase() + '-' + Date.now(),
+      createdAt: nowStr,
+      updatedAt: nowStr
+    };
+
+    const newDeliveryOrder: DeliveryOrder = {
+      id: newDeliveryOrderId,
+      orderNumber: deliveryOrderNumber,
+      controlNumber: deliveryControlNumber,
+      dispatchGuideId: newDispatchGuideId,
+      dispatchGuideNumber: guideNumber,
+      dispatchControlNumber: controlNumber,
+      issueDate: nowStr,
+      scheduledDate: payload.estimatedDeliveryDate || nowStr,
+      status: 'EN_RUTA',
+      customerId: payload.customerId,
+      customerName: newDispatchGuide.customerName || 'Cliente Final',
+      customerTaxId: newDispatchGuide.customerTaxId || 'V-00000000-0',
+      deliveryAddress: payload.destinationAddress,
+      contactPerson: payload.recipientContactName,
+      contactPhone: payload.recipientPhone,
+      carrierType: payload.carrierType,
+      driverName: payload.driverName,
+      driverIdDoc: payload.driverIdDoc,
+      driverPhone: payload.driverPhone,
+      vehiclePlate: payload.vehiclePlate,
+      items: dispatchItems,
+      totalQuantity: payload.items.reduce((s, i) => s + i.quantity, 0),
+      totalPackages,
+      totalWeightKg: Number(totalWeightKg.toFixed(2)),
+      specialInstructions: payload.generalObservations,
+      createdUserId: user.id,
+      createdUserName: user.name,
+      createdAt: nowStr,
+      updatedAt: nowStr
+    };
+
+    // Actualizar estado de Presupuesto / Pedido de Venta de origen si aplica
+    if (payload.originQuoteId) {
+      this.quotes.update(qs =>
+        qs.map(q => q.id === payload.originQuoteId
+          ? { ...q, status: 'DESPACHADO', dispatchedGuideNumber: guideNumber }
+          : q
+        )
+      );
+    } else if (payload.originQuoteNumber) {
+      this.quotes.update(qs =>
+        qs.map(q => q.quoteNumber === payload.originQuoteNumber
+          ? { ...q, status: 'DESPACHADO', dispatchedGuideNumber: guideNumber }
+          : q
+        )
+      );
+    }
+
+    // Persistencia atómica de inventario, Kardex, Guía y Orden de Entrega
+    this.products.set(currentProducts);
+    this.dispatchGuides.update(guides => [newDispatchGuide, ...guides]);
+    this.deliveryOrders.update(orders => [newDeliveryOrder, ...orders]);
+    if (kardexToAdd.length > 0) {
+      this.kardexMovements.update(kdx => [...kardexToAdd, ...kdx]);
+    }
+
+    // Registro contable de inventario en tránsito
+    const totalCostDispatched = dispatchItems.reduce((sum, it) => sum + (it.quantity * it.costPrice), 0);
+    if (totalCostDispatched > 0) {
+      const logisticsAccountingLines: JournalEntryLine[] = [
+        {
+          accountId: 'acc-104-transit',
+          accountCode: '1.1.03.02',
+          accountName: 'Inventario de Mercancías en Tránsito y Despacho',
+          description: `Mercancía en tránsito amparada por Guía ${guideNumber}`,
+          debit: Number(totalCostDispatched.toFixed(2)),
+          credit: 0
+        },
+        {
+          accountId: 'acc-104',
+          accountCode: '1.1.03.01',
+          accountName: 'Inventario de Mercancías y Productos Terminados',
+          description: `Descargo físico de almacén ${originWarehouse.name} por Guía ${guideNumber}`,
+          debit: 0,
+          credit: Number(totalCostDispatched.toFixed(2))
+        }
+      ];
+      this.generateAutomatedJournalEntry('AJUSTE', guideNumber, `Despacho de Mercancías ${guideNumber} (Control ${controlNumber})`, logisticsAccountingLines);
+    }
+
+    this.logAudit(
+      'CREATE_DISPATCH_GUIDE',
+      'LOGISTICS',
+      `Emisión Guía de Despacho ${guideNumber} (Control: ${controlNumber})`,
+      `Se emitió la Guía de Despacho ${guideNumber} bajo Providencia SENIAT/2011/00071 con destino a ${newDispatchGuide.customerName}. Conductor: ${payload.driverName} (${payload.vehiclePlate}). Bultos: ${totalPackages}, Peso: ${totalWeightKg.toFixed(2)} kg.`,
+      { origen: originWarehouse.name, destino: payload.destinationAddress, transportista: payload.driverName },
+      { guideNumber, controlNumber, deliveryOrderNumber, items: auditStockDiff, totalDeclaredValue }
+    );
+
+    this.notify(
+      'success',
+      'Guía de Despacho Emitida',
+      `${guideNumber} (N° Control: ${controlNumber}) registrada con éxito y descontada del Kardex.`
+    );
+
+    this.saveState();
+    return {
+      success: true,
+      guideNumber,
+      controlNumber,
+      dispatchGuide: newDispatchGuide,
+      deliveryOrder: newDeliveryOrder
+    };
+  }
+
+  /**
+   * Registra la recepción conforme del cliente en la Orden de Entrega y actualiza la Guía de Despacho.
+   */
+  registerDeliveryReceipt(
+    deliveryOrderId: string,
+    reception: DeliveryReceptionDetails
+  ): { success: boolean; message: string } {
+    const user = this.authService.currentUser();
+    const order = this.deliveryOrders().find(o => o.id === deliveryOrderId);
+
+    if (!order) {
+      return { success: false, message: 'Orden de Entrega no encontrada.' };
+    }
+
+    if (order.status === 'ENTREGADA') {
+      return { success: false, message: 'La Orden de Entrega ya se encuentra registrada como entregada.' };
+    }
+
+    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    const receptionDate = reception.receivedDate || nowStr;
+
+    // Actualizar Orden de Entrega
+    this.deliveryOrders.update(orders =>
+      orders.map(o => o.id === deliveryOrderId
+        ? {
+            ...o,
+            status: reception.physicalCondition === 'CON_NOVEDAD' ? 'ENTREGADA_PARCIAL' : 'ENTREGADA',
+            reception: { ...reception, receivedDate: receptionDate }
+          }
+        : o
+      )
+    );
+
+    // Actualizar Guía de Despacho asociada
+    if (order.dispatchGuideId) {
+      this.dispatchGuides.update(guides =>
+        guides.map(g => g.id === order.dispatchGuideId
+          ? {
+              ...g,
+              status: reception.physicalCondition === 'CON_NOVEDAD' ? 'ENTREGADA_CON_NOVEDAD' : 'ENTREGADA',
+              receptionDetails: { ...reception, receivedDate: receptionDate }
+            }
+          : g
+        )
+      );
+    }
+
+    this.logAudit(
+      'RECEIVE_DELIVERY',
+      'LOGISTICS',
+      `Recepción Conforme: Orden ${order.orderNumber}`,
+      `Mercancía recibida por ${reception.receivedByName} (C.I./RIF: ${reception.receivedByIdDoc}) y registrada por ${user.name}. Condición: ${reception.physicalCondition}.`,
+      { orderNumber: order.orderNumber, guideNumber: order.dispatchGuideNumber, registradoPor: user.name },
+      { receptor: reception.receivedByName, cedula: reception.receivedByIdDoc, fecha: receptionDate, observaciones: reception.observations }
+    );
+
+    this.notify(
+      'success',
+      'Entrega Registrada Conforme',
+      `Orden ${order.orderNumber} recibida por ${reception.receivedByName}.`
+    );
+
+    this.saveState();
+    return { success: true, message: `Entrega de la orden ${order.orderNumber} registrada con éxito.` };
+  }
+
+  /**
+   * Anulación de Guía de Despacho con restitución de inventario al Almacén de Origen.
+   */
+  cancelDispatchGuide(guideId: string, justificationReason: string): { success: boolean; message: string } {
+    const guide = this.dispatchGuides().find(g => g.id === guideId);
+    if (!guide) {
+      return { success: false, message: 'Guía de Despacho no encontrada.' };
+    }
+
+    if (guide.status === 'ANULADA') {
+      return { success: false, message: 'La Guía de Despacho ya está anulada.' };
+    }
+
+    if (guide.invoicedInvoiceNumber) {
+      return {
+        success: false,
+        message: `No se puede anular la Guía ${guide.guideNumber} porque ya fue facturada en ${guide.invoicedInvoiceNumber}. Anule la factura primero.`
+      };
+    }
+
+    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    const user = this.authService.currentUser();
+
+    // Reingresar stock al almacén de origen
+    const currentProducts = [...this.products()];
+    const kardexToAdd: KardexMovement[] = [];
+
+    for (const item of guide.items) {
+      const prodIndex = currentProducts.findIndex(p => p.id === item.productId);
+      if (prodIndex !== -1) {
+        const prod = currentProducts[prodIndex];
+        const updatedStockByWh = prod.stockByWarehouse.map(sw => {
+          if (sw.warehouseId === guide.originWarehouseId) {
+            return { ...sw, quantity: sw.quantity + item.quantity };
+          }
+          return sw;
+        });
+        const newTotalStock = prod.totalStock + item.quantity;
+        currentProducts[prodIndex] = {
+          ...prod,
+          totalStock: newTotalStock,
+          stockByWarehouse: updatedStockByWh,
+          updatedAt: nowStr
+        };
+
+        kardexToAdd.push({
+          id: 'kdx-' + Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 6),
+          productId: prod.id,
+          productSku: prod.sku,
+          productName: prod.name,
+          warehouseId: guide.originWarehouseId,
+          warehouseName: guide.originWarehouseName,
+          date: nowStr,
+          movementType: 'AJUSTE_SOBRANTE',
+          docReference: `ANUL-${guide.guideNumber}`,
+          justificationReason: `Reingreso por anulación de Guía de Despacho ${guide.guideNumber}: ${justificationReason}`,
+          entryQty: item.quantity,
+          entryUnitCost: prod.costPrice,
+          entryTotalCost: Number((item.quantity * prod.costPrice).toFixed(2)),
+          exitQty: 0,
+          exitUnitCost: 0,
+          exitTotalCost: 0,
+          balanceQty: newTotalStock,
+          balanceAverageCost: prod.costPrice,
+          balanceTotalValuation: Number((newTotalStock * prod.costPrice).toFixed(2)),
+          registeredByUserId: user.id,
+          registeredByUserName: user.name
+        });
+      }
+    }
+
+    this.products.set(currentProducts);
+    this.kardexMovements.update(k => [...kardexToAdd, ...k]);
+    this.dispatchGuides.update(guides =>
+      guides.map(g => g.id === guideId ? { ...g, status: 'ANULADA', cancelReason: justificationReason } : g)
+    );
+
+    if (guide.relatedDeliveryOrderId) {
+      this.deliveryOrders.update(orders =>
+        orders.map(o => o.id === guide.relatedDeliveryOrderId ? { ...o, status: 'CANCELADA' } : o)
+      );
+    }
+
+    this.logAudit(
+      'CREATE_DISPATCH_GUIDE',
+      'LOGISTICS',
+      `Anulación de Guía de Despacho ${guide.guideNumber}`,
+      `Guía ${guide.guideNumber} anulada. Motivo: ${justificationReason}. Stock devuelto al almacén ${guide.originWarehouseName}.`,
+      { guideStatusBefore: guide.status },
+      { guideStatusAfter: 'ANULADA', motivo: justificationReason }
+    );
+
+    this.notify('warning', 'Guía de Despacho Anulada', `La Guía ${guide.guideNumber} fue anulada y el stock se reincorporó.`);
+    this.saveState();
+    return { success: true, message: `Guía de Despacho ${guide.guideNumber} anulada exitosamente.` };
+  }
+
+  /**
+   * Convierte un Presupuesto / Pedido de Venta directamente en una Guía de Despacho oficial.
+   */
+  convertQuoteToDispatchGuide(
+    quoteId: string,
+    transportDetails: {
+      originWarehouseId: string;
+      destinationAddress: string;
+      transportReason: TransportReason;
+      carrierType: CarrierType;
+      carrierName?: string;
+      carrierTaxId?: string;
+      driverName: string;
+      driverIdDoc: string;
+      driverPhone?: string;
+      vehiclePlate: string;
+      vehicleModel?: string;
+      estimatedDeliveryDate?: string;
+      generalObservations?: string;
+    }
+  ): { success: boolean; guideNumber?: string; message?: string } {
+    const quote = this.quotes().find(q => q.id === quoteId);
+    if (!quote) return { success: false, message: 'Presupuesto no encontrado.' };
+
+    const items = quote.items.map(it => ({
+      productId: it.productId,
+      quantity: it.quantity,
+      notes: `Origen Cotización ${quote.quoteNumber}`
+    }));
+
+    const result = this.createDispatchGuide({
+      originWarehouseId: transportDetails.originWarehouseId,
+      customerId: quote.customerId,
+      customerName: quote.customerName,
+      customerTaxId: quote.customerTaxId,
+      destinationAddress: transportDetails.destinationAddress,
+      transportReason: transportDetails.transportReason,
+      carrierType: transportDetails.carrierType,
+      carrierName: transportDetails.carrierName,
+      carrierTaxId: transportDetails.carrierTaxId,
+      driverName: transportDetails.driverName,
+      driverIdDoc: transportDetails.driverIdDoc,
+      driverPhone: transportDetails.driverPhone,
+      vehiclePlate: transportDetails.vehiclePlate,
+      vehicleModel: transportDetails.vehicleModel,
+      estimatedDeliveryDate: transportDetails.estimatedDeliveryDate,
+      generalObservations: transportDetails.generalObservations,
+      items,
+      originQuoteNumber: quote.quoteNumber,
+      originQuoteId: quote.id
+    });
+
+    return result;
+  }
+
+  /**
+   * Facturación consolidada a partir de una o varias Guías de Despacho.
+   * Evita duplicidad en el descuento de inventario activando `isStockAlreadyDeducted: true`.
+   */
+  invoiceFromDispatchGuides(
+    guideIds: string[],
+    options?: {
+      payments?: PaymentRecord[];
+      paymentCurrency?: CurrencyCode;
+      invoiceType?: Invoice['type'];
+      appliesIgtfManual?: boolean | null;
+      globalDiscountPercent?: number;
+      priceLevelApplied?: PriceLevelKey;
+    }
+  ): { success: boolean; invoiceNumber?: string; invoice?: Invoice; message?: string } {
+    const guides = this.dispatchGuides().filter(g => guideIds.includes(g.id));
+    if (guides.length === 0) {
+      return { success: false, message: 'No se encontraron Guías de Despacho válidas.' };
+    }
+
+    const firstGuide = guides[0];
+    const customerId = firstGuide.customerId || this.customers()[0]?.id || 'cust-1';
+    const warehouseId = firstGuide.originWarehouseId;
+
+    // Agrupar items de las guías
+    const itemMap = new Map<string, { productId: string; quantity: number }>();
+    for (const g of guides) {
+      if (g.status === 'ANULADA') {
+        return { success: false, message: `La Guía ${g.guideNumber} está anulada y no puede ser facturada.` };
+      }
+      if (g.invoicedInvoiceNumber) {
+        return { success: false, message: `La Guía ${g.guideNumber} ya fue facturada en ${g.invoicedInvoiceNumber}.` };
+      }
+      for (const item of g.items) {
+        const existing = itemMap.get(item.productId);
+        if (existing) {
+          existing.quantity += item.quantity;
+        } else {
+          itemMap.set(item.productId, { productId: item.productId, quantity: item.quantity });
+        }
+      }
+    }
+
+    const itemsToInvoice = Array.from(itemMap.values());
+    const guideNumbers = guides.map(g => g.guideNumber);
+    const controlNumbers = guides.map(g => g.controlNumber);
+    const deliveryOrderNumbers = guides.map(g => g.relatedDeliveryOrderNumber).filter(Boolean) as string[];
+
+    const paymentCurr = options?.paymentCurrency || 'USD';
+    const payments = options?.payments && options.payments.length > 0
+      ? options.payments
+      : [
+          {
+            method: (paymentCurr === 'VES' ? 'TRANSFERENCIA' : 'EFECTIVO_USD') as PaymentMethod,
+            amount: 0, // Se recalcula en registerSaleInvoice
+            currency: paymentCurr,
+            reference: `FACT-GD-${guideNumbers.join('-')}`
+          }
+        ];
+
+    const result = this.registerSaleInvoice(
+      customerId,
+      warehouseId,
+      itemsToInvoice,
+      payments,
+      options?.invoiceType || 'FACTURA_ELECTRONICA',
+      {
+        baseCurrency: 'USD',
+        paymentCurrency: paymentCurr,
+        priceLevelApplied: options?.priceLevelApplied || 'price1',
+        globalDiscountPercent: options?.globalDiscountPercent,
+        appliesIgtfManual: options?.appliesIgtfManual,
+        isStockAlreadyDeducted: true,
+        dispatchGuideNumbers: guideNumbers,
+        dispatchControlNumbers: controlNumbers,
+        deliveryOrderNumbers
+      }
+    );
+
+    if (result.success && result.invoiceNumber) {
+      // Vincular número de factura en las Guías y Órdenes de Entrega
+      const invNum = result.invoiceNumber;
+      this.dispatchGuides.update(allGuides =>
+        allGuides.map(g => guideIds.includes(g.id) ? { ...g, invoicedInvoiceNumber: invNum } : g)
+      );
+
+      this.deliveryOrders.update(allOrders =>
+        allOrders.map(o => (o.dispatchGuideId && guideIds.includes(o.dispatchGuideId)) ? { ...o, invoicedInvoiceNumber: invNum } : o)
+      );
+
+      this.logAudit(
+        'CREATE_INVOICE',
+        'POS',
+        `Factura ${invNum} generada a partir de Guías de Despacho`,
+        `Facturación con amparo legal de Guías: ${guideNumbers.join(', ')} (N°s Control: ${controlNumbers.join(', ')}).`,
+        { guiasAmparadas: guideNumbers, controles: controlNumbers },
+        { invoiceNumber: invNum, itemsFacturados: itemsToInvoice.length }
+      );
+
+      this.notify(
+        'success',
+        'Facturación de Despacho Exitosa',
+        `Factura ${invNum} emitida amparando las Guías ${guideNumbers.join(', ')}.`
+      );
+      this.saveState();
+    }
+
+    return result;
+  }
   adjustStock(
     productId: string,
     warehouseId: string,
@@ -2725,8 +3681,8 @@ export class ErpStateService {
   }
 
   // Create Product Helper
-  createProduct(prod: Omit<Product, 'id' | 'updatedAt' | 'totalStock'>) {
-    const totalStock = prod.stockByWarehouse.reduce((s, w) => s + w.quantity, 0);
+  createProduct(prod: Omit<Product, 'id' | 'updatedAt' | 'totalStock'>): Product {
+    const totalStock = (prod.stockByWarehouse || []).reduce((s, w) => s + w.quantity, 0);
     const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
     const newProd: Product = {
       ...prod,
@@ -2739,6 +3695,7 @@ export class ErpStateService {
     this.logAudit('CREATE_PRODUCT', 'INVENTORY', `Creación de Producto: ${prod.sku}`, `Alta de producto ${prod.name} con stock inicial de ${totalStock} UND.`, null, newProd as unknown as Record<string, unknown>);
     this.notify('success', 'Producto Creado', `Se agregó ${newProd.name} al catálogo.`);
     this.saveState();
+    return newProd;
   }
 
   // Create Supplier Helper
@@ -2916,6 +3873,34 @@ export class ErpStateService {
     this.notify('success', 'Presupuesto Creado', `Cotización ${quoteNumber} generada.`);
     this.saveState();
     return { success: true, quoteNumber };
+  }
+
+  // Update Quote Status Helper (BORRADOR, ENVIADO, APROBADO, RECHAZADO)
+  updateQuoteStatus(quoteId: string, newStatus: Quote['status'], notes?: string): { success: boolean; message?: string } {
+    const q = this.quotes().find(item => item.id === quoteId);
+    if (!q) return { success: false, message: 'Presupuesto no encontrado.' };
+
+    if (q.status === 'CONVERTIDO_A_FACTURA') {
+      return { success: false, message: 'No se puede modificar el estado de un presupuesto que ya fue facturado.' };
+    }
+
+    const previousStatus = q.status;
+    this.quotes.update(qs =>
+      qs.map(item => item.id === quoteId ? { ...item, status: newStatus } : item)
+    );
+
+    this.logAudit(
+      'UPDATE_QUOTE_STATUS',
+      'SALES',
+      `Cambio de Estado Presupuesto ${q.quoteNumber}: ${newStatus}`,
+      `Estado actualizado de ${previousStatus} a ${newStatus}.${notes ? ' Nota: ' + notes : ''}`,
+      { statusAnterior: previousStatus },
+      { statusNuevo: newStatus, motivo: notes || null }
+    );
+
+    this.notify('info', 'Estado Actualizado', `Presupuesto ${q.quoteNumber} marcado como "${newStatus.replace(/_/g, ' ')}".`);
+    this.saveState();
+    return { success: true };
   }
 
   // ============================================================================
@@ -3556,6 +4541,8 @@ export class ErpStateService {
       accounts: this.accounts(),
       journalEntries: this.journalEntries(),
       invoices: this.invoices(),
+      dispatchGuides: this.dispatchGuides(),
+      deliveryOrders: this.deliveryOrders(),
       cashClosings: [this.activeCashSession(), ...this.cashSessionHistory()],
       quotes: this.quotes(),
       customers: this.customers(),
@@ -3617,6 +4604,14 @@ export class ErpStateService {
       if (Array.isArray(data.invoices) && data.invoices.length > 0) {
         this.invoices.set(data.invoices);
         count += data.invoices.length;
+      }
+      if (Array.isArray(data.dispatchGuides) && data.dispatchGuides.length > 0) {
+        this.dispatchGuides.set(data.dispatchGuides);
+        count += data.dispatchGuides.length;
+      }
+      if (Array.isArray(data.deliveryOrders) && data.deliveryOrders.length > 0) {
+        this.deliveryOrders.set(data.deliveryOrders);
+        count += data.deliveryOrders.length;
       }
       if (Array.isArray(data.quotes) && data.quotes.length > 0) {
         this.quotes.set(data.quotes);

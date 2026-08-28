@@ -5,11 +5,12 @@ import { AuthService } from '../../services/auth.service';
 import { KeyboardShortcutsService } from '../../services/keyboard-shortcuts.service';
 import { Quote, PriceLevelKey, Invoice, PaymentMethod, PaymentRecord, CurrencyCode, InvoiceType } from '../../models/erp.models';
 import { InvoiceModal } from '../invoice-modal/invoice-modal';
+import { QuotePrintModal } from './quote-print-modal';
 
 @Component({
   selector: 'app-quotes',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatIconModule, InvoiceModal],
+  imports: [MatIconModule, InvoiceModal, QuotePrintModal],
   template: `
     <div class="space-y-6 pb-12">
       
@@ -102,10 +103,10 @@ import { InvoiceModal } from '../invoice-modal/invoice-modal';
               </div>
             </div>
 
-            <!-- Bottom: Total & Conversion Action -->
-            <div class="pt-3 border-t border-slate-100 flex items-center justify-between">
+            <!-- Actions Bar: Print, WhatsApp, Email, Status & Conversion -->
+            <div class="pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <span class="text-[10px] text-slate-400 block uppercase">Total Cotizado</span>
+                <span class="text-[10px] text-slate-400 block uppercase font-semibold">Total Cotizado</span>
                 <div class="flex items-baseline space-x-1.5">
                   <span class="font-mono font-bold text-lg text-slate-900">\${{ q.total.toFixed(2) }}</span>
                   <span class="font-mono text-xs text-slate-500">
@@ -114,29 +115,72 @@ import { InvoiceModal } from '../invoice-modal/invoice-modal';
                 </div>
               </div>
 
-              @if (q.status === 'CONVERTIDO_A_FACTURA') {
-                <div class="flex items-center space-x-2">
-                  <span class="px-2 py-1 rounded-lg bg-indigo-50 text-indigo-900 text-xs font-bold border border-indigo-200">
-                    {{ q.convertedInvoiceNumber }}
-                  </span>
-                  @if (q.convertedInvoiceNumber) {
-                    <button 
-                      (click)="viewFiscalInvoice(q.convertedInvoiceNumber)"
-                      title="Ver Comprobante Fiscal Emitido"
-                      class="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold flex items-center space-x-1 shadow-xs transition-colors cursor-pointer">
-                      <mat-icon class="text-sm">receipt_long</mat-icon>
-                      <span>Ver Factura</span>
-                    </button>
-                  }
-                </div>
-              } @else {
+              <div class="flex flex-wrap items-center gap-1.5">
+                <!-- Action: Ver / Imprimir Documento Proforma -->
                 <button 
-                  (click)="openConversionPreview(q)"
-                  class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold flex items-center space-x-1.5 shadow-xs transition-colors cursor-pointer">
-                  <mat-icon class="text-sm">sync_alt</mat-icon>
-                  <span>Convertir a Factura Fiscal</span>
+                  type="button"
+                  (click)="openPrintQuote(q)"
+                  title="Ver / Imprimir Presupuesto Formal (PDF)"
+                  class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center space-x-1 transition-colors cursor-pointer">
+                  <mat-icon class="text-sm text-slate-600">print</mat-icon>
+                  <span class="hidden sm:inline">Imprimir</span>
                 </button>
-              }
+
+                <!-- Action: Enviar por WhatsApp -->
+                <button 
+                  type="button"
+                  (click)="shareViaWhatsApp(q)"
+                  title="Enviar Presupuesto por WhatsApp"
+                  class="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-semibold flex items-center space-x-1 transition-colors cursor-pointer">
+                  <mat-icon class="text-sm text-emerald-600">chat</mat-icon>
+                  <span>WhatsApp</span>
+                </button>
+
+                <!-- Action: Enviar por Correo Electrónico -->
+                <button 
+                  type="button"
+                  (click)="shareViaEmail(q)"
+                  title="Enviar por Correo Electrónico"
+                  class="px-2.5 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 rounded-xl text-xs font-semibold flex items-center space-x-1 transition-colors cursor-pointer">
+                  <mat-icon class="text-sm text-sky-600">mail</mat-icon>
+                  <span class="hidden sm:inline">Email</span>
+                </button>
+
+                @if (q.status === 'BORRADOR') {
+                  <button 
+                    type="button"
+                    (click)="changeQuoteStatus(q.id, 'ENVIADO')"
+                    title="Marcar cotización como enviada al cliente"
+                    class="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-xl text-xs font-semibold flex items-center space-x-1 transition-colors cursor-pointer">
+                    <mat-icon class="text-sm text-amber-600">send</mat-icon>
+                    <span>Marcar Enviado</span>
+                  </button>
+                }
+
+                @if (q.status === 'CONVERTIDO_A_FACTURA') {
+                  <div class="flex items-center space-x-1.5">
+                    <span class="px-2 py-1 rounded-lg bg-indigo-50 text-indigo-900 text-xs font-bold border border-indigo-200">
+                      {{ q.convertedInvoiceNumber }}
+                    </span>
+                    @if (q.convertedInvoiceNumber) {
+                      <button 
+                        (click)="viewFiscalInvoice(q.convertedInvoiceNumber)"
+                        title="Ver Comprobante Fiscal Emitido"
+                        class="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold flex items-center space-x-1 shadow-xs transition-colors cursor-pointer">
+                        <mat-icon class="text-sm">receipt_long</mat-icon>
+                        <span>Ver Factura</span>
+                      </button>
+                    }
+                  </div>
+                } @else {
+                  <button 
+                    (click)="openConversionPreview(q)"
+                    class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold flex items-center space-x-1 shadow-xs transition-colors cursor-pointer">
+                    <mat-icon class="text-sm">sync_alt</mat-icon>
+                    <span>Facturar</span>
+                  </button>
+                }
+              </div>
             </div>
 
           </div>
@@ -769,6 +813,15 @@ import { InvoiceModal } from '../invoice-modal/invoice-modal';
       }
 
       <!-- ========================================================= -->
+      <!-- MODAL: IMPRESIÓN Y VISTA FORMAL DE COTIZACIÓN -->
+      <!-- ========================================================= -->
+      @if (activeQuoteForPrint(); as quoteToPrint) {
+        <app-quote-print-modal 
+          [quote]="quoteToPrint"
+          (closeModal)="activeQuoteForPrint.set(null)" />
+      }
+
+      <!-- ========================================================= -->
       <!-- MODAL: VISOR DE FACTURA FISCAL EMITIDA -->
       <!-- ========================================================= -->
       @if (activeInvoiceForModal(); as inv) {
@@ -786,6 +839,9 @@ export class QuotesComponent {
   shortcutService = inject(KeyboardShortcutsService);
 
   showNewQuoteModal = signal<boolean>(false);
+
+  // Active quote for print modal
+  activeQuoteForPrint = signal<Quote | null>(null);
 
   // New Customer Modal Signals
   showNewCustomerModal = signal<boolean>(false);
@@ -1086,5 +1142,94 @@ export class QuotesComponent {
 
     this.quoteItems.set([]);
     this.showNewQuoteModal.set(false);
+  }
+
+  // Open Printable / PDF Document
+  openPrintQuote(quote: Quote) {
+    this.activeQuoteForPrint.set(quote);
+  }
+
+  // Change quote status (e.g. BORRADOR -> ENVIADO / APROBADO)
+  changeQuoteStatus(quoteId: string, newStatus: Quote['status']) {
+    this.stateService.updateQuoteStatus(quoteId, newStatus);
+  }
+
+  // Share via WhatsApp with structured text
+  shareViaWhatsApp(quote: Quote) {
+    const cust = this.stateService.customers().find(c => c.id === quote.customerId || c.taxId === quote.customerTaxId);
+    const bcvRate = quote.bcvRate || this.stateService.bcvState().usdRate || 36.50;
+    const totalBs = quote.totalVes || (quote.total * bcvRate);
+    const company = this.stateService.companyProfile();
+
+    let itemsText = '';
+    quote.items.forEach(item => {
+      itemsText += `• ${item.quantity}x ${item.productName}: $${(item.total || 0).toFixed(2)}\n`;
+    });
+
+    const msg = 
+      `*PRESUPUESTO COMERCIAL - ${company.legalName}*\n` +
+      `*Cotización Nº:* ${quote.quoteNumber}\n` +
+      `*Cliente:* ${quote.customerName} (${quote.customerTaxId})\n` +
+      `*Fecha:* ${quote.date.substring(0, 10)} | *Válido hasta:* ${quote.expirationDate}\n\n` +
+      `*Detalle de Artículos:*\n` +
+      itemsText + `\n` +
+      `*Total Cotizado:* $${quote.total.toFixed(2)} USD\n` +
+      `*Contravalor Oficial BCV:* Bs. ${totalBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Tasa: Bs. ${bcvRate.toFixed(2)})\n\n` +
+      (quote.notes ? `*Condiciones:* ${quote.notes}\n\n` : '') +
+      `_Quedamos atentos a su confirmación para proceder con el despacho y facturación fiscal._`;
+
+    // Auto-update status to ENVIADO if was BORRADOR
+    if (quote.status === 'BORRADOR') {
+      this.stateService.updateQuoteStatus(quote.id, 'ENVIADO', 'Compartido vía WhatsApp');
+    }
+
+    const cleanPhone = (cust?.phone || '').replace(/[^0-9]/g, '');
+    const encodedMsg = encodeURIComponent(msg);
+    const whatsappUrl = cleanPhone 
+      ? `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodedMsg}`
+      : `https://api.whatsapp.com/send?text=${encodedMsg}`;
+
+    window.open(whatsappUrl, '_blank');
+  }
+
+  // Share via Email
+  shareViaEmail(quote: Quote) {
+    const cust = this.stateService.customers().find(c => c.id === quote.customerId || c.taxId === quote.customerTaxId);
+    const bcvRate = quote.bcvRate || this.stateService.bcvState().usdRate || 36.50;
+    const totalBs = quote.totalVes || (quote.total * bcvRate);
+    const company = this.stateService.companyProfile();
+
+    let itemsText = '';
+    quote.items.forEach(item => {
+      itemsText += `- ${item.quantity}x ${item.productName}: $${(item.total || 0).toFixed(2)}\r\n`;
+    });
+
+    const subject = encodeURIComponent(`Presupuesto Comercial ${quote.quoteNumber} - ${company.legalName}`);
+    const body = encodeURIComponent(
+      `Estimado/a ${quote.customerName},\r\n\r\n` +
+      `Adjuntamos el presupuesto comercial solicitado:\r\n\r\n` +
+      `Número: ${quote.quoteNumber}\r\n` +
+      `Fecha: ${quote.date.substring(0, 10)}\r\n` +
+      `Válido hasta: ${quote.expirationDate}\r\n\r\n` +
+      `Artículos incluidos:\r\n` +
+      itemsText + `\r\n` +
+      `Subtotal: $${(quote.subtotal || 0).toFixed(2)}\r\n` +
+      `IVA Estimado: $${(quote.taxTotal || 0).toFixed(2)}\r\n` +
+      `TOTAL USD: $${quote.total.toFixed(2)}\r\n` +
+      `TOTAL OFICIAL BS: Bs. ${totalBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Tasa BCV: Bs. ${bcvRate.toFixed(2)})\r\n\r\n` +
+      `Quedamos a su disposición para cualquier consulta.\r\n\r\n` +
+      `Atentamente,\r\n` +
+      `${company.legalName}\r\n` +
+      `RIF: ${company.taxId}\r\n` +
+      `Tel: ${company.phone || ''}`
+    );
+
+    // Auto-update status to ENVIADO if was BORRADOR
+    if (quote.status === 'BORRADOR') {
+      this.stateService.updateQuoteStatus(quote.id, 'ENVIADO', 'Compartido vía Correo');
+    }
+
+    const email = cust?.email || '';
+    window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
   }
 }

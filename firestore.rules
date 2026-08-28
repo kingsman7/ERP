@@ -34,6 +34,32 @@ service cloud.firestore {
              data.maxBackupsToRetain is number;
     }
 
+    function isValidDispatchGuide(data) {
+      return data.id is string &&
+             data.guideNumber is string &&
+             data.controlNumber is string &&
+             data.issueDate is string &&
+             data.status in ['BORRADOR', 'EN_TRANSITO', 'EMITIDA', 'ENTREGADA', 'FACTURADA', 'ANULADA'] &&
+             data.originWarehouseId is string &&
+             data.customerId is string &&
+             data.transferReason in ['VENTA', 'TRASLADO_ALMACEN', 'CONSIGNACION', 'DEVOLUCION', 'DEMOSTRACION', 'REPARACION_GARANTIA', 'OTRO'] &&
+             data.carrierName is string &&
+             data.driverName is string &&
+             data.driverIdNumber is string &&
+             data.vehiclePlate is string;
+    }
+
+    function isValidDeliveryOrder(data) {
+      return data.id is string &&
+             data.orderNumber is string &&
+             data.controlNumber is string &&
+             data.customerId is string &&
+             data.deliveryAddress is string &&
+             data.warehouseId is string &&
+             data.issueDate is string &&
+             data.status in ['PENDIENTE_DESPACHO', 'EN_RUTA', 'ENTREGADA_CONFORME', 'ENTREGADA_CON_NOVEDAD', 'FACTURADA', 'ANULADA'];
+    }
+
     // ERP Backups Collection
     match /erp_backups/{backupId} {
       allow read: if true;
@@ -47,6 +73,22 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isValidBackupSchedule(request.resource.data);
       allow update: if isValidBackupSchedule(request.resource.data);
+      allow delete: if true;
+    }
+
+    // Dispatch Guides Collection
+    match /dispatch_guides/{guideId} {
+      allow read: if true;
+      allow create: if isValidDispatchGuide(request.resource.data);
+      allow update: if isValidDispatchGuide(request.resource.data);
+      allow delete: if true;
+    }
+
+    // Delivery Orders Collection
+    match /delivery_orders/{orderId} {
+      allow read: if true;
+      allow create: if isValidDeliveryOrder(request.resource.data);
+      allow update: if isValidDeliveryOrder(request.resource.data);
       allow delete: if true;
     }
   }

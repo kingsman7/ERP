@@ -14,6 +14,7 @@ import { KardexComponent } from './components/kardex/kardex';
 import { PurchasesComponent } from './components/purchases/purchases';
 import { SalesPosComponent } from './components/sales-pos/sales-pos';
 import { QuotesComponent } from './components/quotes/quotes';
+import { LogisticsComponent } from './components/logistics/logistics';
 import { MrpComponent } from './components/mrp/mrp';
 import { CrmComponent } from './components/crm/crm';
 import { AccountingComponent } from './components/accounting/accounting';
@@ -41,6 +42,7 @@ import { KeyboardShortcutsModalComponent } from './components/keyboard-shortcuts
     PurchasesComponent,
     SalesPosComponent,
     QuotesComponent,
+    LogisticsComponent,
     MrpComponent,
     CrmComponent,
     AccountingComponent,

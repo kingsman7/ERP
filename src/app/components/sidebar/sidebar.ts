@@ -7,6 +7,7 @@ export type NavTab =
   | 'dashboard'
   | 'inventory'
   | 'kardex'
+  | 'logistics'
   | 'purchases'
   | 'sales-pos'
   | 'quotes'
@@ -111,6 +112,21 @@ export type NavTab =
           </div>
           <span class="text-[10px] text-slate-400 font-mono">
             {{ stateService.quotes().length }}
+          </span>
+        </button>
+        }
+
+        @if (canAccess('inventory:manage', 'sales:manage', 'purchases:manage')) {
+        <button 
+          (click)="selectTab('logistics')"
+          [class]="activeTab() === 'logistics' ? 'bg-amber-600/10 text-amber-400 font-semibold border-l-4 border-amber-500 rounded-r-lg' : 'hover:bg-slate-800/90 text-slate-300 rounded-lg'"
+          class="w-full flex items-center justify-between px-3.5 py-2 text-xs transition-all duration-150 text-left">
+          <div class="flex items-center space-x-3">
+            <mat-icon class="text-amber-400 text-lg">local_shipping</mat-icon>
+            <span class="font-medium">Logística & Guías SENIAT</span>
+          </div>
+          <span class="text-[10px] text-slate-400 font-mono">
+            {{ stateService.dispatchGuides().length }}
           </span>
         </button>
         }

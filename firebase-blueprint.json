@@ -162,6 +162,48 @@
         "autoDownloadJson",
         "maxBackupsToRetain"
       ]
+    },
+    "DispatchGuide": {
+      "title": "DispatchGuide",
+      "description": "Guía de Despacho oficial de acuerdo con la Providencia SENIAT SNAT/2011/00071 para amparo legal de traslado de mercancías",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Identificador único de la guía" },
+        "guideNumber": { "type": "string", "description": "Número de Guía de Despacho (ej. GD-2026-0001)" },
+        "controlNumber": { "type": "string", "description": "Número de Control Consecutivo y Único SENIAT (ej. 00-00000101)" },
+        "issueDate": { "type": "string", "description": "Fecha y hora de emisión" },
+        "status": { "type": "string", "enum": ["BORRADOR", "EN_TRANSITO", "EMITIDA", "ENTREGADA", "FACTURADA", "ANULADA"], "description": "Estado operativo de la guía" },
+        "originWarehouseId": { "type": "string", "description": "ID del almacén de origen" },
+        "customerId": { "type": "string", "description": "ID del cliente receptor" },
+        "customerName": { "type": "string", "description": "Razón social del cliente" },
+        "customerTaxId": { "type": "string", "description": "RIF o Cédula del cliente" },
+        "transferReason": { "type": "string", "enum": ["VENTA", "TRASLADO_ALMACEN", "CONSIGNACION", "DEVOLUCION", "DEMOSTRACION", "REPARACION_GARANTIA", "OTRO"], "description": "Motivo del traslado" },
+        "carrierName": { "type": "string", "description": "Nombre de la empresa o transportista" },
+        "driverName": { "type": "string", "description": "Nombre del conductor" },
+        "driverIdNumber": { "type": "string", "description": "Cédula del conductor" },
+        "vehiclePlate": { "type": "string", "description": "Placa del vehículo" },
+        "totalQuantity": { "type": "number", "description": "Cantidad total de unidades despachadas" },
+        "totalValuationCost": { "type": "number", "description": "Valoración total a costo de salida" }
+      },
+      "required": ["id", "guideNumber", "controlNumber", "issueDate", "status", "originWarehouseId", "customerId", "transferReason", "carrierName", "driverName", "driverIdNumber", "vehiclePlate"]
+    },
+    "DeliveryOrder": {
+      "title": "DeliveryOrder",
+      "description": "Orden de Entrega y Control de Recepción Conforme del Cliente (SENIAT)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Identificador de la orden de entrega" },
+        "orderNumber": { "type": "string", "description": "Número de orden de entrega (ej. OE-2026-0001)" },
+        "controlNumber": { "type": "string", "description": "Número de control consecutivo" },
+        "customerId": { "type": "string", "description": "ID del cliente" },
+        "customerName": { "type": "string", "description": "Nombre del cliente" },
+        "customerTaxId": { "type": "string", "description": "RIF o Cédula" },
+        "deliveryAddress": { "type": "string", "description": "Dirección de entrega" },
+        "warehouseId": { "type": "string", "description": "Almacén de origen" },
+        "issueDate": { "type": "string", "description": "Fecha de emisión" },
+        "status": { "type": "string", "enum": ["PENDIENTE_DESPACHO", "EN_RUTA", "ENTREGADA_CONFORME", "ENTREGADA_CON_NOVIDAD", "FACTURADA", "ANULADA"], "description": "Estado de la entrega" }
+      },
+      "required": ["id", "orderNumber", "controlNumber", "customerId", "customerName", "customerTaxId", "deliveryAddress", "warehouseId", "issueDate", "status"]
     }
   },
   "firestore": {
@@ -172,6 +214,14 @@
     "/erp_backup_schedules/{scheduleId}": {
       "schema": "BackupSchedule",
       "description": "Colección de parámetros de programación automática de respaldos"
+    },
+    "/dispatch_guides/{guideId}": {
+      "schema": "DispatchGuide",
+      "description": "Colección de Guías de Despacho SENIAT emitidas"
+    },
+    "/delivery_orders/{orderId}": {
+      "schema": "DeliveryOrder",
+      "description": "Colección de Órdenes de Entrega con recepción y firmas"
     }
   }
 }
