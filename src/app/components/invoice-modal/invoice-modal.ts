@@ -55,9 +55,9 @@ import { ErpStateService } from '../../services/erp-state.service';
 
               <div class="text-right border border-slate-200 bg-slate-50/80 p-3 rounded-xl min-w-[210px]">
                 <div class="flex justify-end space-x-1.5 mb-1">
-                  <span class="inline-block px-2 py-0.5 text-[10px] font-bold rounded bg-slate-900 text-white uppercase tracking-wider">
+                  <!-- <span class="inline-block px-2 py-0.5 text-[10px] font-bold rounded bg-slate-900 text-white uppercase tracking-wider">
                     {{ inv.type.replace('_', ' ') }}
-                  </span>
+                  </span> -->
                   @if (inv.priceLevelApplied) {
                     <span class="inline-block px-1.5 py-0.5 text-[10px] font-bold rounded bg-indigo-100 text-indigo-800 uppercase font-mono">
                       {{ inv.priceLevelApplied }}
