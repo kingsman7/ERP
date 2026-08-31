@@ -8,8 +8,7 @@ import {
   PayableBill, 
   PaymentMethod,
   Invoice,
-  PurchaseOrder,
-  JournalEntry 
+  PurchaseOrder
 } from '../../models/erp.models';
 
 export type TreasurySubTab = 'overview' | 'bank-accounts' | 'cxc' | 'cxp' | 'transactions';

@@ -28,6 +28,7 @@ import { LoginComponent } from './components/login/login';
 import { ArchitectureModal } from './components/architecture-modal/architecture-modal';
 import { InvoiceModal } from './components/invoice-modal/invoice-modal';
 import { KeyboardShortcutsModalComponent } from './components/keyboard-shortcuts-modal/keyboard-shortcuts-modal';
+import { CompanyProfileModalComponent } from './components/company-profile-modal/company-profile-modal';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -55,7 +56,8 @@ import { KeyboardShortcutsModalComponent } from './components/keyboard-shortcuts
     UserManualComponent,
     ArchitectureModal,
     InvoiceModal,
-    KeyboardShortcutsModalComponent
+    KeyboardShortcutsModalComponent,
+    CompanyProfileModalComponent
   ],
   templateUrl: './app.html',
   styleUrl: './app.css',
@@ -67,6 +69,7 @@ export class App {
 
   activeNavId = signal<NavTab>('dashboard');
   showArchModal = signal<boolean>(false);
+  showCompanyProfileModal = signal<boolean>(false);
   activeInvoiceForModal = signal<Invoice | null>(null);
 
   constructor() {

@@ -30,10 +30,28 @@ export type NavTab =
     <aside class="w-64 bg-[#0f172a] text-slate-300 flex flex-col justify-between h-[calc(100vh-4rem)] sticky top-0 border-r border-slate-800 select-none">
       
       <!-- Top Navigation Links (Bento Style) -->
-      <div class="py-4 px-3 space-y-1 overflow-y-auto">
+      <div class="py-3 px-3 space-y-1 overflow-y-auto">
         
+        <!-- Active Plan Banner & Indicator -->
+        <div class="mb-3 p-2.5 rounded-xl border flex items-center justify-between"
+          [class]="stateService.isBasePlan() 
+            ? 'bg-blue-950/40 border-blue-800/80 text-blue-300' 
+            : 'bg-emerald-950/40 border-emerald-800/80 text-emerald-300'">
+          <div class="flex items-center space-x-2 min-w-0">
+            <mat-icon class="text-base shrink-0">{{ stateService.isBasePlan() ? 'storefront' : 'corporate_fare' }}</mat-icon>
+            <div class="overflow-hidden leading-tight">
+              <span class="text-[9px] uppercase font-extrabold tracking-wider block opacity-70">Plan de Empresa</span>
+              <p class="text-xs font-bold truncate">{{ stateService.isBasePlan() ? 'Versión Base (PyME)' : 'Versión Full / Pro' }}</p>
+            </div>
+          </div>
+          <span class="px-1.5 py-0.5 rounded text-[8px] font-mono font-bold tracking-wider uppercase border"
+            [class]="stateService.isBasePlan() ? 'bg-blue-900 border-blue-600 text-blue-200' : 'bg-emerald-900 border-emerald-600 text-emerald-200'">
+            {{ stateService.isBasePlan() ? 'PYME' : 'CORP' }}
+          </span>
+        </div>
+
         <div class="px-3 pb-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-          Operaciones Core
+          Operaciones Core (Plan Base)
         </div>
 
         <button 
@@ -134,8 +152,11 @@ export type NavTab =
 
         <!-- FASE 2 SECTION -->
         <div class="pt-3 px-3 pb-2 text-[10px] font-bold text-amber-400 uppercase tracking-widest flex items-center justify-between">
-          <span>Avanzado</span>
-          <span class="px-1 py-0.2 bg-amber-500/20 text-amber-300 text-[8px] rounded">ACTIVO</span>
+          <span>Avanzado (Enterprise)</span>
+          <span class="px-1 py-0.2 text-[8px] font-bold rounded"
+            [class]="stateService.isFullPlan() ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-800 text-slate-400'">
+            {{ stateService.isFullPlan() ? 'FULL' : 'PRO' }}
+          </span>
         </div>
 
         @if (canAccess('mrp:manage')) {
@@ -147,9 +168,15 @@ export type NavTab =
             <mat-icon class="text-amber-500 text-lg">precision_manufacturing</mat-icon>
             <span class="font-medium">Manufactura y MRP</span>
           </div>
-          <span class="px-1.5 py-0.5 text-[9px] font-mono rounded bg-slate-800 text-amber-400">
-            {{ stateService.productionOrders().length }}
-          </span>
+          <div class="flex items-center space-x-1">
+            @if (stateService.isBasePlan()) {
+              <span class="px-1.5 py-0.2 text-[8px] font-bold rounded bg-amber-950 text-amber-300 border border-amber-800/60">PRO</span>
+            } @else {
+              <span class="px-1.5 py-0.5 text-[9px] font-mono rounded bg-slate-800 text-amber-400">
+                {{ stateService.productionOrders().length }}
+              </span>
+            }
+          </div>
         </button>
         }
 
@@ -162,9 +189,15 @@ export type NavTab =
             <mat-icon class="text-violet-400 text-lg">view_kanban</mat-icon>
             <span class="font-medium">CRM & Pipeline</span>
           </div>
-          <span class="px-1.5 py-0.5 text-[9px] font-mono rounded bg-slate-800 text-violet-400">
-            {{ stateService.crmDeals().length }}
-          </span>
+          <div class="flex items-center space-x-1">
+            @if (stateService.isBasePlan()) {
+              <span class="px-1.5 py-0.2 text-[8px] font-bold rounded bg-violet-950 text-violet-300 border border-violet-800/60">PRO</span>
+            } @else {
+              <span class="px-1.5 py-0.5 text-[9px] font-mono rounded bg-slate-800 text-violet-400">
+                {{ stateService.crmDeals().length }}
+              </span>
+            }
+          </div>
         </button>
         }
 
@@ -177,9 +210,15 @@ export type NavTab =
             <mat-icon class="text-emerald-400 text-lg">account_balance</mat-icon>
             <span class="font-medium">Contabilidad NIIF</span>
           </div>
-          <span class="px-1.5 py-0.5 text-[9px] font-mono rounded bg-slate-800 text-emerald-400">
-            {{ stateService.journalEntries().length }}
-          </span>
+          <div class="flex items-center space-x-1">
+            @if (stateService.isBasePlan()) {
+              <span class="px-1.5 py-0.2 text-[8px] font-bold rounded bg-emerald-950 text-emerald-300 border border-emerald-800/60">PRO</span>
+            } @else {
+              <span class="px-1.5 py-0.5 text-[9px] font-mono rounded bg-slate-800 text-emerald-400">
+                {{ stateService.journalEntries().length }}
+              </span>
+            }
+          </div>
         </button>
         }
 

@@ -267,6 +267,7 @@ export interface CompanyFiscalProfile {
   legalName: string;
   tradeName: string;
   taxId: string; // RIF ej. J-50493821-4
+  planTier?: CompanyPlanTier; // 'BASE' (Comercial / PyME) | 'FULL' (Enterprise / Corporativo)
   isSpecialTaxpayer: boolean; // Sujeto Pasivo Especial (SENIAT) - Agente de percepción IGTF 3%
   specialTaxpayerDesignationNumber?: string; // Providencia administrativa SENIAT
   address: string;
@@ -274,6 +275,23 @@ export interface CompanyFiscalProfile {
   email: string;
   defaultIvaRate: number; // 0.16 (16%)
   igtfRate: number; // 0.03 (3%)
+}
+
+export type CompanyPlanTier = 'BASE' | 'FULL';
+
+export interface PlanFeatureConfig {
+  id: CompanyPlanTier;
+  name: string;
+  tagline: string;
+  badgeClass: string;
+  color: string;
+  priceMonthlyUsd: number;
+  priceAnnualUsd: number;
+  maxUsers: number;
+  maxWarehouses: number;
+  includedTabs: string[];
+  featuresList: string[];
+  lockedFeaturesList: string[];
 }
 
 export interface PaymentRecord {

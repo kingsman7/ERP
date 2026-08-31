@@ -7,7 +7,8 @@
     <app-header 
       (openArchitecture)="showArchModal.set(true)"
       (openCash)="onNavChange('cash-closing')"
-      (openAudit)="onNavChange('audit-log')" />
+      (openAudit)="onNavChange('audit-log')"
+      (openCompanyProfile)="showCompanyProfileModal.set(true)" />
 
     <div class="flex-1 flex overflow-hidden">
       
@@ -19,82 +20,138 @@
       <!-- Main Content Workspace Area (Bento Workspace) -->
       <main class="flex-1 overflow-y-auto p-4 h-[calc(100vh-4rem)] sm:p-6 lg:p-7 max-w-7xl mx-auto w-full">
         
-        <!-- Dynamic Module Render based on activeNavId -->
-        @switch (activeNavId()) {
-          
-          @case ('dashboard') {
-            <app-dashboard 
-              (navigate)="onNavChange($event)"
-              (viewInvoice)="showInvoice($event)" />
-          }
+        <!-- Check Plan Tier Allowed for active tab -->
+        @if (stateService.isBasePlan() && !stateService.isTabAllowedInPlan(activeNavId())) {
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 max-w-2xl mx-auto text-center space-y-6 my-8">
+            <div class="w-16 h-16 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center mx-auto shadow-xs">
+              <mat-icon class="text-3xl">lock</mat-icon>
+            </div>
 
-          @case ('inventory') {
-            <app-inventory />
-          }
+            <div class="space-y-2">
+              <span class="px-3 py-1 bg-amber-100 text-amber-800 border border-amber-300 font-mono text-xs font-bold rounded-full uppercase tracking-wider">
+                Módulo Exclusivo Enterprise
+              </span>
+              <h2 class="text-xl font-extrabold text-slate-900">Este módulo requiere la Versión Full (Enterprise)</h2>
+              <p class="text-xs text-slate-500 max-w-lg mx-auto leading-relaxed">
+                Tu empresa está operando actualmente bajo la <strong>Versión Base (Plan Comercial / PyME)</strong>, la cual incluye todas las operaciones de Facturación POS, Inventario, Kardex CPP, Presupuestos, Compras, Logística y Tesorería.
+              </p>
+            </div>
 
-          @case ('kardex') {
-            <app-kardex />
-          }
+            <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 text-left space-y-2 text-xs">
+              <p class="font-bold text-slate-800">¿Qué incluye la Versión Full / Enterprise?</p>
+              <ul class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-600">
+                <li class="flex items-center space-x-2">
+                  <mat-icon class="text-emerald-500 text-sm">check_circle</mat-icon>
+                  <span>Manufactura MRP & Fórmulas BOM</span>
+                </li>
+                <li class="flex items-center space-x-2">
+                  <mat-icon class="text-emerald-500 text-sm">check_circle</mat-icon>
+                  <span>CRM Pipeline B2B & Win-Rate</span>
+                </li>
+                <li class="flex items-center space-x-2">
+                  <mat-icon class="text-emerald-500 text-sm">check_circle</mat-icon>
+                  <span>Contabilidad NIIF & Asientos</span>
+                </li>
+                <li class="flex items-center space-x-2">
+                  <mat-icon class="text-emerald-500 text-sm">check_circle</mat-icon>
+                  <span>Usuarios y Roles RBAC Ilimitados</span>
+                </li>
+              </ul>
+            </div>
 
-          @case ('purchases') {
-            <app-purchases />
-          }
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+              <button 
+                (click)="stateService.setCompanyPlan('FULL')"
+                class="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm flex items-center justify-center space-x-2 transition-all cursor-pointer">
+                <mat-icon class="text-sm">rocket_launch</mat-icon>
+                <span>Activar Versión Full / Pro al Instante</span>
+              </button>
 
-          @case ('sales-pos') {
-            <app-sales-pos 
-              (openInvoiceView)="showInvoice($event)" />
-          }
+              <button 
+                (click)="onNavChange('dashboard')"
+                class="w-full sm:w-auto px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition-all cursor-pointer">
+                Volver al Panel Comercial
+              </button>
+            </div>
+          </div>
+        } @else {
+          <!-- Dynamic Module Render based on activeNavId -->
+          @switch (activeNavId()) {
+            
+            @case ('dashboard') {
+              <app-dashboard 
+                (navigate)="onNavChange($event)"
+                (viewInvoice)="showInvoice($event)" />
+            }
 
-          @case ('quotes') {
-            <app-quotes />
-          }
+            @case ('inventory') {
+              <app-inventory />
+            }
 
-          @case ('logistics') {
-            <app-logistics />
-          }
+            @case ('kardex') {
+              <app-kardex />
+            }
 
-          @case ('mrp') {
-            <app-mrp />
-          }
+            @case ('purchases') {
+              <app-purchases />
+            }
 
-          @case ('crm') {
-            <app-crm />
-          }
+            @case ('sales-pos') {
+              <app-sales-pos 
+                (openInvoiceView)="showInvoice($event)" />
+            }
 
-          @case ('treasury') {
-            <app-treasury />
-          }
+            @case ('quotes') {
+              <app-quotes />
+            }
 
-          @case ('accounting') {
-            <app-accounting />
-          }
+            @case ('logistics') {
+              <app-logistics />
+            }
 
-          @case ('cash-closing') {
-            <app-cash-closing />
-          }
+            @case ('mrp') {
+              <app-mrp />
+            }
 
-          @case ('users') {
-            <app-user-management />
-          }
+            @case ('crm') {
+              <app-crm />
+            }
 
-          @case ('audit-log') {
-            <app-audit-log />
-          }
+            @case ('treasury') {
+              <app-treasury />
+            }
 
-          @case ('backups') {
-            <app-backup-management />
-          }
+            @case ('accounting') {
+              <app-accounting />
+            }
 
-          @case ('manual') {
-            <app-user-manual />
-          }
+            @case ('cash-closing') {
+              <app-cash-closing />
+            }
 
-          @default {
-            <app-dashboard 
-              (navigate)="onNavChange($event)"
-              (viewInvoice)="showInvoice($event)" />
-          }
+            @case ('users') {
+              <app-user-management />
+            }
 
+            @case ('audit-log') {
+              <app-audit-log />
+            }
+
+            @case ('backups') {
+              <app-backup-management />
+            }
+
+            @case ('manual') {
+              <app-user-manual />
+            }
+
+            @default {
+              <app-dashboard 
+                (navigate)="onNavChange($event)"
+                (viewInvoice)="showInvoice($event)" />
+            }
+
+          }
         }
 
       </main>
@@ -163,6 +220,12 @@
     @if (showArchModal()) {
       <app-architecture-modal 
         (closeModal)="showArchModal.set(false)" />
+    }
+
+    <!-- Company Profile & SaaS Plan Management Modal -->
+    @if (showCompanyProfileModal()) {
+      <app-company-profile-modal 
+        (closeModal)="showCompanyProfileModal.set(false)" />
     }
 
     <!-- Electronic Invoice Viewer & Printer Modal -->

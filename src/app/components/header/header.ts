@@ -26,6 +26,18 @@ import { User, CriticalAuditNotification, CriticalAuditCategory } from '../../mo
           <div>
             <div class="flex items-center space-x-2">
               <span class="font-bold text-white tracking-tight text-base leading-none">4-InLine <span class="text-blue-400">ERP</span></span>
+              
+              <!-- Company Plan Button / Trigger -->
+              <button 
+                (click)="openCompanyProfile.emit()"
+                title="Configuración de Empresa & Planes SaaS (Click para gestionar)"
+                class="hidden md:flex items-center space-x-1 px-2 py-0.5 rounded-md border text-[10px] font-bold font-mono transition-all cursor-pointer shadow-2xs"
+                [class]="stateService.isBasePlan() 
+                  ? 'bg-blue-950/80 text-blue-300 border-blue-600 hover:bg-blue-900' 
+                  : 'bg-emerald-950/80 text-emerald-300 border-emerald-600 hover:bg-emerald-900'">
+                <mat-icon class="text-[12px]">{{ stateService.isBasePlan() ? 'storefront' : 'verified' }}</mat-icon>
+                <span>{{ stateService.isBasePlan() ? 'PLAN BASE' : 'PLAN FULL' }}</span>
+              </button>
             </div>
           </div>
         </div>
@@ -544,6 +556,7 @@ export class HeaderComponent {
   openArchitecture = output<void>();
   openCash = output<void>();
   openAudit = output<void>();
+  openCompanyProfile = output<void>();
 
   constructor() {
     effect(() => {

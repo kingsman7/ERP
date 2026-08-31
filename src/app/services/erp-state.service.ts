@@ -8,6 +8,8 @@ import {
   BcvExchangeRateState,
   InvoiceTaxDetails,
   CompanyFiscalProfile,
+  CompanyPlanTier,
+  PlanFeatureConfig,
   Warehouse,
   KardexMovement,
   Supplier,
@@ -93,11 +95,12 @@ export class ErpStateService {
     bcvOfficialDate: '18/08/2026'
   });
 
-  // Perfil Fiscal de la Empresa Emisora (SENIAT)
+  // Perfil Fiscal y Nivel de Plan de la Empresa (SENIAT & SaaS Tiering)
   readonly companyProfile = signal<CompanyFiscalProfile>({
     legalName: '4-inLine Corp, C.A.',
     tradeName: '4-inLine Corp',
     taxId: 'J-50493821-4',
+    planTier: 'FULL', // Default: 'FULL' (Enterprise) o 'BASE' (Comercial / PyME)
     isSpecialTaxpayer: true, // Sujeto Pasivo Especial (SENIAT) - Agente de Percepción del 3% IGTF
     specialTaxpayerDesignationNumber: 'SNAT/2022/000013',
     address: 'Av. Francisco de Miranda, Centro Financiero Torre Alpha, Piso 8, Caracas, Venezuela',
@@ -106,6 +109,133 @@ export class ErpStateService {
     defaultIvaRate: 0.16,
     igtfRate: 0.03
   });
+
+  // Catálogo de Planes del Sistema
+  readonly planConfigs: PlanFeatureConfig[] = [
+    {
+      id: 'BASE',
+      name: 'Versión Base (Plan Comercial / PyME)',
+      tagline: 'Ideal para comercios, distribuidoras y pequeñas empresas que necesitan facturar y controlar stock.',
+      badgeClass: 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-700',
+      color: 'blue',
+      priceMonthlyUsd: 35.00,
+      priceAnnualUsd: 350.00,
+      maxUsers: 3,
+      maxWarehouses: 2,
+      includedTabs: [
+        'dashboard',
+        'inventory',
+        'kardex',
+        'purchases',
+        'sales-pos',
+        'quotes',
+        'logistics',
+        'treasury',
+        'cash-closing',
+        'manual',
+        'architecture'
+      ],
+      featuresList: [
+        'Punto de Venta POS Rápido & Facturación Fiscal Electrónica',
+        'Multimoneda USD / VES con Tasa Oficial BCV en Tiempo Real',
+        'Cálculo Automático IVA 16% e IGTF 3% (Sujeto Pasivo Especial)',
+        'Inventario y Almacenes con Control de Stock Mínimo',
+        'Kardex Valorado por Costo Promedio Ponderado (CPP)',
+        'Compras a Proveedores y Cuentas por Pagar (CxP)',
+        'Presupuestos y Cotizaciones con Conversión a Factura',
+        'Logística y Despachos SENIAT (SNAT/2011/00071)',
+        'Tesorería Básica (Cuentas por Cobrar, Cuentas por Pagar y Cuentas Bancarias)',
+        'Arqueos y Cierre de Caja Z con Desglose por Medio de Pago'
+      ],
+      lockedFeaturesList: [
+        'Manufactura Avanzada y Fórmulas BOM (MRP)',
+        'CRM de Oportunidades y Pipeline Kanban B2B',
+        'Contabilidad Financiera Integral NIIF y Asientos Automáticos',
+        'Gestión Multi-Usuario con Permisos Granulares RBAC',
+        'Bitácora de Auditoría Forense y Notificaciones Críticas',
+        'Respaldos Automatizados Nube Cloud Firestore & Exportación JSON'
+      ]
+    },
+    {
+      id: 'FULL',
+      name: 'Versión Full / Pro (Plan Enterprise / Corporativo)',
+      tagline: 'Solución integral de grado industrial con manufactura, contabilidad NIIF, CRM y auditoría forense.',
+      badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-700',
+      color: 'emerald',
+      priceMonthlyUsd: 95.00,
+      priceAnnualUsd: 950.00,
+      maxUsers: 999,
+      maxWarehouses: 999,
+      includedTabs: [
+        'dashboard',
+        'inventory',
+        'kardex',
+        'purchases',
+        'sales-pos',
+        'quotes',
+        'logistics',
+        'treasury',
+        'cash-closing',
+        'mrp',
+        'crm',
+        'accounting',
+        'users',
+        'audit-log',
+        'backups',
+        'manual',
+        'architecture'
+      ],
+      featuresList: [
+        'Todos los módulos del Plan Comercial / PyME incluidos',
+        'Manufactura y Planificación de Recursos MRP con Fórmulas BOM',
+        'Órdenes de Fabricación con Absorción de MOD y CIF',
+        'CRM B2B con Pipeline Kanban, Actividades y Win-Rate Ponderado',
+        'Contabilidad NIIF con Plan de Cuentas Jerárquico y Balance General',
+        'Asientos Contables en Partida Doble Automáticos en Cada Venta y Compra',
+        'Gestión de Usuarios RBAC (Admin, Cajero, Almacenero, Contador, Vendedor, Auditor)',
+        'Bitácora de Auditoría Inmutable con Control de Integridad SHA-256',
+        'Respaldos Nube Firebase Cloud Firestore y Restauración ACID'
+      ],
+      lockedFeaturesList: []
+    }
+  ];
+
+  // Señales Reactivas de Nivel de Plan
+  readonly companyPlan = computed<CompanyPlanTier>(() => this.companyProfile().planTier || 'FULL');
+  readonly isBasePlan = computed<boolean>(() => this.companyPlan() === 'BASE');
+  readonly isFullPlan = computed<boolean>(() => this.companyPlan() === 'FULL');
+  readonly currentPlanConfig = computed<PlanFeatureConfig>(() => {
+    return this.planConfigs.find(p => p.id === this.companyPlan()) || this.planConfigs[1];
+  });
+
+  setCompanyPlan(tier: CompanyPlanTier) {
+    const previous = this.companyPlan();
+    this.companyProfile.update(prev => ({ ...prev, planTier: tier }));
+    this.saveState();
+    
+    this.logAudit(
+      'CONFIG_BACKUP_SCHEDULE',
+      'AUTH',
+      `Cambio de Plan de Empresa: ${tier === 'BASE' ? 'Plan Base (PyME)' : 'Plan Full (Enterprise)'}`,
+      `La empresa cambió su suscripción de ${previous} a ${tier}. Módulos ajustados según alcance comercial.`,
+      null,
+      { previousPlan: previous, newPlan: tier }
+    );
+
+    this.notify(
+      'success',
+      tier === 'BASE' ? 'Plan Base (PyME) Activado' : 'Plan Full (Enterprise) Activado',
+      tier === 'BASE'
+        ? 'Se ha activado el Plan Comercial / PyME. Acceso a POS, Inventario, Compras, Presupuesto, Caja y Tesorería.'
+        : 'Se ha activado el Plan Enterprise / Corporativo con todos los módulos de manufactura, contabilidad NIIF y CRM habilitados.'
+    );
+  }
+
+  isTabAllowedInPlan(tab: string): boolean {
+    if (this.companyPlan() === 'FULL') return true;
+    const basePlan = this.planConfigs.find(p => p.id === 'BASE');
+    return basePlan ? basePlan.includedTabs.includes(tab) : true;
+  }
 
   updateCompanyProfile(updated: Partial<CompanyFiscalProfile>) {
     this.companyProfile.update(prev => ({ ...prev, ...updated }));
