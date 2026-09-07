@@ -41,6 +41,18 @@ export const SYSTEM_ROLES: RoleConfig[] = [
 
 export const DEMO_USERS: User[] = [
   {
+    id: 'usr-master-00',
+    name: 'SuperAdmin SaaS Master',
+    email: 'superadmin@4-inline.cloud',
+    role: 'ADMIN',
+    avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
+    lastLogin: '2026-09-07 15:00:00',
+    status: 'ACTIVO',
+    department: 'Plataforma SaaS Global & DevOps',
+    phone: '+1 800-555-0199',
+    createdAt: '2025-01-01'
+  },
+  {
     id: 'usr-admin-01',
     name: 'Alejandro Morales (Admin)',
     email: 'admin.morales@4-inLine.com',
@@ -155,6 +167,11 @@ export class AuthService {
   readonly currentRoleConfig = computed(() => {
     const role = this.currentUserSignal().role;
     return SYSTEM_ROLES.find(r => r.id === role) || SYSTEM_ROLES[0];
+  });
+
+  readonly isSuperAdmin = computed(() => {
+    const user = this.currentUserSignal();
+    return user.role === 'ADMIN' || user.email.toLowerCase().includes('superadmin') || user.email.toLowerCase().includes('admin.morales');
   });
 
   // Backward-compatible getter for availableDemoUsers

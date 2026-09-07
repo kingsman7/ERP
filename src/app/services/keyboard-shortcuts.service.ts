@@ -287,6 +287,16 @@ export class KeyboardShortcutsService {
       targetNav: 'backups'
     },
     {
+      id: 'NAV_SUPERADMIN',
+      keys: ['Alt', 'M'],
+      keyDisplay: 'Alt + M',
+      title: 'Consola Master Multi-Tenant',
+      description: 'Gestión global SaaS de inquilinos, aprovisionamiento e impersonación de soporte',
+      category: 'NAVIGATION',
+      icon: 'admin_panel_settings',
+      targetNav: 'super-admin'
+    },
+    {
       id: 'NAV_MANUAL',
       keys: ['Alt', 'H'],
       keyDisplay: 'Alt + H / F1',

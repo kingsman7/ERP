@@ -232,6 +232,7 @@ export class ErpStateService {
   }
 
   isTabAllowedInPlan(tab: string): boolean {
+    if (tab === 'super-admin' || tab === 'architecture') return true;
     if (this.companyPlan() === 'FULL') return true;
     const basePlan = this.planConfigs.find(p => p.id === 'BASE');
     return basePlan ? basePlan.includedTabs.includes(tab) : true;

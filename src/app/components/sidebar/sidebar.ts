@@ -20,7 +20,8 @@ export type NavTab =
   | 'audit-log'
   | 'backups'
   | 'manual'
-  | 'architecture';
+  | 'architecture'
+  | 'super-admin';
 
 @Component({
   selector: 'app-sidebar',
@@ -320,6 +321,28 @@ export type NavTab =
             <span class="font-medium">Ficha Técnica & Roadmap</span>
           </div>
         </button>
+
+        @if (authService.isSuperAdmin()) {
+        <div class="pt-2">
+          <div class="px-3 pb-1.5 text-[10px] font-bold text-indigo-400 uppercase tracking-widest flex items-center justify-between">
+            <span>Consola Master</span>
+            <span class="px-1.5 py-0.5 rounded text-[8px] bg-purple-950 text-purple-300 border border-purple-700/80 font-mono font-bold">SAAS</span>
+          </div>
+          <button 
+            id="nav-btn-superadmin"
+            (click)="selectTab('super-admin')"
+            [class]="activeTab() === 'super-admin' ? 'bg-indigo-600/20 text-indigo-300 font-semibold border-l-4 border-indigo-500 rounded-r-lg' : 'hover:bg-slate-800/90 text-slate-300 rounded-lg'"
+            class="w-full flex items-center justify-between px-3.5 py-2 text-xs transition-all duration-150 text-left cursor-pointer">
+            <div class="flex items-center space-x-3">
+              <mat-icon class="text-purple-400 text-lg">admin_panel_settings</mat-icon>
+              <span class="font-medium">Gestión Multi-Tenant</span>
+            </div>
+            <span class="px-1.5 py-0.5 text-[9px] font-mono font-bold rounded bg-indigo-900/60 text-indigo-300 border border-indigo-700">
+              GLOBAL
+            </span>
+          </button>
+        </div>
+        }
 
       </div>
 
