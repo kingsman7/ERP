@@ -32,6 +32,14 @@ import { User, UserRole } from '../../models/erp.models';
         <div class="flex items-center space-x-2">
           <button 
             type="button"
+            (click)="authService.openChangePasswordModal()"
+            class="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl text-xs font-semibold shadow-2xs flex items-center space-x-1.5 transition-all cursor-pointer">
+            <mat-icon class="text-base text-indigo-600">lock_reset</mat-icon>
+            <span>Cambiar Mi Clave</span>
+          </button>
+
+          <button 
+            type="button"
             id="btn-open-new-user-modal"
             (click)="openNewUserModal()"
             class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-xs flex items-center space-x-1.5 transition-all cursor-pointer">
@@ -289,6 +297,7 @@ import { User, UserRole } from '../../models/erp.models';
                 <th class="py-3.5 px-4">Usuario & Área</th>
                 <th class="py-3.5 px-4">Correo Corporativo</th>
                 <th class="py-3.5 px-3">Rol & Nivel</th>
+                <th class="py-3.5 px-3">Seguridad / Clave</th>
                 <th class="py-3.5 px-3">Permisos Asignados</th>
                 <th class="py-3.5 px-3">Último Acceso</th>
                 <th class="py-3.5 px-3 text-center">Estado</th>
@@ -352,6 +361,29 @@ import { User, UserRole } from '../../models/erp.models';
                     </span>
                   </td>
 
+                  <!-- Security & Password Status Badge -->
+                  <td class="py-3.5 px-3 whitespace-nowrap">
+                    @if (user.mustChangePassword) {
+                      <div>
+                        <span class="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-300">
+                          <mat-icon class="text-xs text-amber-600">vpn_key</mat-icon>
+                          <span>Clave Temporal</span>
+                        </span>
+                        <p class="text-[10px] text-amber-700 font-medium mt-0.5">Cambio requerido</p>
+                      </div>
+                    } @else {
+                      <div>
+                        <span class="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-300">
+                          <mat-icon class="text-xs text-emerald-600">verified_user</mat-icon>
+                          <span>Clave Activa</span>
+                        </span>
+                        <p class="text-[10px] text-slate-400 font-mono mt-0.5">
+                          {{ user.passwordChangedAt ? 'Actualizada: ' + user.passwordChangedAt.substring(0, 10) : 'Definitiva' }}
+                        </p>
+                      </div>
+                    }
+                  </td>
+
                   <!-- Permissions Summary -->
                   <td class="py-3.5 px-3 max-w-[200px]">
                     <div class="flex flex-wrap gap-1">
@@ -392,6 +424,15 @@ import { User, UserRole } from '../../models/erp.models';
                   <td class="py-3.5 px-4 text-right whitespace-nowrap">
                     <div class="flex items-center justify-end space-x-1.5">
                       
+                      <!-- Quick Reset Password Button -->
+                      <button 
+                        type="button"
+                        (click)="openQuickResetPasswordModal(user)"
+                        title="Asignar o restablecer clave temporal"
+                        class="p-1.5 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer">
+                        <mat-icon class="text-base">vpn_key</mat-icon>
+                      </button>
+
                       <!-- Test Session Switcher -->
                       <button 
                         type="button"
@@ -429,7 +470,7 @@ import { User, UserRole } from '../../models/erp.models';
                 </tr>
               } @empty {
                 <tr>
-                  <td colspan="7" class="text-center py-12 text-slate-400">
+                  <td colspan="8" class="text-center py-12 text-slate-400">
                     <div class="flex flex-col items-center justify-center space-y-2 max-w-sm mx-auto">
                       <div class="p-3 bg-slate-100 rounded-full text-slate-400">
                         <mat-icon class="text-2xl">person_search</mat-icon>
@@ -600,6 +641,76 @@ import { User, UserRole } from '../../models/erp.models';
                 </select>
               </div>
 
+              <!-- Security & Temporary Password Section -->
+              <div class="p-3.5 rounded-xl border border-slate-200 bg-slate-50/80 space-y-3">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center space-x-2">
+                    <mat-icon class="text-indigo-600 text-base">lock</mat-icon>
+                    <span class="font-bold text-slate-900 text-xs">
+                      {{ isEditing() ? 'Gestión de Contraseña' : 'Clave Temporal Inicial (Creada por el Admin)' }}
+                    </span>
+                  </div>
+                  @if (isEditing()) {
+                    <label class="flex items-center space-x-1.5 cursor-pointer select-none">
+                      <input 
+                        type="checkbox" 
+                        formControlName="resetPassword" 
+                        class="rounded bg-white border-slate-300 text-indigo-600 focus:ring-0" />
+                      <span class="text-indigo-700 font-semibold text-[11px]">Asignar nueva clave temporal</span>
+                    </label>
+                  }
+                </div>
+
+                @if (!isEditing() || userForm.get('resetPassword')?.value) {
+                  <div class="space-y-2.5 pt-1">
+                    <div>
+                      <div class="flex items-center justify-between mb-1">
+                        <label for="modal-user-pwd" class="font-semibold text-slate-700 block">
+                          {{ isEditing() ? 'Nueva Clave Temporal Manual' : 'Clave Temporal Inicial' }} <span class="text-rose-500">*</span>
+                        </label>
+                        <span class="text-[10px] text-slate-400 font-mono">Mínimo 6 caracteres</span>
+                      </div>
+                      <div class="relative">
+                        <input 
+                          id="modal-user-pwd"
+                          [type]="showTempPassword() ? 'text' : 'password'" 
+                          formControlName="temporaryPassword"
+                          placeholder="Ej: TempClave2026*" 
+                          class="w-full pl-9 pr-10 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-mono" />
+                        <mat-icon class="absolute left-3 top-2 text-slate-400 text-base">vpn_key</mat-icon>
+                        <button 
+                          type="button"
+                          (click)="showTempPassword.set(!showTempPassword())"
+                          class="absolute right-3 top-2 text-slate-400 hover:text-slate-700 cursor-pointer">
+                          <mat-icon class="text-base">{{ showTempPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+                        </button>
+                      </div>
+                      <p class="text-[11px] text-slate-500 mt-1">
+                        El administrador define manualmente esta clave provisional. Al iniciar sesión, el usuario podrá cambiar su clave.
+                      </p>
+                    </div>
+
+                    <label class="flex items-center space-x-2 cursor-pointer select-none pt-1">
+                      <input 
+                        type="checkbox" 
+                        formControlName="mustChangePassword" 
+                        class="rounded bg-white border-slate-300 text-indigo-600 focus:ring-0" />
+                      <span class="text-slate-700 font-medium">
+                        Exigir que el usuario cambie su clave al iniciar sesión
+                      </span>
+                    </label>
+                  </div>
+                } @else {
+                  <div class="text-[11px] text-slate-500 flex items-center justify-between bg-white p-2.5 rounded-lg border border-slate-200">
+                    <span class="flex items-center space-x-1.5">
+                      <mat-icon class="text-sm text-emerald-600">verified_user</mat-icon>
+                      <span>Contraseña configurada en el sistema.</span>
+                    </span>
+                    <span class="text-[10px] text-slate-400 font-mono">Activa la casilla para restablecerla</span>
+                  </div>
+                }
+              </div>
+
               <div class="p-3 bg-indigo-50/60 rounded-xl border border-indigo-100 flex items-start space-x-2 text-indigo-900">
                 <mat-icon class="text-base text-indigo-600 shrink-0 mt-0.5">info</mat-icon>
                 <p class="text-[11px] leading-relaxed">
@@ -629,6 +740,106 @@ import { User, UserRole } from '../../models/erp.models';
         </div>
       }
 
+      <!-- ========================================================= -->
+      <!-- MODAL: ASIGNAR / RESETEAR CLAVE TEMPORAL RÁPIDO -->
+      <!-- ========================================================= -->
+      @if (showQuickResetModal() && quickResetUser(); as targetUser) {
+        <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-150">
+            
+            <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+              <div class="flex items-center space-x-2">
+                <mat-icon class="text-amber-400">vpn_key</mat-icon>
+                <div>
+                  <h3 class="font-semibold text-sm">Asignar Clave Temporal</h3>
+                  <p class="text-[11px] text-slate-300 font-mono">{{ targetUser.email }}</p>
+                </div>
+              </div>
+              <button (click)="closeQuickResetModal()" class="text-slate-400 hover:text-white cursor-pointer">
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+
+            <div class="p-6 space-y-4 text-xs">
+
+              <!-- User Info Card -->
+              <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center space-x-3">
+                <img [src]="targetUser.avatarUrl" [alt]="targetUser.name" referrerpolicy="no-referrer" class="w-10 h-10 rounded-full object-cover ring-1 ring-slate-200" />
+                <div>
+                  <p class="font-bold text-slate-900">{{ targetUser.name }}</p>
+                  <p class="text-[11px] text-slate-500">{{ getRoleName(targetUser.role) }} • {{ targetUser.department || 'Operaciones' }}</p>
+                </div>
+              </div>
+
+              @if (quickResetError()) {
+                <div class="p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center space-x-1.5">
+                  <mat-icon class="text-rose-500 text-base">error</mat-icon>
+                  <span>{{ quickResetError() }}</span>
+                </div>
+              }
+
+              <!-- Temporary Password Input -->
+              <div class="space-y-1">
+                <div class="flex items-center justify-between">
+                  <label for="quick-reset-pwd" class="font-semibold text-slate-700 block">
+                    Nueva Clave Temporal Manual <span class="text-rose-500">*</span>
+                  </label>
+                  <span class="text-[10px] text-slate-400 font-mono">Mínimo 6 caracteres</span>
+                </div>
+                <div class="relative">
+                  <input 
+                    id="quick-reset-pwd"
+                    [type]="showQuickResetPassword() ? 'text' : 'password'"
+                    [value]="quickResetPassword()"
+                    (input)="onQuickResetInput($event)"
+                    placeholder="Ej: TempClave2026*"
+                    class="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-mono" />
+                  <mat-icon class="absolute left-3 top-2.5 text-slate-400 text-base">key</mat-icon>
+                  <button 
+                    type="button"
+                    (click)="showQuickResetPassword.set(!showQuickResetPassword())"
+                    class="absolute right-3 top-2.5 text-slate-400 hover:text-slate-700 cursor-pointer">
+                    <mat-icon class="text-base">{{ showQuickResetPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+                  </button>
+                </div>
+                <p class="text-[11px] text-slate-500">
+                  El Administrador crea manualmente esta clave provisoria para comunicársela al usuario.
+                </p>
+              </div>
+
+              <!-- Must Change Checkbox -->
+              <label class="flex items-center space-x-2 cursor-pointer select-none p-2 rounded-lg bg-amber-50/60 border border-amber-200 text-amber-900">
+                <input 
+                  type="checkbox" 
+                  [checked]="quickResetMustChange()"
+                  (change)="onQuickResetMustChangeChange($event)"
+                  class="rounded bg-white border-amber-300 text-amber-600 focus:ring-0" />
+                <span class="font-medium text-xs">Exigir cambio de clave al próximo inicio de sesión</span>
+              </label>
+
+              <!-- Modal Actions -->
+              <div class="pt-2 border-t border-slate-100 flex items-center justify-end space-x-2">
+                <button 
+                  type="button"
+                  (click)="closeQuickResetModal()"
+                  class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold transition-colors cursor-pointer">
+                  Cancelar
+                </button>
+                <button 
+                  type="button"
+                  (click)="saveQuickResetPassword()"
+                  class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-semibold shadow-xs transition-colors cursor-pointer flex items-center space-x-1">
+                  <mat-icon class="text-sm">check</mat-icon>
+                  <span>Guardar Clave Temporal</span>
+                </button>
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+      }
+
     </div>
   `
 })
@@ -647,6 +858,15 @@ export class UserManagementComponent {
   selectedUserId = signal<string | null>(null);
   copiedUserId = signal<string | null>(null);
 
+  // Temporary password and quick reset signals
+  showTempPassword = signal<boolean>(false);
+  showQuickResetModal = signal<boolean>(false);
+  quickResetUser = signal<User | null>(null);
+  quickResetPassword = signal<string>('');
+  quickResetMustChange = signal<boolean>(true);
+  showQuickResetPassword = signal<boolean>(false);
+  quickResetError = signal<string | null>(null);
+
   // Reactive Form
   userForm = new FormGroup({
     name: new FormControl('', [Validators.required, Validators.minLength(3)]),
@@ -654,7 +874,10 @@ export class UserManagementComponent {
     role: new FormControl<UserRole>('CASHIER_SELLER', [Validators.required]),
     department: new FormControl(''),
     phone: new FormControl(''),
-    status: new FormControl<'ACTIVO' | 'INACTIVO'>('ACTIVO', [Validators.required])
+    status: new FormControl<'ACTIVO' | 'INACTIVO'>('ACTIVO', [Validators.required]),
+    temporaryPassword: new FormControl(''),
+    mustChangePassword: new FormControl(true),
+    resetPassword: new FormControl(false)
   });
 
   // KPI Computeds
@@ -845,16 +1068,75 @@ export class UserManagementComponent {
     }
   }
 
+  onQuickResetInput(event: Event): void {
+    const target = event.target as HTMLInputElement;
+    this.quickResetPassword.set(target.value);
+    this.quickResetError.set(null);
+  }
+
+  onQuickResetMustChangeChange(event: Event): void {
+    const target = event.target as HTMLInputElement;
+    this.quickResetMustChange.set(target.checked);
+  }
+
+  openQuickResetPasswordModal(user: User): void {
+    this.quickResetUser.set(user);
+    this.quickResetPassword.set('');
+    this.quickResetMustChange.set(true);
+    this.showQuickResetPassword.set(false);
+    this.quickResetError.set(null);
+    this.showQuickResetModal.set(true);
+  }
+
+  closeQuickResetModal(): void {
+    this.showQuickResetModal.set(false);
+    this.quickResetUser.set(null);
+    this.quickResetError.set(null);
+  }
+
+  saveQuickResetPassword(): void {
+    const user = this.quickResetUser();
+    const pwd = this.quickResetPassword().trim();
+    if (!user) return;
+
+    if (!pwd || pwd.length < 6) {
+      this.quickResetError.set('La clave temporal debe tener al menos 6 caracteres.');
+      return;
+    }
+
+    const res = this.authService.adminSetUserPassword(user.id, pwd, this.quickResetMustChange());
+    if (res.success) {
+      this.stateService.logAudit(
+        'USER_LOGIN',
+        'AUTH',
+        `Clave temporal asignada: ${user.name}`,
+        `El Administrador asignó manualmente una nueva clave temporal al usuario ${user.email} con cambio obligatorio: ${this.quickResetMustChange() ? 'SÍ' : 'NO'}.`,
+        undefined,
+        { userId: user.id, email: user.email, mustChangePassword: this.quickResetMustChange() },
+        undefined,
+        true,
+        'SECURITY_ROLE'
+      );
+      this.closeQuickResetModal();
+    } else {
+      this.quickResetError.set(res.message || 'Error al guardar la clave temporal.');
+    }
+  }
+
   openNewUserModal(): void {
     this.isEditing.set(false);
     this.selectedUserId.set(null);
+    this.showTempPassword.set(false);
     this.userForm.reset({
       name: '',
       email: '',
       role: 'CASHIER_SELLER',
       department: '',
       phone: '',
-      status: 'ACTIVO'
+      status: 'ACTIVO',
+      temporaryPassword: '',
+      mustChangePassword: true,
+      resetPassword: false
     });
     this.showUserModal.set(true);
   }
@@ -862,47 +1144,80 @@ export class UserManagementComponent {
   openEditUserModal(user: User): void {
     this.isEditing.set(true);
     this.selectedUserId.set(user.id);
+    this.showTempPassword.set(false);
     this.userForm.setValue({
       name: user.name,
       email: user.email,
       role: user.role,
       department: user.department || '',
       phone: user.phone || '',
-      status: user.status || 'ACTIVO'
+      status: user.status || 'ACTIVO',
+      temporaryPassword: '',
+      mustChangePassword: user.mustChangePassword ?? true,
+      resetPassword: false
     });
     this.showUserModal.set(true);
   }
 
   closeUserModal(): void {
     this.showUserModal.set(false);
+    this.showTempPassword.set(false);
   }
 
   saveUser(): void {
-    if (this.userForm.invalid) return;
+    if (this.userForm.invalid) {
+      this.userForm.markAllAsTouched();
+      return;
+    }
 
     const formVal = this.userForm.value;
-    if (this.isEditing() && this.selectedUserId()) {
-      this.authService.updateUser(this.selectedUserId()!, {
+    const isEdit = this.isEditing();
+    const userId = this.selectedUserId();
+
+    if (!isEdit) {
+      const tempPass = formVal.temporaryPassword?.trim();
+      if (!tempPass || tempPass.length < 6) {
+        alert('Por favor ingrese una clave temporal de al menos 6 caracteres para el nuevo usuario.');
+        return;
+      }
+    }
+
+    if (isEdit && userId) {
+      const updates: Partial<User> = {
         name: formVal.name!,
         email: formVal.email!,
         role: formVal.role as UserRole,
         department: formVal.department || undefined,
         phone: formVal.phone || undefined,
         status: formVal.status as 'ACTIVO' | 'INACTIVO'
-      });
+      };
+
+      if (formVal.resetPassword && formVal.temporaryPassword?.trim()) {
+        const tempPass = formVal.temporaryPassword.trim();
+        if (tempPass.length < 6) {
+          alert('La nueva clave temporal debe tener al menos 6 caracteres.');
+          return;
+        }
+        updates.password = tempPass;
+        updates.mustChangePassword = !!formVal.mustChangePassword;
+        updates.temporaryPasswordSetAt = new Date().toISOString().replace('T', ' ').substring(0, 19);
+      }
+
+      this.authService.updateUser(userId, updates);
 
       this.stateService.logAudit(
         'USER_LOGIN',
         'AUTH',
         `Actualización de usuario: ${formVal.name}`,
-        `Se actualizaron los datos y rol (${formVal.role}) del usuario ${formVal.email}.`,
+        `Se actualizaron los datos y rol (${formVal.role}) del usuario ${formVal.email}.${formVal.resetPassword ? ' Se configuró nueva clave temporal manual.' : ''}`,
         undefined,
-        { name: formVal.name, email: formVal.email, role: formVal.role, status: formVal.status },
+        { name: formVal.name, email: formVal.email, role: formVal.role, status: formVal.status, passwordReset: !!formVal.resetPassword },
         undefined,
         true,
         'SECURITY_ROLE'
       );
     } else {
+      const tempPass = formVal.temporaryPassword?.trim() || 'Temp2026*';
       const created = this.authService.addUser({
         name: formVal.name!,
         email: formVal.email!,
@@ -910,15 +1225,15 @@ export class UserManagementComponent {
         department: formVal.department || undefined,
         phone: formVal.phone || undefined,
         status: formVal.status as 'ACTIVO' | 'INACTIVO'
-      });
+      }, tempPass, formVal.mustChangePassword ?? true);
 
       this.stateService.logAudit(
         'USER_LOGIN',
         'AUTH',
         `Nuevo usuario registrado: ${created.name}`,
-        `Se creó la cuenta ${created.email} con rol asignado ${created.role}.`,
+        `Se creó la cuenta ${created.email} con rol asignado ${created.role} y clave temporal manual creada por el Administrador.`,
         undefined,
-        { id: created.id, name: created.name, email: created.email, role: created.role },
+        { id: created.id, name: created.name, email: created.email, role: created.role, mustChangePassword: created.mustChangePassword },
         undefined,
         true,
         'SECURITY_ROLE'

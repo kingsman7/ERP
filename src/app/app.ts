@@ -29,6 +29,7 @@ import { ArchitectureModal } from './components/architecture-modal/architecture-
 import { InvoiceModal } from './components/invoice-modal/invoice-modal';
 import { KeyboardShortcutsModalComponent } from './components/keyboard-shortcuts-modal/keyboard-shortcuts-modal';
 import { CompanyProfileModalComponent } from './components/company-profile-modal/company-profile-modal';
+import { ChangePasswordModalComponent } from './components/change-password-modal/change-password-modal';
 import { SuperAdminDashboardComponent } from './modules/super-admin/super-admin-dashboard';
 import { SuperAdminService } from './modules/super-admin/services/super-admin.service';
 
@@ -60,6 +61,7 @@ import { SuperAdminService } from './modules/super-admin/services/super-admin.se
     InvoiceModal,
     KeyboardShortcutsModalComponent,
     CompanyProfileModalComponent,
+    ChangePasswordModalComponent,
     SuperAdminDashboardComponent
   ],
   templateUrl: './app.html',

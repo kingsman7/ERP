@@ -265,5 +265,10 @@
         (closeModal)="closeInvoiceModal()" />
     }
 
+    <!-- User Change Password Modal (Forced on Temp Password or User Requested) -->
+    @if (authService.showChangePasswordModal()) {
+      <app-change-password-modal />
+    }
+
   </div>
 }

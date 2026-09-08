@@ -329,6 +329,18 @@ import { User, CriticalAuditNotification, CriticalAuditCategory } from '../../mo
 
               <div class="p-2 border-t border-slate-100 bg-slate-50 space-y-1">
                 <button 
+                  (click)="openChangePassword()"
+                  class="w-full px-3 py-2 rounded-xl text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 font-semibold text-xs flex items-center justify-between transition-colors cursor-pointer">
+                  <div class="flex items-center space-x-2">
+                    <mat-icon class="text-base text-indigo-600">lock_reset</mat-icon>
+                    <span>Cambiar Mi Contraseña</span>
+                  </div>
+                  @if (authService.currentUser().mustChangePassword) {
+                    <span class="px-1.5 py-0.5 rounded-full text-[9px] bg-amber-100 text-amber-800 font-bold">Temporal</span>
+                  }
+                </button>
+
+                <button 
                   (click)="logout()"
                   class="w-full px-3 py-2 rounded-xl text-rose-700 hover:bg-rose-50 font-semibold text-xs flex items-center justify-between transition-colors cursor-pointer">
                   <div class="flex items-center space-x-2">
@@ -680,6 +692,11 @@ export class HeaderComponent {
       case 'DB_RESTORE': return 'bg-purple-50 text-purple-800 border-purple-200';
       default: return 'bg-slate-50 text-slate-800 border-slate-200';
     }
+  }
+
+  openChangePassword(): void {
+    this.showUserDropdown.set(false);
+    this.authService.openChangePasswordModal();
   }
 
   getCategoryIcon(category: CriticalAuditCategory): string {

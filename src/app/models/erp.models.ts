@@ -20,6 +20,10 @@ export interface User {
   department?: string;
   phone?: string;
   createdAt?: string;
+  password?: string;
+  mustChangePassword?: boolean;
+  temporaryPasswordSetAt?: string;
+  passwordChangedAt?: string;
 }
 
 export interface AuditLog {
