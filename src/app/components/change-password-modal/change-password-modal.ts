@@ -22,12 +22,12 @@ import { ErpStateService } from '../../services/erp-state.service';
             </div>
             <div>
               <h3 class="font-bold text-sm tracking-tight">Cambiar Mi Contraseña</h3>
-              <p class="text-xs text-slate-300 font-mono">{{ targetUser()?.email || authService.currentUser().email }}</p>
+              <p class="text-xs text-slate-300 font-mono">{{ targetUser().email || authService.currentUser().email }}</p>
             </div>
           </div>
 
           <!-- Close Button -->
-          @if (!targetUser()?.mustChangePassword) {
+          @if (!targetUser().mustChangePassword) {
             <button 
               type="button"
               (click)="close()" 
@@ -38,7 +38,7 @@ import { ErpStateService } from '../../services/erp-state.service';
         </div>
 
         <!-- Notification Banner if Password is Temporary -->
-        @if (targetUser()?.mustChangePassword) {
+        @if (targetUser().mustChangePassword) {
           <div class="px-6 py-3 bg-amber-50 border-b border-amber-200 text-amber-900 text-xs flex items-start space-x-2.5">
             <mat-icon class="text-amber-600 shrink-0 text-base mt-0.5">warning</mat-icon>
             <div>
@@ -75,7 +75,7 @@ import { ErpStateService } from '../../services/erp-state.service';
                 <label for="current-pwd" class="font-semibold text-slate-700">
                   Contraseña Actual o Temporal <span class="text-rose-500">*</span>
                 </label>
-                @if (targetUser()?.mustChangePassword) {
+                @if (targetUser().mustChangePassword) {
                   <span class="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-medium">Clave Provisoria</span>
                 }
               </div>
@@ -164,7 +164,7 @@ import { ErpStateService } from '../../services/erp-state.service';
 
             <!-- Action Buttons -->
             <div class="pt-3 border-t border-slate-100 flex items-center justify-end space-x-2">
-              @if (!targetUser()?.mustChangePassword) {
+              @if (!targetUser().mustChangePassword) {
                 <button 
                   type="button"
                   (click)="close()"
@@ -209,7 +209,7 @@ export class ChangePasswordModalComponent {
   successMessage = signal<string | null>(null);
 
   targetUser = computed(() => {
-    return this.authService.targetUserForPasswordChange() || this.authService.currentUser();
+    return this.authService.targetUserForPasswordChange() || this.authService.currentUser() ;
   });
 
   passwordForm = new FormGroup({
