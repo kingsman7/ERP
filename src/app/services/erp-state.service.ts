@@ -62,15 +62,17 @@ export class ErpStateService {
   private authService = inject(AuthService);
   private apiService = inject(ApiService);
 
+  readonly products = signal<Product[]>([]);
+
   constructor() {
     this.syncWithBackend();
     this.loadPersistedState();
   }
 
   private syncWithBackend() {
-    this.apiService.getProducts().subscribe(data => {
+    this.apiService.getProducts().subscribe((data: Product[]) => {
       if (data && data.length > 0) {
-        console.log('📦 Productos sincronizados desde NestJS Backend:', data);
+        this.products.set(data);
       }
     });
   }
@@ -261,7 +263,7 @@ export class ErpStateService {
     { id: 'wh-03', code: 'DEP-03', name: 'Depósito 3 (Logística Rápida)', location: 'Zona Portuaria Almacén 8', isMain: false }
   ]);
 
-  readonly products = signal<Product[]>([
+  /* readonly products = signal<Product[]>([
     {
       id: 'prod-01',
       sku: 'ELE-TAL-750',
@@ -574,7 +576,7 @@ export class ErpStateService {
       status: 'ACTIVE',
       updatedAt: '2026-08-18 07:15:00'
     }
-  ]);
+  ]); */
 
   readonly suppliers = signal<Supplier[]>([
     {

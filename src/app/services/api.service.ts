@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, catchError, of } from 'rxjs';
+import { Bom, CrmDeal, Customer, Invoice, KardexMovement, Product, ProductionOrder, Supplier, Warehouse } from '../models/erp.models';
 
 @Injectable({
   providedIn: 'root'
@@ -9,64 +10,64 @@ export class ApiService {
   private http = inject(HttpClient);
   private baseUrl = '/api';
 
-  getProducts(): Observable<unknown[]> {
-    return this.http.get<unknown[]>(`${this.baseUrl}/products`).pipe(
+  getProducts(): Observable<Product[]> {
+    return this.http.get<Product[]>(`${this.baseUrl}/products`).pipe(
       catchError(() => of([]))
     );
   }
 
-  getWarehouses(): Observable<unknown[]> {
-    return this.http.get<unknown[]>(`${this.baseUrl}/warehouses`).pipe(
+  getWarehouses(): Observable<Warehouse[]> {
+    return this.http.get<Warehouse[]>(`${this.baseUrl}/warehouses`).pipe(
       catchError(() => of([]))
     );
   }
 
-  getCustomers(): Observable<unknown[]> {
-    return this.http.get<unknown[]>(`${this.baseUrl}/customers`).pipe(
+  getCustomers(): Observable<Customer[]> {
+    return this.http.get<Customer[]>(`${this.baseUrl}/customers`).pipe(
       catchError(() => of([]))
     );
   }
 
-  getSuppliers(): Observable<unknown[]> {
-    return this.http.get<unknown[]>(`${this.baseUrl}/suppliers`).pipe(
+  getSuppliers(): Observable<Supplier[]> {
+    return this.http.get<Supplier[]>(`${this.baseUrl}/suppliers`).pipe(
       catchError(() => of([]))
     );
   }
 
-  getInvoices(): Observable<unknown[]> {
-    return this.http.get<unknown[]>(`${this.baseUrl}/invoices`).pipe(
+  getInvoices(): Observable<Invoice[]> {
+    return this.http.get<Invoice[]>(`${this.baseUrl}/invoices`).pipe(
       catchError(() => of([]))
     );
   }
 
-  getKardexMovements(): Observable<unknown[]> {
-    return this.http.get<unknown[]>(`${this.baseUrl}/kardex`).pipe(
+  getKardexMovements(): Observable<KardexMovement[]> {
+    return this.http.get<KardexMovement[]>(`${this.baseUrl}/kardex`).pipe(
       catchError(() => of([]))
     );
   }
 
-  createProduct(product: unknown): Observable<unknown> {
-    return this.http.post<unknown>(`${this.baseUrl}/products`, product);
+  createProduct(product: Product): Observable<Product> {
+    return this.http.post<Product>(`${this.baseUrl}/products`, product);
   }
 
-  createInvoice(invoice: unknown): Observable<unknown> {
-    return this.http.post<unknown>(`${this.baseUrl}/invoices`, invoice);
+  createInvoice(invoice: Invoice): Observable<Invoice> {
+    return this.http.post<Invoice>(`${this.baseUrl}/invoices`, invoice);
   }
 
-  getBoms(): Observable<unknown[]> {
-    return this.http.get<unknown[]>(`${this.baseUrl}/mrp/boms`).pipe(
+  getBoms(): Observable<Bom[]> {
+    return this.http.get<Bom[]>(`${this.baseUrl}/mrp/boms`).pipe(
       catchError(() => of([]))
     );
   }
 
-  getProductionOrders(): Observable<unknown[]> {
-    return this.http.get<unknown[]>(`${this.baseUrl}/mrp/orders`).pipe(
+  getProductionOrders(): Observable<ProductionOrder[]> {
+    return this.http.get<ProductionOrder[]>(`${this.baseUrl}/mrp/orders`).pipe(
       catchError(() => of([]))
     );
   }
 
-  getCrmDeals(): Observable<unknown[]> {
-    return this.http.get<unknown[]>(`${this.baseUrl}/crm/deals`).pipe(
+  getCrmDeals(): Observable<CrmDeal[]> {
+    return this.http.get<CrmDeal[]>(`${this.baseUrl}/crm/deals`).pipe(
       catchError(() => of([]))
     );
   }
