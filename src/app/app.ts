@@ -29,6 +29,9 @@ import { ArchitectureModal } from './components/architecture-modal/architecture-
 import { InvoiceModal } from './components/invoice-modal/invoice-modal';
 import { KeyboardShortcutsModalComponent } from './components/keyboard-shortcuts-modal/keyboard-shortcuts-modal';
 import { CompanyProfileModalComponent } from './components/company-profile-modal/company-profile-modal';
+import { ChangePasswordModalComponent } from './components/change-password-modal/change-password-modal';
+import { SuperAdminDashboardComponent } from './modules/super-admin/super-admin-dashboard';
+import { SuperAdminService } from './modules/super-admin/services/super-admin.service';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -57,7 +60,9 @@ import { CompanyProfileModalComponent } from './components/company-profile-modal
     ArchitectureModal,
     InvoiceModal,
     KeyboardShortcutsModalComponent,
-    CompanyProfileModalComponent
+    CompanyProfileModalComponent,
+    ChangePasswordModalComponent,
+    SuperAdminDashboardComponent
   ],
   templateUrl: './app.html',
   styleUrl: './app.css',
@@ -66,6 +71,7 @@ export class App {
   stateService = inject(ErpStateService);
   authService = inject(AuthService);
   shortcutService = inject(KeyboardShortcutsService);
+  superAdminService = inject(SuperAdminService);
 
   activeNavId = signal<NavTab>('dashboard');
   showArchModal = signal<boolean>(false);

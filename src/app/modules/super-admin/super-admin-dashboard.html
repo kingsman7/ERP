@@ -1,0 +1,1456 @@
+<div class="space-y-6 pb-12">
+  
+  <!-- ========================================================= -->
+  <!-- SUPERADMIN HEADER & MASTER CONTROLS -->
+  <!-- ========================================================= -->
+  <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-indigo-900/50 rounded-2xl p-5 sm:p-6 shadow-xl text-white">
+    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+      
+      <div class="flex items-start sm:items-center space-x-3.5">
+        <div class="w-12 h-12 rounded-2xl bg-indigo-600/30 border border-indigo-500/50 flex items-center justify-center text-indigo-400 shadow-inner shrink-0">
+          <mat-icon class="text-2xl">admin_panel_settings</mat-icon>
+        </div>
+        <div>
+          <div class="flex items-center space-x-2.5 flex-wrap gap-y-1">
+            <h1 class="text-xl sm:text-2xl font-black tracking-tight text-white">Consola Master SuperAdmin</h1>
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold tracking-wider uppercase bg-purple-500/20 text-purple-300 border border-purple-400/30">
+              SaaS Multi-Tenant Global
+            </span>
+            <span class="px-2 py-0.5 rounded-md text-[10px] font-bold tracking-wider uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 flex items-center space-x-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>SLA 99.98% OK</span>
+            </span>
+          </div>
+          <p class="text-xs text-slate-300 mt-1 max-w-2xl">
+            Gestión global de inquilinos (Tenants), aprovisionamiento automatizado, cuotas de almacenamiento, control de suscripciones e impersonación de soporte técnico con auditoría criptográfica.
+          </p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2.5 shrink-0">
+        <button 
+          id="btn-superadmin-refresh"
+          (click)="superAdminService.fetchMasterData()"
+          title="Sincronizar datos con Master API"
+          class="px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center space-x-1.5 transition-all cursor-pointer">
+          <mat-icon [class]="superAdminService.isLoading() ? 'animate-spin text-sm' : 'text-sm'">sync</mat-icon>
+          <span class="hidden sm:inline">Actualizar</span>
+        </button>
+
+        <button 
+          id="btn-superadmin-provision"
+          (click)="openProvisionModal()"
+          class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-600/30 flex items-center space-x-2 transition-all cursor-pointer">
+          <mat-icon class="text-base">add_business</mat-icon>
+          <span>Aprovisionar Nuevo Tenant</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- GLOBAL SAAS METRICS CARDS (Bento Grid) -->
+  <!-- ========================================================= -->
+  @let m = superAdminService.globalMetrics();
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    
+    <!-- Total Tenants -->
+    <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex flex-col justify-between">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Total de Tenants</span>
+        <div class="p-2 rounded-xl bg-blue-50 text-blue-600">
+          <mat-icon class="text-lg">domain</mat-icon>
+        </div>
+      </div>
+      <div class="mt-3">
+        <div class="flex items-baseline space-x-2">
+          <span class="text-3xl font-black text-slate-900">{{ m.totalTenants }}</span>
+          <span class="text-xs font-bold text-emerald-600 flex items-center">
+            {{ m.activeTenants }} activos
+          </span>
+        </div>
+        <div class="flex items-center space-x-3 mt-2 text-[11px] text-slate-500 font-medium">
+          <span class="text-amber-600 font-semibold">{{ m.pendingTenants }} pendientes</span>
+          <span>•</span>
+          <span class="text-rose-600 font-semibold">{{ m.suspendedTenants }} suspendidos</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active System Users -->
+    <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex flex-col justify-between">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Usuarios Activos Global</span>
+        <div class="p-2 rounded-xl bg-emerald-50 text-emerald-600">
+          <mat-icon class="text-lg">groups</mat-icon>
+        </div>
+      </div>
+      <div class="mt-3">
+        <div class="flex items-baseline space-x-2">
+          <span class="text-3xl font-black text-slate-900">{{ m.totalUsers }}</span>
+          <span class="text-xs text-slate-500 font-medium">cuentas registradas</span>
+        </div>
+        <p class="text-[11px] text-slate-500 mt-2">
+          Distribuidos en empresas del cluster SaaS
+        </p>
+      </div>
+    </div>
+
+    <!-- Monthly Recurring Revenue (MRR) -->
+    <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex flex-col justify-between">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">MRR Facturación SaaS</span>
+        <div class="p-2 rounded-xl bg-purple-50 text-purple-600">
+          <mat-icon class="text-lg">monetization_on</mat-icon>
+        </div>
+      </div>
+      <div class="mt-3">
+        <div class="flex items-baseline space-x-2">
+          <span class="text-3xl font-black text-slate-900">${{ m.mrrUsd.toFixed(2) }}</span>
+          <span class="text-xs font-bold text-purple-600">USD/mes</span>
+        </div>
+        <div class="flex items-center justify-between mt-2 text-[11px] text-slate-500">
+          <span>ARR Proyectado:</span>
+          <span class="font-bold text-slate-800 font-mono">${{ m.arrUsd.toFixed(2) }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Infrastructure Health -->
+    <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex flex-col justify-between">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Infraestructura & Nodos</span>
+        <div class="p-2 rounded-xl bg-teal-50 text-teal-600">
+          <mat-icon class="text-lg">dns</mat-icon>
+        </div>
+      </div>
+      <div class="mt-3">
+        <div class="flex items-baseline space-x-2">
+          <span class="text-3xl font-black text-slate-900">{{ m.healthStatus.latencyMs }}ms</span>
+          <span class="text-xs font-bold text-teal-600 font-mono">Latencia Media</span>
+        </div>
+        <div class="flex items-center justify-between mt-2 text-[11px] text-slate-500 font-medium">
+          <span>{{ m.healthStatus.activeWorkerNodes }} Nodos Cloud Run</span>
+          <span class="font-bold text-emerald-600 font-mono">{{ m.healthStatus.uptimePercentage }}% Uptime</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- SUB-TABS NAVIGATION -->
+  <!-- ========================================================= -->
+  <div class="flex items-center space-x-2 border-b border-slate-200 overflow-x-auto pb-1">
+    
+    <button 
+      id="tab-btn-tenants"
+      (click)="setTab('tenants')"
+      class="px-4 py-2 text-xs font-bold rounded-xl flex items-center space-x-2 transition-all cursor-pointer whitespace-nowrap"
+      [class]="activeSubTab() === 'tenants' 
+        ? 'bg-slate-900 text-white shadow-xs' 
+        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'">
+      <mat-icon class="text-base">domain</mat-icon>
+      <span>Gestión de Tenants</span>
+      <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold"
+        [class]="activeSubTab() === 'tenants' ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-700'">
+        {{ superAdminService.filteredTenants().length }}
+      </span>
+    </button>
+
+    <button 
+      id="tab-btn-plans"
+      (click)="setTab('plans')"
+      class="px-4 py-2 text-xs font-bold rounded-xl flex items-center space-x-2 transition-all cursor-pointer whitespace-nowrap"
+      [class]="activeSubTab() === 'plans' 
+        ? 'bg-slate-900 text-white shadow-xs' 
+        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'">
+      <mat-icon class="text-base">loyalty</mat-icon>
+      <span>Planes & Suscripciones</span>
+      <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold"
+        [class]="activeSubTab() === 'plans' ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-700'">
+        {{ superAdminService.plans().length }}
+      </span>
+    </button>
+
+    <button 
+      id="tab-btn-health"
+      (click)="setTab('health')"
+      class="px-4 py-2 text-xs font-bold rounded-xl flex items-center space-x-2 transition-all cursor-pointer whitespace-nowrap"
+      [class]="activeSubTab() === 'health' 
+        ? 'bg-slate-900 text-white shadow-xs' 
+        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'">
+      <mat-icon class="text-base">monitor_heart</mat-icon>
+      <span>Salud del Sistema</span>
+      <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+    </button>
+
+    <button 
+      id="tab-btn-audit"
+      (click)="setTab('audit')"
+      class="px-4 py-2 text-xs font-bold rounded-xl flex items-center space-x-2 transition-all cursor-pointer whitespace-nowrap"
+      [class]="activeSubTab() === 'audit' 
+        ? 'bg-slate-900 text-white shadow-xs' 
+        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'">
+      <mat-icon class="text-base">security</mat-icon>
+      <span>Auditoría Global SaaS</span>
+      <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold"
+        [class]="activeSubTab() === 'audit' ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-700'">
+        {{ superAdminService.auditLogs().length }}
+      </span>
+    </button>
+
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- TAB 1: GESTIÓN DE TENANTS (CRUD & LISTING) -->
+  <!-- ========================================================= -->
+  @if (activeSubTab() === 'tenants') {
+    <div class="space-y-4">
+      
+      <!-- Filter Bar -->
+      <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+        
+        <!-- Search Input -->
+        <div class="relative flex-1 max-w-md">
+          <mat-icon class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-base">search</mat-icon>
+          <input 
+            id="input-tenants-search"
+            type="text"
+            [formControl]="searchControl"
+            placeholder="Buscar por empresa, subdominio, RIF o email..."
+            class="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" />
+        </div>
+
+        <!-- Filters Row -->
+        <div class="flex items-center gap-2 flex-wrap">
+          
+          <!-- Status Filter -->
+          <div class="flex items-center space-x-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold text-slate-600">
+            <span class="px-2 text-[11px] text-slate-400">Estado:</span>
+            <button 
+              id="filter-status-all"
+              (click)="superAdminService.statusFilter.set('ALL')"
+              class="px-2.5 py-1 rounded-lg transition-all cursor-pointer"
+              [class]="superAdminService.statusFilter() === 'ALL' ? 'bg-white text-slate-900 shadow-xs font-bold' : 'hover:text-slate-900'">
+              Todos
+            </button>
+            <button 
+              id="filter-status-active"
+              (click)="superAdminService.statusFilter.set('ACTIVE')"
+              class="px-2.5 py-1 rounded-lg transition-all cursor-pointer"
+              [class]="superAdminService.statusFilter() === 'ACTIVE' ? 'bg-emerald-600 text-white shadow-xs font-bold' : 'hover:text-emerald-700'">
+              Activos
+            </button>
+            <button 
+              id="filter-status-suspended"
+              (click)="superAdminService.statusFilter.set('SUSPENDED')"
+              class="px-2.5 py-1 rounded-lg transition-all cursor-pointer"
+              [class]="superAdminService.statusFilter() === 'SUSPENDED' ? 'bg-rose-600 text-white shadow-xs font-bold' : 'hover:text-rose-700'">
+              Suspendidos
+            </button>
+            <button 
+              id="filter-status-pending"
+              (click)="superAdminService.statusFilter.set('PENDING')"
+              class="px-2.5 py-1 rounded-lg transition-all cursor-pointer"
+              [class]="superAdminService.statusFilter() === 'PENDING' ? 'bg-amber-600 text-white shadow-xs font-bold' : 'hover:text-amber-700'">
+              Pendientes
+            </button>
+          </div>
+
+          <!-- Plan Filter -->
+          <div class="flex items-center space-x-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold text-slate-600">
+            <span class="px-2 text-[11px] text-slate-400">Plan:</span>
+            <button 
+              id="filter-plan-all"
+              (click)="superAdminService.planFilter.set('ALL')"
+              class="px-2.5 py-1 rounded-lg transition-all cursor-pointer"
+              [class]="superAdminService.planFilter() === 'ALL' ? 'bg-white text-slate-900 shadow-xs font-bold' : 'hover:text-slate-900'">
+              Todos
+            </button>
+            <button 
+              id="filter-plan-basic"
+              (click)="superAdminService.planFilter.set('BASIC')"
+              class="px-2 py-1 rounded-lg transition-all cursor-pointer"
+              [class]="superAdminService.planFilter() === 'BASIC' ? 'bg-blue-600 text-white shadow-xs font-bold' : 'hover:text-blue-700'">
+              PyME
+            </button>
+            <button 
+              id="filter-plan-pro"
+              (click)="superAdminService.planFilter.set('PRO')"
+              class="px-2 py-1 rounded-lg transition-all cursor-pointer"
+              [class]="superAdminService.planFilter() === 'PRO' ? 'bg-indigo-600 text-white shadow-xs font-bold' : 'hover:text-indigo-700'">
+              Pro
+            </button>
+            <button 
+              id="filter-plan-enterprise"
+              (click)="superAdminService.planFilter.set('ENTERPRISE')"
+              class="px-2 py-1 rounded-lg transition-all cursor-pointer"
+              [class]="superAdminService.planFilter() === 'ENTERPRISE' ? 'bg-purple-600 text-white shadow-xs font-bold' : 'hover:text-purple-700'">
+              Enterprise
+            </button>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- Tenants Table -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                <th class="py-3.5 px-4">Empresa / Subdominio</th>
+                <th class="py-3.5 px-4">Plan & Cuota</th>
+                <th class="py-3.5 px-4">Estado</th>
+                <th class="py-3.5 px-4">Usuarios</th>
+                <th class="py-3.5 px-4">Almacenamiento</th>
+                <th class="py-3.5 px-4">Región / Base de Datos</th>
+                <th class="py-3.5 px-4 text-right">Acciones Master</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200/80 font-medium text-slate-700">
+              
+              @for (tenant of superAdminService.filteredTenants(); track tenant.id) {
+                <tr class="hover:bg-slate-50/80 transition-colors">
+                  
+                  <!-- Company Name & Slug -->
+                  <td class="py-3.5 px-4">
+                    <div class="flex items-center space-x-3">
+                      <div class="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 font-bold shrink-0">
+                        {{ tenant.companyName.substring(0, 2).toUpperCase() }}
+                      </div>
+                      <div class="min-w-0">
+                        <button 
+                          (click)="openDetails(tenant)"
+                          class="font-bold text-slate-900 hover:text-indigo-600 transition-colors text-left truncate block cursor-pointer">
+                          {{ tenant.companyName }}
+                        </button>
+                        <div class="flex items-center space-x-2 text-[11px] text-slate-400 font-mono">
+                          <span>{{ tenant.slug }}.4-inline.cloud</span>
+                          <span>•</span>
+                          <span>{{ tenant.legalTaxId }}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+
+                  <!-- Plan & Fee -->
+                  <td class="py-3.5 px-4">
+                    <div class="flex flex-col">
+                      <div class="flex items-center space-x-1.5">
+                        <span class="px-2 py-0.5 rounded-md font-mono text-[10px] font-bold uppercase border"
+                          [class]="tenant.plan === 'ENTERPRISE' 
+                            ? 'bg-purple-50 text-purple-700 border-purple-200' 
+                            : (tenant.plan === 'PRO' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-blue-50 text-blue-700 border-blue-200')">
+                          {{ tenant.plan }}
+                        </span>
+                        <span class="text-[10px] font-bold text-slate-400 uppercase">
+                          {{ tenant.billingCycle === 'ANNUAL' ? 'ANUAL' : 'MENSUAL' }}
+                        </span>
+                      </div>
+                      <span class="text-xs font-bold text-slate-900 mt-0.5 font-mono">
+                        ${{ tenant.monthlyFeeUsd.toFixed(2) }} <span class="text-[10px] font-normal text-slate-400">/mes</span>
+                      </span>
+                    </div>
+                  </td>
+
+                  <!-- Status -->
+                  <td class="py-3.5 px-4">
+                    <span class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider inline-flex items-center space-x-1 border"
+                      [class]="tenant.status === 'ACTIVE' 
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                        : (tenant.status === 'SUSPENDED' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-amber-50 text-amber-700 border-amber-200')">
+                      <span class="w-1.5 h-1.5 rounded-full"
+                        [class]="tenant.status === 'ACTIVE' ? 'bg-emerald-500' : (tenant.status === 'SUSPENDED' ? 'bg-rose-500' : 'bg-amber-500')"></span>
+                      <span>{{ tenant.status === 'ACTIVE' ? 'ACTIVO' : (tenant.status === 'SUSPENDED' ? 'SUSPENDIDO' : 'PENDIENTE') }}</span>
+                    </span>
+                  </td>
+
+                  <!-- Users Quota Progress -->
+                  <td class="py-3.5 px-4">
+                    @let userPct = getUsersPercent(tenant);
+                    <div class="w-32">
+                      <div class="flex items-center justify-between text-[11px] mb-1 font-mono">
+                        <span class="font-bold text-slate-800">{{ tenant.currentUsersCount }}</span>
+                        <span class="text-slate-400">/ {{ tenant.maxUsers }}</span>
+                      </div>
+                      <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div class="h-full rounded-full transition-all"
+                          [style.width.%]="userPct"
+                          [class]="userPct > 90 ? 'bg-rose-500' : (userPct > 70 ? 'bg-amber-500' : 'bg-indigo-500')"></div>
+                      </div>
+                    </div>
+                  </td>
+
+                  <!-- Storage Quota Progress -->
+                  <td class="py-3.5 px-4">
+                    @let storagePct = getStoragePercent(tenant);
+                    <div class="w-32">
+                      <div class="flex items-center justify-between text-[11px] mb-1 font-mono">
+                        <span class="font-bold text-slate-800">{{ tenant.storageUsedMb }} MB</span>
+                        <span class="text-slate-400">/ {{ tenant.storageLimitMb }} MB</span>
+                      </div>
+                      <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div class="h-full rounded-full transition-all"
+                          [style.width.%]="storagePct"
+                          [class]="storagePct > 90 ? 'bg-rose-500' : (storagePct > 70 ? 'bg-amber-500' : 'bg-emerald-500')"></div>
+                      </div>
+                    </div>
+                  </td>
+
+                  <!-- Region & Database Tier -->
+                  <td class="py-3.5 px-4">
+                    <div class="text-[11px] font-mono">
+                      <span class="text-slate-800 font-semibold block">{{ tenant.region }}</span>
+                      <span class="text-slate-400 text-[10px]">{{ tenant.databaseTier }}</span>
+                    </div>
+                  </td>
+
+                  <!-- Action Buttons -->
+                  <td class="py-3.5 px-4 text-right">
+                    <div class="flex items-center justify-end space-x-1">
+                      
+                      <!-- Impersonate Support Access -->
+                      <button 
+                        [id]="'btn-impersonate-' + tenant.id"
+                        (click)="openImpersonateModal(tenant)"
+                        title="Iniciar Impersonación de Soporte Técnico (Auditada)"
+                        class="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors cursor-pointer">
+                        <mat-icon class="text-base">support_agent</mat-icon>
+                      </button>
+
+                      <!-- Change Plan -->
+                      <button 
+                        [id]="'btn-change-plan-' + tenant.id"
+                        (click)="openChangePlanModal(tenant)"
+                        title="Cambiar Plan de Suscripción"
+                        class="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer">
+                        <mat-icon class="text-base">upgrade</mat-icon>
+                      </button>
+
+                      <!-- Toggle Status (Suspend / Activate) -->
+                      <button 
+                        [id]="'btn-toggle-status-' + tenant.id"
+                        (click)="toggleStatus(tenant)"
+                        [title]="tenant.status === 'SUSPENDED' ? 'Reactivar Tenant' : 'Suspender Tenant'"
+                        class="p-1.5 rounded-lg transition-colors cursor-pointer"
+                        [class]="tenant.status === 'SUSPENDED' ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700' : 'bg-amber-50 hover:bg-amber-100 text-amber-700'">
+                        <mat-icon class="text-base">{{ tenant.status === 'SUSPENDED' ? 'play_circle' : 'pause_circle' }}</mat-icon>
+                      </button>
+
+                      <!-- Edit Details -->
+                      <button 
+                        [id]="'btn-edit-tenant-' + tenant.id"
+                        (click)="openEditModal(tenant)"
+                        title="Editar Datos de Empresa"
+                        class="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer">
+                        <mat-icon class="text-base">edit</mat-icon>
+                      </button>
+
+                      <!-- Delete Tenant -->
+                      <button 
+                        [id]="'btn-delete-tenant-' + tenant.id"
+                        (click)="openDeleteModal(tenant)"
+                        title="Eliminar Tenant Definitivamente"
+                        class="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 transition-colors cursor-pointer">
+                        <mat-icon class="text-base">delete</mat-icon>
+                      </button>
+
+                    </div>
+                  </td>
+
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="7" class="py-12 text-center text-slate-400">
+                    <mat-icon class="text-3xl text-slate-300 mx-auto block mb-2">search_off</mat-icon>
+                    <p class="font-bold text-slate-700 text-sm">No se encontraron tenants</p>
+                    <p class="text-xs text-slate-400 mt-1">Prueba cambiando los términos de búsqueda o los filtros de estado/plan.</p>
+                  </td>
+                </tr>
+              }
+
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  }
+
+  <!-- ========================================================= -->
+  <!-- TAB 2: PLANES & SUSCRIPCIONES -->
+  <!-- ========================================================= -->
+  @if (activeSubTab() === 'plans') {
+    <div class="space-y-6">
+      
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-base font-bold text-slate-900">Catálogo de Planes & Cuotas SaaS</h2>
+          <p class="text-xs text-slate-500">Configuración global de precios, límites de usuarios, cuotas de disco y módulos habilitados por plan.</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        @for (plan of superAdminService.plans(); track plan.id) {
+          <div class="bg-white rounded-2xl border p-6 shadow-xs flex flex-col justify-between relative"
+            [class]="plan.isPopular ? 'border-indigo-400 ring-2 ring-indigo-500/20' : 'border-slate-200'">
+            
+            @if (plan.isPopular) {
+              <span class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-indigo-600 text-white shadow-xs">
+                Más Vendido
+              </span>
+            }
+
+            <div>
+              <div class="flex items-center justify-between">
+                <span class="px-2.5 py-0.5 rounded-md text-[10px] font-mono font-bold uppercase tracking-wider"
+                  [class]="plan.id === 'ENTERPRISE' ? 'bg-purple-100 text-purple-800' : (plan.id === 'PRO' ? 'bg-indigo-100 text-indigo-800' : 'bg-blue-100 text-blue-800')">
+                  {{ plan.id }}
+                </span>
+                <span class="text-xs font-bold text-slate-500 font-mono">
+                  SLA {{ plan.supportTier }}
+                </span>
+              </div>
+
+              <h3 class="text-lg font-black text-slate-900 mt-2">{{ plan.name }}</h3>
+              <p class="text-xs text-slate-500 mt-1 leading-snug">{{ plan.tagline }}</p>
+
+              <div class="mt-4 pt-4 border-t border-slate-100">
+                <div class="flex items-baseline space-x-1">
+                  <span class="text-3xl font-black text-slate-900 font-mono">${{ plan.priceMonthlyUsd }}</span>
+                  <span class="text-xs text-slate-500 font-medium">USD / mes</span>
+                </div>
+                <p class="text-[11px] text-slate-400 mt-0.5 font-mono">
+                  ${{ plan.priceAnnualUsd }} USD al facturar anualmente
+                </p>
+              </div>
+
+              <!-- Limits Matrix -->
+              <div class="mt-4 space-y-2 bg-slate-50 rounded-xl p-3.5 border border-slate-100 text-xs">
+                <div class="flex items-center justify-between">
+                  <span class="text-slate-600 flex items-center space-x-1.5">
+                    <mat-icon class="text-sm text-slate-400">group</mat-icon>
+                    <span>Límite de Usuarios:</span>
+                  </span>
+                  <span class="font-bold text-slate-900 font-mono">{{ plan.maxUsers }} cuentas</span>
+                </div>
+
+                <div class="flex items-center justify-between">
+                  <span class="text-slate-600 flex items-center space-x-1.5">
+                    <mat-icon class="text-sm text-slate-400">cloud</mat-icon>
+                    <span>Espacio en Disco:</span>
+                  </span>
+                  <span class="font-bold text-slate-900 font-mono">{{ (plan.storageLimitMb / 1024).toFixed(0) }} GB</span>
+                </div>
+
+                <div class="flex items-center justify-between">
+                  <span class="text-slate-600 flex items-center space-x-1.5">
+                    <mat-icon class="text-sm text-slate-400">receipt_long</mat-icon>
+                    <span>Facturas / mes:</span>
+                  </span>
+                  <span class="font-bold text-slate-900 font-mono">{{ plan.maxInvoicesMonthly }}</span>
+                </div>
+
+                <div class="flex items-center justify-between">
+                  <span class="text-slate-600 flex items-center space-x-1.5">
+                    <mat-icon class="text-sm text-slate-400">language</mat-icon>
+                    <span>Dominio Propio:</span>
+                  </span>
+                  <span class="font-bold font-mono" [class]="plan.customDomainSupported ? 'text-emerald-600' : 'text-slate-400'">
+                    {{ plan.customDomainSupported ? 'Incluido' : 'No' }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Included Modules List -->
+              <div class="mt-4">
+                <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">Módulos Habilitados ({{ plan.allowedModules.length }})</span>
+                <div class="flex flex-wrap gap-1">
+                  @for (mod of plan.allowedModules; track mod) {
+                    <span class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[10px] font-mono font-semibold border border-slate-200">
+                      {{ mod }}
+                    </span>
+                  }
+                </div>
+              </div>
+
+            </div>
+
+            <div class="mt-6 pt-4 border-t border-slate-100">
+              <button 
+                [id]="'btn-edit-plan-' + plan.id"
+                (click)="openEditPlanModal(plan)"
+                class="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 cursor-pointer">
+                <mat-icon class="text-sm">tune</mat-icon>
+                <span>Configurar Precios & Límites</span>
+              </button>
+            </div>
+
+          </div>
+        }
+      </div>
+
+    </div>
+  }
+
+  <!-- ========================================================= -->
+  <!-- TAB 3: SALUD DEL SISTEMA & CLOUD INFRASTRUCTURE -->
+  <!-- ========================================================= -->
+  @if (activeSubTab() === 'health') {
+    @let h = superAdminService.healthMetrics();
+    <div class="space-y-6">
+      
+      <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <mat-icon class="text-xl">check_circle</mat-icon>
+            </div>
+            <div>
+              <h3 class="text-base font-bold text-slate-900">Estado del Sistema: OPERATIVO</h3>
+              <p class="text-xs text-slate-500">Todos los microservicios y bases de datos responden dentro de los umbrales nominales.</p>
+            </div>
+          </div>
+
+          <div class="flex items-center space-x-3 text-xs font-mono">
+            <span class="text-slate-400">Última comprobación:</span>
+            <span class="font-bold text-slate-800">{{ formatDateTime(superAdminService.lastSyncTime()) }}</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+          
+          <div class="p-4 rounded-xl bg-slate-50 border border-slate-100">
+            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Uptime de Plataforma</span>
+            <span class="text-2xl font-black text-slate-900 font-mono mt-1 block">{{ h.uptimePercentage }}%</span>
+            <span class="text-[10px] text-emerald-600 font-semibold mt-1 block">Conforme a SLA Enterprise</span>
+          </div>
+
+          <div class="p-4 rounded-xl bg-slate-50 border border-slate-100">
+            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Conexiones Activas</span>
+            <span class="text-2xl font-black text-slate-900 font-mono mt-1 block">{{ h.activeConnections }}</span>
+            <span class="text-[10px] text-slate-500 mt-1 block">WebSockets & REST clientes</span>
+          </div>
+
+          <div class="p-4 rounded-xl bg-slate-50 border border-slate-100">
+            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Carga CPU Cluster</span>
+            <span class="text-2xl font-black text-slate-900 font-mono mt-1 block">{{ h.cpuUsagePct }}%</span>
+            <div class="w-full h-1.5 bg-slate-200 rounded-full mt-2 overflow-hidden">
+              <div class="h-full bg-indigo-600 rounded-full" [style.width.%]="h.cpuUsagePct"></div>
+            </div>
+          </div>
+
+          <div class="p-4 rounded-xl bg-slate-50 border border-slate-100">
+            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Uso Memoria RAM</span>
+            <span class="text-2xl font-black text-slate-900 font-mono mt-1 block">{{ h.memoryUsagePct }}%</span>
+            <div class="w-full h-1.5 bg-slate-200 rounded-full mt-2 overflow-hidden">
+              <div class="h-full bg-teal-600 rounded-full" [style.width.%]="h.memoryUsagePct"></div>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="mt-6 pt-5 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+          
+          <div class="p-4 rounded-xl bg-slate-50 border border-slate-100 space-y-2">
+            <p class="font-bold text-slate-800 flex items-center space-x-2">
+              <mat-icon class="text-blue-500 text-sm">database</mat-icon>
+              <span>Cluster de Base de Datos (Cloud SQL PostgreSQL 15)</span>
+            </p>
+            <p class="text-slate-500 text-[11px]">
+              Esquema de aislamiento multi-tenant con partición lógica e índices compuestos por <code class="bg-slate-200 px-1 rounded">tenant_id</code>.
+            </p>
+            <div class="flex items-center justify-between pt-1 font-mono text-[11px]">
+              <span class="text-slate-400">Estado de Réplica HA:</span>
+              <span class="text-emerald-600 font-bold">SINCRONIZADO (0ms lag)</span>
+            </div>
+          </div>
+
+          <div class="p-4 rounded-xl bg-slate-50 border border-slate-100 space-y-2">
+            <p class="font-bold text-slate-800 flex items-center space-x-2">
+              <mat-icon class="text-indigo-500 text-sm">backup</mat-icon>
+              <span>Respaldos Automáticos (Cloud Firestore & Storage)</span>
+            </p>
+            <p class="text-slate-500 text-[11px]">
+              Snapshots incrementales cada 6 horas con retención de 30 días y cifrado en reposo AES-256.
+            </p>
+            <div class="flex items-center justify-between pt-1 font-mono text-[11px]">
+              <span class="text-slate-400">Último snapshot exitoso:</span>
+              <span class="text-slate-700 font-bold">{{ formatDateTime(h.lastBackupAt) }}</span>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  }
+
+  <!-- ========================================================= -->
+  <!-- TAB 4: AUDITORÍA GLOBAL SAAS -->
+  <!-- ========================================================= -->
+  @if (activeSubTab() === 'audit') {
+    <div class="space-y-4">
+      
+      <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs flex items-center justify-between">
+        <div>
+          <h3 class="text-sm font-bold text-slate-900">Registro Forense de Operaciones Master</h3>
+          <p class="text-xs text-slate-500">Trazabilidad inmutable de aprovisionamientos, cambios de plan, suspensiones y sesiones de impersonación.</p>
+        </div>
+        <span class="px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 font-mono text-xs font-bold">
+          {{ superAdminService.auditLogs().length }} Registros
+        </span>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                <th class="py-3 px-4">Fecha / Hora</th>
+                <th class="py-3 px-4">Acción</th>
+                <th class="py-3 px-4">Tenant Afectado</th>
+                <th class="py-3 px-4">Ejecutado Por</th>
+                <th class="py-3 px-4">Detalles de Operación</th>
+                <th class="py-3 px-4">IP Origen</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200 font-medium text-slate-700">
+              @for (log of superAdminService.auditLogs(); track log.id) {
+                <tr class="hover:bg-slate-50/60 transition-colors">
+                  <td class="py-3 px-4 font-mono text-[11px] text-slate-500 whitespace-nowrap">
+                    {{ formatDateTime(log.timestamp) }}
+                  </td>
+                  <td class="py-3 px-4 whitespace-nowrap">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase border"
+                      [class]="getAuditBadgeClass(log.action)">
+                      {{ log.action }}
+                    </span>
+                  </td>
+                  <td class="py-3 px-4 font-bold text-slate-900 whitespace-nowrap">
+                    {{ log.tenantName || 'Sistema Global' }}
+                  </td>
+                  <td class="py-3 px-4 font-mono text-[11px] text-indigo-600 whitespace-nowrap">
+                    {{ log.performerEmail }}
+                  </td>
+                  <td class="py-3 px-4 text-slate-600 max-w-md">
+                    {{ log.details }}
+                  </td>
+                  <td class="py-3 px-4 font-mono text-[10px] text-slate-400 whitespace-nowrap">
+                    {{ log.ipAddress }}
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  }
+
+</div>
+
+<!-- ========================================================= -->
+<!-- MODAL: APROVISIONAMIENTO DE NUEVO TENANT -->
+<!-- ========================================================= -->
+@if (showProvisionModal()) {
+  <div class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto my-8 animate-in fade-in zoom-in-95 duration-150">
+      
+      <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/80 rounded-t-3xl sticky top-0 z-10">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-600/20">
+            <mat-icon class="text-xl">add_business</mat-icon>
+          </div>
+          <div>
+            <h2 class="text-base font-black text-slate-900">Aprovisionar Nuevo Tenant SaaS</h2>
+            <p class="text-xs text-slate-500">Alta de empresa con partición de datos, usuario administrador y plan inicial.</p>
+          </div>
+        </div>
+
+        <button 
+          id="btn-close-provision-modal"
+          (click)="closeProvisionModal()"
+          class="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+
+      <form [formGroup]="provisionForm" (ngSubmit)="submitProvision()" class="p-6 space-y-4 text-xs">
+        
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          
+          <!-- Company Name -->
+          <div class="sm:col-span-2 space-y-1">
+            <label class="font-bold text-slate-700" for="prov-company-name">Razón Social / Nombre Comercial *</label>
+            <input 
+              id="prov-company-name"
+              type="text"
+              formControlName="companyName"
+              placeholder="Ej. Distribuidora Central de Oriente C.A."
+              class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500" />
+            @if (provisionForm.controls.companyName.touched && provisionForm.controls.companyName.invalid) {
+              <p class="text-rose-600 text-[10px]">El nombre de la empresa es obligatorio (mínimo 3 caracteres).</p>
+            }
+          </div>
+
+          <!-- Subdomain / Slug Preview -->
+          <div class="space-y-1">
+            <label class="font-bold text-slate-700" for="prov-slug">Subdominio SaaS (Slug) *</label>
+            <div class="flex items-center rounded-xl border border-slate-300 overflow-hidden bg-slate-50 focus-within:ring-2 focus-within:ring-indigo-500">
+              <input 
+                id="prov-slug"
+                type="text"
+                formControlName="slug"
+                [placeholder]="generatedSlug()"
+                class="w-full px-3 py-2 text-slate-800 bg-transparent focus:outline-hidden font-mono" />
+              <span class="px-2.5 py-2 text-slate-400 bg-slate-100 font-mono text-[11px] border-l border-slate-200 shrink-0">
+                .4-inline.cloud
+              </span>
+            </div>
+            <p class="text-[10px] text-slate-400">Subdominio único asignado en el cluster web.</p>
+          </div>
+
+          <!-- Legal Tax ID -->
+          <div class="space-y-1">
+            <label class="font-bold text-slate-700" for="prov-tax-id">RIF / Identificación Fiscal (SENIAT) *</label>
+            <input 
+              id="prov-tax-id"
+              type="text"
+              formControlName="legalTaxId"
+              placeholder="Ej. J-30948572-1"
+              class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-800 uppercase font-mono focus:outline-hidden focus:ring-2 focus:ring-indigo-500" />
+            @if (provisionForm.controls.legalTaxId.touched && provisionForm.controls.legalTaxId.invalid) {
+              <p class="text-rose-600 text-[10px]">La identificación fiscal es requerida.</p>
+            }
+          </div>
+
+          <!-- Plan Selection -->
+          <div class="space-y-1">
+            <label class="font-bold text-slate-700" for="prov-plan">Plan Inicial de Suscripción *</label>
+            <select 
+              id="prov-plan"
+              formControlName="plan"
+              class="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 font-medium">
+              <option value="BASIC">Plan Comercial / PyME ($49/mes - 5 Usuarios)</option>
+              <option value="PRO">Plan Profesional / MRP ($119/mes - 20 Usuarios)</option>
+              <option value="ENTERPRISE">Plan Enterprise / NIIF ($249/mes - 100 Usuarios)</option>
+            </select>
+          </div>
+
+          <!-- Billing Cycle -->
+          <div class="space-y-1">
+            <label class="font-bold text-slate-700" for="prov-cycle">Ciclo de Facturación</label>
+            <select 
+              id="prov-cycle"
+              formControlName="billingCycle"
+              class="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 font-medium">
+              <option value="MONTHLY">Mensual (Tarifa estándar)</option>
+              <option value="ANNUAL">Anual (20% de descuento incluido)</option>
+            </select>
+          </div>
+
+          <!-- Contact Email -->
+          <div class="space-y-1">
+            <label class="font-bold text-slate-700" for="prov-email">Correo Corporativo / Facturación *</label>
+            <input 
+              id="prov-email"
+              type="email"
+              formControlName="contactEmail"
+              placeholder="facturacion@empresa.com"
+              class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500" />
+          </div>
+
+          <!-- Contact Phone -->
+          <div class="space-y-1">
+            <label class="font-bold text-slate-700" for="prov-phone">Teléfono de Contacto</label>
+            <input 
+              id="prov-phone"
+              type="text"
+              formControlName="contactPhone"
+              placeholder="+58 212-0000000"
+              class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500" />
+          </div>
+
+          <!-- Admin User Name -->
+          <div class="space-y-1">
+            <label class="font-bold text-slate-700" for="prov-admin-name">Nombre del Administrador Inicial *</label>
+            <input 
+              id="prov-admin-name"
+              type="text"
+              formControlName="adminUserName"
+              placeholder="Ej. Ing. Roberto Gómez"
+              class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500" />
+          </div>
+
+          <!-- Admin User Email -->
+          <div class="space-y-1">
+            <label class="font-bold text-slate-700" for="prov-admin-email">Email del Administrador (Login) *</label>
+            <input 
+              id="prov-admin-email"
+              type="email"
+              formControlName="adminUserEmail"
+              placeholder="admin@empresa.com"
+              class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500" />
+          </div>
+
+          <!-- Cloud Region -->
+          <div class="space-y-1">
+            <label class="font-bold text-slate-700" for="prov-region">Región Cloud de Alojamiento</label>
+            <select 
+              id="prov-region"
+              formControlName="region"
+              class="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 font-medium">
+              <option value="us-east1">us-east1 (Virginia, USA - Baja Latencia LATAM)</option>
+              <option value="sa-east1">sa-east1 (São Paulo, Brasil)</option>
+              <option value="eu-west1">eu-west1 (Bélgica, Europa)</option>
+            </select>
+          </div>
+
+          <!-- Custom Domain -->
+          <div class="space-y-1">
+            <label class="font-bold text-slate-700" for="prov-domain">Dominio Personalizado (Opcional)</label>
+            <input 
+              id="prov-domain"
+              type="text"
+              formControlName="customDomain"
+              placeholder="erp.miempresa.com"
+              class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 font-mono" />
+          </div>
+
+        </div>
+
+        <div class="pt-4 border-t border-slate-100 flex items-center justify-end space-x-3">
+          <button 
+            id="btn-cancel-provision"
+            type="button"
+            (click)="closeProvisionModal()"
+            class="px-4 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-bold transition-all cursor-pointer">
+            Cancelar
+          </button>
+
+          <button 
+            id="btn-submit-provision"
+            type="submit"
+            [disabled]="provisionForm.invalid"
+            class="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold shadow-md shadow-indigo-600/30 flex items-center space-x-2 transition-all cursor-pointer">
+            <mat-icon class="text-sm">rocket_launch</mat-icon>
+            <span>Crear y Aprovisionar Tenant</span>
+          </button>
+        </div>
+
+      </form>
+
+    </div>
+  </div>
+}
+
+<!-- ========================================================= -->
+<!-- MODAL: IMPERSONACIÓN SEGURA (SUPPORT ACCESS) -->
+<!-- ========================================================= -->
+@if (impersonatingTenant(); as target) {
+  <div class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 space-y-5 animate-in fade-in zoom-in-95 duration-150">
+      
+      <div class="flex items-start space-x-3.5">
+        <div class="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 shadow-xs">
+          <mat-icon class="text-2xl">support_agent</mat-icon>
+        </div>
+        <div>
+          <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-300">
+            Acceso de Soporte Técnico Auditado
+          </span>
+          <h3 class="text-base font-black text-slate-900 mt-1">Impersonar Sesión de Tenant</h3>
+          <p class="text-xs text-slate-500">
+            Ingreso temporal al entorno de <strong>{{ target.companyName }}</strong> con fines de diagnóstico y resolución de tickets.
+          </p>
+        </div>
+      </div>
+
+      <!-- Compliance Security Warning Box -->
+      <div class="p-3.5 bg-amber-50/80 rounded-2xl border border-amber-200 text-xs text-amber-900 space-y-2">
+        <div class="flex items-center space-x-2 font-bold text-amber-950">
+          <mat-icon class="text-base text-amber-600">shield</mat-icon>
+          <span>Aviso de Conformidad & Auditoría Forense</span>
+        </div>
+        <p class="text-[11px] leading-relaxed text-amber-800">
+          Esta acción generará un token único de auditoría forense firmado criptográficamente, visible en la bitácora global. Se notificará a los administradores del tenant sobre el inicio de sesión del personal de soporte.
+        </p>
+        <div class="pt-1 border-t border-amber-200/60 flex items-center justify-between text-[11px] font-mono">
+          <span>Usuario Target:</span>
+          <span class="font-bold">{{ target.adminUserEmail }}</span>
+        </div>
+      </div>
+
+      <form [formGroup]="impersonateForm" (ngSubmit)="submitImpersonate()" class="space-y-4 text-xs">
+        
+        <div class="space-y-1">
+          <label class="font-bold text-slate-700" for="imp-reason">
+            Motivo Obligatorio del Acceso (Ticket / Diagnóstico) *
+          </label>
+          <textarea 
+            id="imp-reason"
+            rows="3"
+            formControlName="reason"
+            placeholder="Ej. Revisión de discrepancia en reporte de inventario a petición del ticket #4029..."
+            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-amber-500"></textarea>
+          @if (impersonateForm.controls.reason.touched && impersonateForm.controls.reason.invalid) {
+            <p class="text-rose-600 text-[10px]">El motivo es obligatorio para justificar el acceso de soporte.</p>
+          }
+        </div>
+
+        <div class="space-y-1">
+          <label class="font-bold text-slate-700" for="imp-duration">Duración de la Sesión Temporal</label>
+          <select 
+            id="imp-duration"
+            formControlName="durationMinutes"
+            class="w-full px-3 py-2 rounded-xl border border-slate-300 text-slate-800 font-medium">
+            <option [value]="30">30 Minutos</option>
+            <option [value]="60">60 Minutos (1 Hora - Estándar)</option>
+            <option [value]="120">120 Minutos (2 Horas)</option>
+          </select>
+        </div>
+
+        <div class="pt-4 border-t border-slate-100 flex items-center justify-end space-x-3">
+          <button 
+            id="btn-cancel-impersonate"
+            type="button"
+            (click)="closeImpersonateModal()"
+            class="px-4 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-bold transition-all cursor-pointer">
+            Cancelar
+          </button>
+
+          <button 
+            id="btn-confirm-impersonate"
+            type="submit"
+            [disabled]="impersonateForm.invalid"
+            class="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white font-bold shadow-md shadow-amber-600/30 flex items-center space-x-2 transition-all cursor-pointer">
+            <mat-icon class="text-sm">login</mat-icon>
+            <span>Iniciar Sesión de Soporte</span>
+          </button>
+        </div>
+
+      </form>
+
+    </div>
+  </div>
+}
+
+<!-- ========================================================= -->
+<!-- MODAL: CAMBIAR PLAN DE TENANT -->
+<!-- ========================================================= -->
+@if (changingPlanTenant(); as target) {
+  <div class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-5 animate-in fade-in zoom-in-95 duration-150">
+      
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-2xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
+          <mat-icon class="text-xl">upgrade</mat-icon>
+        </div>
+        <div>
+          <h3 class="text-base font-black text-slate-900">Modificar Plan de Suscripción</h3>
+          <p class="text-xs text-slate-500">{{ target.companyName }}</p>
+        </div>
+      </div>
+
+      <form [formGroup]="planChangeForm" (ngSubmit)="submitChangePlan()" class="space-y-4 text-xs">
+        
+        <div class="space-y-1">
+          <label class="font-bold text-slate-700" for="change-plan-select">Seleccionar Nuevo Plan</label>
+          <select 
+            id="change-plan-select"
+            formControlName="plan"
+            class="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-slate-800 font-medium">
+            <option value="BASIC">Plan Comercial / PyME ($49/mes - 5 Usuarios, 2GB)</option>
+            <option value="PRO">Plan Profesional / MRP ($119/mes - 20 Usuarios, 10GB)</option>
+            <option value="ENTERPRISE">Plan Enterprise / NIIF ($249/mes - 100 Usuarios, 50GB)</option>
+          </select>
+        </div>
+
+        <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 text-[11px] space-y-1 text-slate-600">
+          <p class="font-bold text-slate-800">Impacto en la cuota:</p>
+          <p>Al guardar, los límites de almacenamiento y el número máximo de usuarios permitidos se ajustarán en caliente sin interrumpir el servicio.</p>
+        </div>
+
+        <div class="pt-4 border-t border-slate-100 flex items-center justify-end space-x-3">
+          <button 
+            id="btn-cancel-change-plan"
+            type="button"
+            (click)="closeChangePlanModal()"
+            class="px-4 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-bold transition-all cursor-pointer">
+            Cancelar
+          </button>
+
+          <button 
+            id="btn-submit-change-plan"
+            type="submit"
+            class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold shadow-md shadow-indigo-600/30 flex items-center space-x-2 transition-all cursor-pointer">
+            <mat-icon class="text-sm">save</mat-icon>
+            <span>Aplicar Cambio de Plan</span>
+          </button>
+        </div>
+
+      </form>
+
+    </div>
+  </div>
+}
+
+<!-- ========================================================= -->
+<!-- MODAL: EDITAR DATOS DE EMPRESA -->
+<!-- ========================================================= -->
+@if (editingTenant(); as target) {
+  <div class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 space-y-4 my-8 animate-in fade-in zoom-in-95 duration-150">
+      
+      <div class="flex items-center space-x-3 border-b border-slate-100 pb-3">
+        <div class="w-10 h-10 rounded-2xl bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
+          <mat-icon class="text-xl">edit</mat-icon>
+        </div>
+        <div>
+          <h3 class="text-base font-black text-slate-900">Editar Datos del Tenant</h3>
+          <p class="text-xs text-slate-500">ID: {{ target.id }} ({{ target.slug }})</p>
+        </div>
+      </div>
+
+      <form [formGroup]="editForm" (ngSubmit)="submitEdit()" class="space-y-3 text-xs">
+        
+        <div class="space-y-1">
+          <label class="font-bold text-slate-700" for="edit-comp-name">Razón Social *</label>
+          <input 
+            id="edit-comp-name"
+            type="text"
+            formControlName="companyName"
+            class="w-full px-3 py-2 rounded-xl border border-slate-300 text-slate-800" />
+        </div>
+
+        <div class="space-y-1">
+          <label class="font-bold text-slate-700" for="edit-tax-id">Identificación Fiscal *</label>
+          <input 
+            id="edit-tax-id"
+            type="text"
+            formControlName="legalTaxId"
+            class="w-full px-3 py-2 rounded-xl border border-slate-300 text-slate-800 font-mono uppercase" />
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div class="space-y-1">
+            <label class="font-bold text-slate-700" for="edit-email">Email de Contacto *</label>
+            <input 
+              id="edit-email"
+              type="email"
+              formControlName="contactEmail"
+              class="w-full px-3 py-2 rounded-xl border border-slate-300 text-slate-800" />
+          </div>
+
+          <div class="space-y-1">
+            <label class="font-bold text-slate-700" for="edit-phone">Teléfono</label>
+            <input 
+              id="edit-phone"
+              type="text"
+              formControlName="contactPhone"
+              class="w-full px-3 py-2 rounded-xl border border-slate-300 text-slate-800" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div class="space-y-1">
+            <label class="font-bold text-slate-700" for="edit-adm-name">Nombre Administrador *</label>
+            <input 
+              id="edit-adm-name"
+              type="text"
+              formControlName="adminUserName"
+              class="w-full px-3 py-2 rounded-xl border border-slate-300 text-slate-800" />
+          </div>
+
+          <div class="space-y-1">
+            <label class="font-bold text-slate-700" for="edit-adm-email">Email Administrador *</label>
+            <input 
+              id="edit-adm-email"
+              type="email"
+              formControlName="adminUserEmail"
+              class="w-full px-3 py-2 rounded-xl border border-slate-300 text-slate-800" />
+          </div>
+        </div>
+
+        <div class="space-y-1">
+          <label class="font-bold text-slate-700" for="edit-domain">Dominio Personalizado (DNS CNAME)</label>
+          <input 
+            id="edit-domain"
+            type="text"
+            formControlName="customDomain"
+            placeholder="erp.cliente.com"
+            class="w-full px-3 py-2 rounded-xl border border-slate-300 text-slate-800 font-mono" />
+        </div>
+
+        <div class="space-y-1">
+          <label class="font-bold text-slate-700" for="edit-notes">Notas Operativas</label>
+          <textarea 
+            id="edit-notes"
+            rows="2"
+            formControlName="notes"
+            class="w-full px-3 py-2 rounded-xl border border-slate-300 text-slate-800"></textarea>
+        </div>
+
+        <div class="pt-3 border-t border-slate-100 flex items-center justify-end space-x-3">
+          <button 
+            id="btn-cancel-edit-tenant"
+            type="button"
+            (click)="closeEditModal()"
+            class="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-bold transition-all cursor-pointer">
+            Cancelar
+          </button>
+
+          <button 
+            id="btn-save-edit-tenant"
+            type="submit"
+            [disabled]="editForm.invalid"
+            class="px-5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold transition-all cursor-pointer">
+            Guardar Cambios
+          </button>
+        </div>
+
+      </form>
+
+    </div>
+  </div>
+}
+
+<!-- ========================================================= -->
+<!-- MODAL: ELIMINACIÓN SEGURA DE TENANT -->
+<!-- ========================================================= -->
+@if (deletingTenant(); as target) {
+  <div class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl border border-rose-200 shadow-2xl max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+      
+      <div class="w-12 h-12 rounded-2xl bg-rose-100 text-rose-700 flex items-center justify-center mx-auto shadow-xs">
+        <mat-icon class="text-2xl">warning</mat-icon>
+      </div>
+
+      <div class="text-center space-y-1">
+        <h3 class="text-base font-black text-slate-900">¿Eliminar Tenant Definitivamente?</h3>
+        <p class="text-xs text-slate-500 leading-relaxed">
+          Estás a punto de desaprovisionar <strong>{{ target.companyName }}</strong>. Esta acción eliminará permanentemente la base de datos particionada, usuarios y archivos asociados.
+        </p>
+      </div>
+
+      <div class="p-3 bg-rose-50 rounded-xl border border-rose-200 text-xs text-rose-900 space-y-2">
+        <p class="font-bold">Para confirmar, escribe el subdominio del tenant:</p>
+        <p class="font-mono font-bold text-rose-700">{{ target.slug }}</p>
+        <input 
+          id="input-delete-confirm"
+          type="text"
+          [formControl]="deleteConfirmControl"
+          placeholder="Escribe el slug aquí..."
+          class="w-full px-3 py-2 bg-white rounded-lg border border-rose-300 font-mono text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-rose-500" />
+      </div>
+
+      <div class="pt-2 flex items-center justify-center space-x-3">
+        <button 
+          id="btn-cancel-delete"
+          type="button"
+          (click)="closeDeleteModal()"
+          class="px-4 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-bold text-xs transition-all cursor-pointer">
+          Cancelar
+        </button>
+
+        <button 
+          id="btn-confirm-delete"
+          type="button"
+          (click)="submitDelete()"
+          [disabled]="!canConfirmDelete()"
+          class="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-40 text-white font-bold text-xs shadow-md shadow-rose-600/30 flex items-center space-x-1.5 transition-all cursor-pointer">
+          <mat-icon class="text-sm">delete_forever</mat-icon>
+          <span>Eliminar Definitivamente</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+}
+
+<!-- ========================================================= -->
+<!-- MODAL: DETALLES COMPLETOS DEL TENANT -->
+<!-- ========================================================= -->
+@if (viewingTenantDetails(); as target) {
+  <div class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-xl w-full p-6 space-y-5 my-8 animate-in fade-in zoom-in-95 duration-150">
+      
+      <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+            {{ target.companyName.substring(0, 2).toUpperCase() }}
+          </div>
+          <div>
+            <h3 class="text-base font-black text-slate-900">{{ target.companyName }}</h3>
+            <p class="text-xs text-slate-400 font-mono">{{ target.slug }}.4-inline.cloud</p>
+          </div>
+        </div>
+
+        <button 
+          (click)="closeDetails()"
+          class="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4 text-xs">
+        
+        <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
+          <span class="text-slate-400 block text-[10px] uppercase font-bold">Plan y Facturación</span>
+          <span class="font-bold text-slate-900 block mt-1">Plan {{ target.plan }} ({{ target.billingCycle }})</span>
+          <span class="text-slate-500 font-mono">${{ target.monthlyFeeUsd.toFixed(2) }} USD/mes</span>
+        </div>
+
+        <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
+          <span class="text-slate-400 block text-[10px] uppercase font-bold">Identificación Fiscal</span>
+          <span class="font-bold text-slate-900 font-mono block mt-1">{{ target.legalTaxId }}</span>
+          <span class="text-slate-500">Región: {{ target.region }}</span>
+        </div>
+
+        <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
+          <span class="text-slate-400 block text-[10px] uppercase font-bold">Admin Asignado</span>
+          <span class="font-bold text-slate-900 block mt-1">{{ target.adminUserName }}</span>
+          <span class="text-slate-500 font-mono text-[11px]">{{ target.adminUserEmail }}</span>
+        </div>
+
+        <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
+          <span class="text-slate-400 block text-[10px] uppercase font-bold">Fecha de Aprovisionamiento</span>
+          <span class="font-bold text-slate-900 block mt-1">{{ formatDate(target.createdAt) }}</span>
+          <span class="text-slate-500 font-mono text-[11px]">Next: {{ target.nextBillingDate }}</span>
+        </div>
+
+      </div>
+
+      <!-- Feature Tags -->
+      <div>
+        <span class="text-xs font-bold text-slate-700 block mb-2">Módulos Habilitados en este Tenant:</span>
+        <div class="flex flex-wrap gap-1.5">
+          @for (f of target.features; track f) {
+            <span class="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 font-mono text-[11px] font-semibold border border-indigo-100">
+              {{ f }}
+            </span>
+          }
+        </div>
+      </div>
+
+      @if (target.notes) {
+        <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+          <span class="font-bold text-slate-700 block mb-1">Notas Internas:</span>
+          <p class="text-slate-600 whitespace-pre-line">{{ target.notes }}</p>
+        </div>
+      }
+
+      <div class="pt-4 border-t border-slate-100 flex items-center justify-end space-x-2">
+        <button 
+          (click)="closeDetails(); openImpersonateModal(target)"
+          class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs flex items-center space-x-1.5 transition-all cursor-pointer">
+          <mat-icon class="text-sm">support_agent</mat-icon>
+          <span>Impersonar Tenant</span>
+        </button>
+
+        <button 
+          (click)="closeDetails()"
+          class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-all cursor-pointer">
+          Cerrar
+        </button>
+      </div>
+
+    </div>
+  </div>
+}
+
+<!-- ========================================================= -->
+<!-- MODAL: CONFIGURAR PLAN Y LÍMITES -->
+<!-- ========================================================= -->
+@if (editingPlan(); as plan) {
+  <div class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+      
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-2xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
+          <mat-icon class="text-xl">tune</mat-icon>
+        </div>
+        <div>
+          <h3 class="text-base font-black text-slate-900">Configuración del Plan {{ plan.name }}</h3>
+          <p class="text-xs text-slate-500">Ajuste de cuotas y precios aplicables a nuevas suscripciones.</p>
+        </div>
+      </div>
+
+      <form [formGroup]="planEditorForm" (ngSubmit)="submitEditPlan()" class="space-y-3 text-xs">
+        
+        <div class="grid grid-cols-2 gap-3">
+          <div class="space-y-1">
+            <label class="font-bold text-slate-700" for="plan-price-m">Precio Mensual ($ USD)</label>
+            <input 
+              id="plan-price-m"
+              type="number"
+              formControlName="priceMonthlyUsd"
+              class="w-full px-3 py-2 rounded-xl border border-slate-300 font-mono" />
+          </div>
+
+          <div class="space-y-1">
+            <label class="font-bold text-slate-700" for="plan-price-a">Precio Anual ($ USD)</label>
+            <input 
+              id="plan-price-a"
+              type="number"
+              formControlName="priceAnnualUsd"
+              class="w-full px-3 py-2 rounded-xl border border-slate-300 font-mono" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div class="space-y-1">
+            <label class="font-bold text-slate-700" for="plan-users">Límite de Usuarios</label>
+            <input 
+              id="plan-users"
+              type="number"
+              formControlName="maxUsers"
+              class="w-full px-3 py-2 rounded-xl border border-slate-300 font-mono" />
+          </div>
+
+          <div class="space-y-1">
+            <label class="font-bold text-slate-700" for="plan-storage">Límite Storage (MB)</label>
+            <input 
+              id="plan-storage"
+              type="number"
+              formControlName="storageLimitMb"
+              class="w-full px-3 py-2 rounded-xl border border-slate-300 font-mono" />
+          </div>
+        </div>
+
+        <div class="space-y-1">
+          <label class="font-bold text-slate-700" for="plan-invoices">Facturas Máximas por Mes</label>
+          <input 
+            id="plan-invoices"
+            type="number"
+            formControlName="maxInvoicesMonthly"
+            class="w-full px-3 py-2 rounded-xl border border-slate-300 font-mono" />
+        </div>
+
+        <div class="pt-3 border-t border-slate-100 flex items-center justify-end space-x-2">
+          <button 
+            type="button"
+            (click)="closeEditPlanModal()"
+            class="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-bold transition-all cursor-pointer">
+            Cancelar
+          </button>
+
+          <button 
+            type="submit"
+            class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold shadow-md shadow-indigo-600/30 transition-all cursor-pointer">
+            Guardar Configuración
+          </button>
+        </div>
+
+      </form>
+
+    </div>
+  </div>
+}

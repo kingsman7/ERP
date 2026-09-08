@@ -41,6 +41,21 @@ export const SYSTEM_ROLES: RoleConfig[] = [
 
 export const DEMO_USERS: User[] = [
   {
+    id: 'usr-master-00',
+    name: 'SuperAdmin SaaS Master',
+    email: 'superadmin@4-inline.cloud',
+    role: 'ADMIN',
+    avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
+    lastLogin: '2026-09-07 15:00:00',
+    status: 'ACTIVO',
+    department: 'Plataforma SaaS Global & DevOps',
+    phone: '+1 800-555-0199',
+    createdAt: '2025-01-01',
+    password: 'SuperAdmin2026*',
+    mustChangePassword: false,
+    passwordChangedAt: '2026-01-01 10:00:00'
+  },
+  {
     id: 'usr-admin-01',
     name: 'Alejandro Morales (Admin)',
     email: 'admin.morales@4-inLine.com',
@@ -50,7 +65,10 @@ export const DEMO_USERS: User[] = [
     status: 'ACTIVO',
     department: 'Dirección General & TI',
     phone: '+58 414-1234567',
-    createdAt: '2026-01-10'
+    createdAt: '2026-01-10',
+    password: 'Admin2026*',
+    mustChangePassword: false,
+    passwordChangedAt: '2026-01-10 12:00:00'
   },
   {
     id: 'usr-ops-02',
@@ -62,7 +80,10 @@ export const DEMO_USERS: User[] = [
     status: 'ACTIVO',
     department: 'Gerencia de Operaciones',
     phone: '+58 412-9876543',
-    createdAt: '2026-01-15'
+    createdAt: '2026-01-15',
+    password: 'Operaciones2026*',
+    mustChangePassword: false,
+    passwordChangedAt: '2026-01-15 08:30:00'
   },
   {
     id: 'usr-cash-03',
@@ -74,7 +95,10 @@ export const DEMO_USERS: User[] = [
     status: 'ACTIVO',
     department: 'Caja & Ventas Mostrador',
     phone: '+58 424-5551234',
-    createdAt: '2026-02-01'
+    createdAt: '2026-02-01',
+    password: 'Cajero2026*',
+    mustChangePassword: false,
+    passwordChangedAt: '2026-02-01 09:15:00'
   },
   {
     id: 'usr-wh-04',
@@ -86,7 +110,10 @@ export const DEMO_USERS: User[] = [
     status: 'ACTIVO',
     department: 'Almacén Principal & Despacho',
     phone: '+58 416-3338899',
-    createdAt: '2026-02-10'
+    createdAt: '2026-02-10',
+    password: 'Almacen2026*',
+    mustChangePassword: false,
+    passwordChangedAt: '2026-02-10 14:00:00'
   },
   {
     id: 'usr-aud-05',
@@ -98,7 +125,10 @@ export const DEMO_USERS: User[] = [
     status: 'ACTIVO',
     department: 'Auditoría Interna & Cumplimiento',
     phone: '+58 412-4447788',
-    createdAt: '2026-01-20'
+    createdAt: '2026-01-20',
+    password: 'Auditor2026*',
+    mustChangePassword: false,
+    passwordChangedAt: '2026-01-20 11:20:00'
   },
   {
     id: 'usr-cash-06',
@@ -110,7 +140,10 @@ export const DEMO_USERS: User[] = [
     status: 'ACTIVO',
     department: 'Fuerza de Ventas / Preventa',
     phone: '+58 414-7772211',
-    createdAt: '2026-03-05'
+    createdAt: '2026-03-05',
+    password: 'Ventas2026*',
+    mustChangePassword: false,
+    passwordChangedAt: '2026-03-05 10:00:00'
   },
   {
     id: 'usr-wh-07',
@@ -122,7 +155,10 @@ export const DEMO_USERS: User[] = [
     status: 'ACTIVO',
     department: 'Almacén Secundario / Materia Prima',
     phone: '+58 424-6663344',
-    createdAt: '2026-03-12'
+    createdAt: '2026-03-12',
+    password: 'Almacen2026*',
+    mustChangePassword: false,
+    passwordChangedAt: '2026-03-12 16:30:00'
   },
   {
     id: 'usr-inact-08',
@@ -134,7 +170,10 @@ export const DEMO_USERS: User[] = [
     status: 'INACTIVO',
     department: 'Caja & Ventas Mostrador',
     phone: '+58 416-8889900',
-    createdAt: '2026-02-15'
+    createdAt: '2026-02-15',
+    password: 'Cajero2026*',
+    mustChangePassword: false,
+    passwordChangedAt: '2026-02-15 12:00:00'
   }
 ];
 
@@ -142,10 +181,43 @@ export const DEMO_USERS: User[] = [
   providedIn: 'root'
 })
 export class AuthService {
-  private usersSignal = signal<User[]>(DEMO_USERS);
-  private currentUserSignal = signal<User>(DEMO_USERS[0]);
+  private static readonly STORAGE_KEY = '4inline_erp_users_v2';
+
+  private loadStoredUsers(): User[] {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const stored = localStorage.getItem(AuthService.STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Error loading users from localStorage:', e);
+    }
+    return DEMO_USERS;
+  }
+
+  private persistUsers(users: User[]): void {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.setItem(AuthService.STORAGE_KEY, JSON.stringify(users));
+      }
+    } catch (e) {
+      console.warn('Error persisting users to localStorage:', e);
+    }
+  }
+
+  private usersSignal = signal<User[]>(this.loadStoredUsers());
+  private currentUserSignal = signal<User>(this.usersSignal()[0] || DEMO_USERS[0]);
   private tokenSignal = signal<string>('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.nexus_erp_mock_token_2026');
   private isAuthenticatedSignal = signal<boolean>(false);
+
+  // Global Change Password Modal State
+  readonly showChangePasswordModal = signal<boolean>(false);
+  readonly targetUserForPasswordChange = signal<User | null>(null);
 
   readonly users = this.usersSignal.asReadonly();
   readonly currentUser = this.currentUserSignal.asReadonly();
@@ -157,6 +229,11 @@ export class AuthService {
     return SYSTEM_ROLES.find(r => r.id === role) || SYSTEM_ROLES[0];
   });
 
+  readonly isSuperAdmin = computed(() => {
+    const user = this.currentUserSignal();
+    return user.role === 'ADMIN' || user.email.toLowerCase().includes('superadmin') || user.email.toLowerCase().includes('admin.morales');
+  });
+
   // Backward-compatible getter for availableDemoUsers
   get availableDemoUsers(): User[] {
     return this.usersSignal();
@@ -164,7 +241,17 @@ export class AuthService {
 
   readonly roles = SYSTEM_ROLES;
 
-  login(email: string, password?: string): { success: boolean; message?: string } {
+  openChangePasswordModal(user?: User): void {
+    this.targetUserForPasswordChange.set(user || this.currentUserSignal());
+    this.showChangePasswordModal.set(true);
+  }
+
+  closeChangePasswordModal(): void {
+    this.showChangePasswordModal.set(false);
+    this.targetUserForPasswordChange.set(null);
+  }
+
+  login(email: string, password?: string): { success: boolean; message?: string; mustChangePassword?: boolean; user?: User } {
     const trimmedEmail = (email || '').trim().toLowerCase();
     const user = this.usersSignal().find(u => u.email.toLowerCase() === trimmedEmail);
 
@@ -180,22 +267,41 @@ export class AuthService {
       return { success: false, message: 'La contraseña no puede estar vacía.' };
     }
 
-    this.switchUser(user);
-    this.isAuthenticatedSignal.set(true);
-    return { success: true };
-  }
+    // Verify password if the user has one defined
+    if (user.password && password && user.password !== password.trim()) {
+      return { success: false, message: 'Contraseña incorrecta. Verifique sus credenciales con el Administrador.' };
+    }
 
-  loginAsDemoUser(userId: string): boolean {
-    const user = this.usersSignal().find(u => u.id === userId);
-    if (!user) return false;
-
-    if (user.status === 'INACTIVO') {
-      return false;
+    // Check if user has a temporary password that must be changed
+    if (user.mustChangePassword) {
+      return {
+        success: true,
+        mustChangePassword: true,
+        user,
+        message: 'Debe cambiar su clave temporal antes de acceder al sistema.'
+      };
     }
 
     this.switchUser(user);
     this.isAuthenticatedSignal.set(true);
-    return true;
+    return { success: true, mustChangePassword: false, user };
+  }
+
+  loginAsDemoUser(userId: string): { success: boolean; mustChangePassword?: boolean; user?: User } {
+    const user = this.usersSignal().find(u => u.id === userId);
+    if (!user) return { success: false };
+
+    if (user.status === 'INACTIVO') {
+      return { success: false };
+    }
+
+    if (user.mustChangePassword) {
+      return { success: true, mustChangePassword: true, user };
+    }
+
+    this.switchUser(user);
+    this.isAuthenticatedSignal.set(true);
+    return { success: true, mustChangePassword: false, user };
   }
 
   logout(): void {
@@ -214,28 +320,41 @@ export class AuthService {
     this.currentUserSignal.set(updated);
     
     // Update lastLogin in the users list too
-    this.usersSignal.update(users => 
-      users.map(u => u.id === user.id ? { ...u, lastLogin: updated.lastLogin } : u)
-    );
+    this.usersSignal.update(users => {
+      const updatedList = users.map(u => u.id === user.id ? { ...u, lastLogin: updated.lastLogin } : u);
+      this.persistUsers(updatedList);
+      return updatedList;
+    });
   }
 
-  addUser(newUser: Omit<User, 'id'>): User {
+  addUser(
+    newUser: Omit<User, 'id'>, 
+    temporaryPassword?: string, 
+    mustChangePassword: boolean = true
+  ): User {
     const id = `usr-${Date.now().toString().slice(-6)}`;
     const user: User = {
       ...newUser,
       id,
       status: newUser.status || 'ACTIVO',
       createdAt: newUser.createdAt || new Date().toISOString().split('T')[0],
-      avatarUrl: newUser.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80'
+      avatarUrl: newUser.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
+      password: temporaryPassword || newUser.password || 'Temp2026*',
+      mustChangePassword: mustChangePassword,
+      temporaryPasswordSetAt: new Date().toISOString().replace('T', ' ').substring(0, 19)
     };
 
-    this.usersSignal.update(list => [user, ...list]);
+    this.usersSignal.update(list => {
+      const updatedList = [user, ...list];
+      this.persistUsers(updatedList);
+      return updatedList;
+    });
     return user;
   }
 
   updateUser(id: string, updates: Partial<User>): void {
-    this.usersSignal.update(list =>
-      list.map(u => {
+    this.usersSignal.update(list => {
+      const updatedList = list.map(u => {
         if (u.id === id) {
           const updated = { ...u, ...updates };
           if (this.currentUserSignal().id === id) {
@@ -244,8 +363,93 @@ export class AuthService {
           return updated;
         }
         return u;
-      })
-    );
+      });
+      this.persistUsers(updatedList);
+      return updatedList;
+    });
+  }
+
+  adminSetUserPassword(
+    userId: string, 
+    temporaryPassword: string, 
+    mustChangePassword: boolean = true
+  ): { success: boolean; message?: string } {
+    if (!temporaryPassword || temporaryPassword.trim().length < 6) {
+      return { success: false, message: 'La contraseña temporal debe contener al menos 6 caracteres.' };
+    }
+
+    const trimmedPassword = temporaryPassword.trim();
+    const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
+
+    this.usersSignal.update(list => {
+      const updatedList = list.map(u => {
+        if (u.id === userId) {
+          const updated: User = {
+            ...u,
+            password: trimmedPassword,
+            mustChangePassword: mustChangePassword,
+            temporaryPasswordSetAt: timestamp
+          };
+          if (this.currentUserSignal().id === userId) {
+            this.currentUserSignal.set(updated);
+          }
+          return updated;
+        }
+        return u;
+      });
+      this.persistUsers(updatedList);
+      return updatedList;
+    });
+
+    return { success: true, message: 'Clave temporal establecida correctamente por el Administrador.' };
+  }
+
+  changePassword(
+    userId: string, 
+    currentPassword: string, 
+    newPassword: string
+  ): { success: boolean; message?: string } {
+    const user = this.usersSignal().find(u => u.id === userId);
+    if (!user) {
+      return { success: false, message: 'Usuario no encontrado.' };
+    }
+
+    // Verify current password if user has one
+    if (user.password && user.password !== currentPassword.trim()) {
+      return { success: false, message: 'La contraseña actual ingresada es incorrecta.' };
+    }
+
+    if (!newPassword || newPassword.trim().length < 6) {
+      return { success: false, message: 'La nueva contraseña debe tener al menos 6 caracteres.' };
+    }
+
+    if (user.password && user.password === newPassword.trim()) {
+      return { success: false, message: 'La nueva contraseña no puede ser idéntica a la anterior.' };
+    }
+
+    const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
+
+    this.usersSignal.update(list => {
+      const updatedList = list.map(u => {
+        if (u.id === userId) {
+          const updated: User = {
+            ...u,
+            password: newPassword.trim(),
+            mustChangePassword: false,
+            passwordChangedAt: timestamp
+          };
+          if (this.currentUserSignal().id === userId) {
+            this.currentUserSignal.set(updated);
+          }
+          return updated;
+        }
+        return u;
+      });
+      this.persistUsers(updatedList);
+      return updatedList;
+    });
+
+    return { success: true, message: 'Contraseña actualizada con éxito.' };
   }
 
   toggleUserStatus(id: string): void {
