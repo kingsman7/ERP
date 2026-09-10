@@ -310,7 +310,8 @@ export class LoginComponent {
   loginForm = new FormGroup({
     email: new FormControl('admin.morales@4-inLine.com', [Validators.required, Validators.email]),
     password: new FormControl('Admin2026*', [Validators.required]),
-    rememberMe: new FormControl(true)
+    rememberMe: new FormControl(true),
+    tenantId: new FormControl('796cc9d6-6c6f-4187-8abf-e57eecf4e9c0', [Validators.required])
   });
 
   onSubmitCredentials(): void {
@@ -325,25 +326,33 @@ export class LoginComponent {
 
     const { email, password } = this.loginForm.value;
 
-    setTimeout(() => {
-      const result = this.authService.login(email || '', password || '');
-      this.isLoading.set(false);
+      this.authService.login(email || '', password || '')
+      .subscribe({
+        next: (result)=> {
+          if (result) {
+            this.successMessage.set('Autenticación exitosa. Redirigiendo al espacio de trabajo...');
+            this.stateService.logAudit(
+              'USER_LOGIN',
+              'AUTH',
+              'Inicio de sesión exitoso',
+              `El usuario ${email} inició sesión satisfactoriamente en el ERP.`,
+              undefined,
+              undefined,
+              { email }
+            );
+            this.isLoading.set(false);
+          } else {
+            this.isLoading.set(false);
+            this.errorMessage.set('Error al validar credenciales.');
+          }
+        },
+        error: (err) => {
+          this.isLoading.set(false);
+          console.error('Error during login:', err);
+          this.errorMessage.set('Error al validar credenciales. Por favor, intente nuevamente.');
+        },
+      });
 
-      if (result.success) {
-        this.successMessage.set('Autenticación exitosa. Redirigiendo al espacio de trabajo...');
-        this.stateService.logAudit(
-          'USER_LOGIN',
-          'AUTH',
-          'Inicio de sesión exitoso',
-          `El usuario ${email} inició sesión satisfactoriamente en el ERP.`,
-          undefined,
-          undefined,
-          { email }
-        );
-      } else {
-        this.errorMessage.set(result.message || 'Error al validar credenciales.');
-      }
-    }, 450);
   }
 
   loginWithDemoUser(user: User): void {
@@ -370,7 +379,7 @@ export class LoginComponent {
     }, 300);
   }
 
-  fillAdminCredentials(): void {
+  fillAdminCredentials = (): void => {
     this.loginForm.patchValue({
       email: 'admin.morales@4-inLine.com',
       password: 'Admin2026*'

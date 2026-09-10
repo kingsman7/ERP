@@ -506,7 +506,7 @@ export class CrmComponent {
       expectedValueUsd: Number(v.expectedValueUsd!),
       probability: stageObj?.probability || 20,
       expectedCloseDate: v.expectedCloseDate!,
-      assignedTo: user.name,
+      assignedTo: user?.name,
       initialActivity: v.initialActivity || undefined
     });
 

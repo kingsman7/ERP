@@ -10,7 +10,7 @@ import {join} from 'node:path';
 const browserDistFolder = join(import.meta.dirname, '../browser');
 
 const app = express();
-app.use(express.json());
+app.use('/api', express.json());
 
 // In-Memory initial seed data for API routes
 const MOCK_PRODUCTS = [
@@ -643,6 +643,11 @@ app.put('/api/v1/master/plans/:id', (req, res) => {
 // GET /api/v1/master/audit-logs
 app.get('/api/v1/master/audit-logs', (req, res) => {
   res.json(MASTER_AUDIT_LOGS);
+});
+
+// API requests must not fall through to SSR after their body has been parsed.
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: 'API route not found' });
 });
 
 const angularApp = new AngularNodeAppEngine();

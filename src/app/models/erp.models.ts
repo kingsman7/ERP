@@ -26,6 +26,10 @@ export interface User {
   passwordChangedAt?: string;
 }
 
+export interface AuthUser {
+    accessToken: string;
+    user:        User;
+}
 export interface AuditLog {
   id: string;
   userId: string;

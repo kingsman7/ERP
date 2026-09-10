@@ -1,5 +1,7 @@
-import { Injectable, signal, computed } from '@angular/core';
-import { User, RoleConfig, UserRole } from '../models/erp.models';
+import { Injectable, signal, computed, inject } from '@angular/core';
+import { User, RoleConfig, UserRole, AuthUser } from '../models/erp.models';
+import { HttpClient } from '@angular/common/http';
+import { catchError, map, Observable, of, tap } from 'rxjs';
 
 export const SYSTEM_ROLES: RoleConfig[] = [
   {
@@ -182,6 +184,8 @@ export const DEMO_USERS: User[] = [
 })
 export class AuthService {
   private static readonly STORAGE_KEY = '4inline_erp_users_v2';
+  private http = inject(HttpClient);
+  private baseUrl = '/api';
 
   private loadStoredUsers(): User[] {
     try {
@@ -225,13 +229,13 @@ export class AuthService {
   readonly isAuthenticated = this.isAuthenticatedSignal.asReadonly();
 
   readonly currentRoleConfig = computed(() => {
-    const role = this.currentUserSignal().role;
+    const role = this.currentUserSignal()?.role;
     return SYSTEM_ROLES.find(r => r.id === role) || SYSTEM_ROLES[0];
   });
 
   readonly isSuperAdmin = computed(() => {
     const user = this.currentUserSignal();
-    return user.role === 'ADMIN' || user.email.toLowerCase().includes('superadmin') || user.email.toLowerCase().includes('admin.morales');
+    return user?.role === 'ADMIN' || user?.email.toLowerCase().includes('superadmin') || user?.email.toLowerCase().includes('admin.morales');
   });
 
   // Backward-compatible getter for availableDemoUsers
@@ -251,41 +255,63 @@ export class AuthService {
     this.targetUserForPasswordChange.set(null);
   }
 
-  login(email: string, password?: string): { success: boolean; message?: string; mustChangePassword?: boolean; user?: User } {
-    const trimmedEmail = (email || '').trim().toLowerCase();
-    const user = this.usersSignal().find(u => u.email.toLowerCase() === trimmedEmail);
+  login(email: string, password?: string): Observable<boolean> {
+    return this.http.post<AuthUser>(`${this.baseUrl}/auth/login`, { email, password, tenantId: '796cc9d6-6c6f-4187-8abf-e57eecf4e9c0' })
+      .pipe(
+      tap((user) => {
+        if (user.user) {
+          this.currentUserSignal.set(user.user);
+          this.isAuthenticatedSignal.set(true);
+        }
+      }),
+      map(() => true),
+      catchError(() => of(false))
+    )
+  }
 
+  /* login(email: string, password?: string): { success: boolean; message?: string; mustChangePassword?: boolean; user?: User } {
+    //hacer login con el api this.http.post<User>(`${this.baseUrl}/auth/login`, { email, password, tenantId: '796cc9d6-6c6f-4187-8abf-e57eecf4e9c0' }) y guardar la respuesta e currentUser signal
+    const loginResult = this.authSesion(email, password)
+
+    console.log(loginResult)
+
+    if (!loginResult) {
+      return { success: false, message: 'Error de autenticación. Verifique sus credenciales.' };
+    }
+    const user = this.currentUserSignal();
     if (!user) {
       return { success: false, message: 'Usuario no encontrado en la base de datos empresarial.' };
     }
 
-    if (user.status === 'INACTIVO') {
-      return { success: false, message: 'La cuenta de usuario se encuentra INACTIVA. Contacte a Dirección/TI.' };
-    }
+      if (user.status === 'INACTIVO') {
+        return { success: false, message: 'La cuenta de usuario se encuentra INACTIVA. Contacte a Dirección/TI.' };
+      }
 
-    if (password !== undefined && password.trim().length === 0) {
-      return { success: false, message: 'La contraseña no puede estar vacía.' };
-    }
+      if (password !== undefined && password.trim().length === 0) {
+        return { success: false, message: 'La contraseña no puede estar vacía.' };
+      }
 
-    // Verify password if the user has one defined
-    if (user.password && password && user.password !== password.trim()) {
-      return { success: false, message: 'Contraseña incorrecta. Verifique sus credenciales con el Administrador.' };
-    }
+      // Verify password if the user has one defined
+      if (user.password && password && user.password !== password.trim()) {
+        return { success: false, message: 'Contraseña incorrecta. Verifique sus credenciales con el Administrador.' };
+      }
 
-    // Check if user has a temporary password that must be changed
-    if (user.mustChangePassword) {
-      return {
-        success: true,
-        mustChangePassword: true,
-        user,
-        message: 'Debe cambiar su clave temporal antes de acceder al sistema.'
-      };
-    }
+      // Check if user has a temporary password that must be changed
+      if (user.mustChangePassword) {
+        return {
+          success: true,
+          mustChangePassword: true,
+          user,
+          message: 'Debe cambiar su clave temporal antes de acceder al sistema.'
+        };
+      }
 
-    this.switchUser(user);
-    this.isAuthenticatedSignal.set(true);
-    return { success: true, mustChangePassword: false, user };
-  }
+      this.switchUser(user);
+      this.isAuthenticatedSignal.set(true);
+    
+      return { success: true, mustChangePassword: false };
+      
+  } */
 
   loginAsDemoUser(userId: string): { success: boolean; mustChangePassword?: boolean; user?: User } {
     const user = this.usersSignal().find(u => u.id === userId);
@@ -305,7 +331,12 @@ export class AuthService {
   }
 
   logout(): void {
-    this.isAuthenticatedSignal.set(false);
+    this.http.post(`${this.baseUrl}/auth/logout`, {}).subscribe({
+      next: () => {
+        this.currentUserSignal.set(this.usersSignal()[0] || DEMO_USERS[0]);
+        this.isAuthenticatedSignal.set(false);
+      }
+    });
   }
 
   setAuthenticated(authenticated: boolean): void {
