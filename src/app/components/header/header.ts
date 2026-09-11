@@ -312,7 +312,13 @@ import { User, CriticalAuditNotification, CriticalAuditCategory } from '../../mo
                     (click)="selectUser(user)"
                     class="w-full px-4 py-2.5 flex items-center space-x-3 text-left hover:bg-slate-50 transition-colors cursor-pointer"
                     [class.bg-blue-50]="user.id === authService.currentUser().id">
-                    <img [src]="user.avatarUrl" [alt]="user.name" referrerpolicy="no-referrer" class="w-8 h-8 rounded-full object-cover" />
+                    @if (user.avatarUrl) {
+                      <img [src]="user.avatarUrl" [alt]="user.name" referrerpolicy="no-referrer" class="w-8 h-8 rounded-full object-cover" />
+                    } @else {
+                      <div class="w-8 h-8 rounded-full bg-slate-300 flex items-center justify-center">
+                        <mat-icon class="text-slate-500 text-sm">person</mat-icon>
+                      </div>
+                    }
                     <div class="overflow-hidden flex-1">
                       <p class="text-xs font-semibold text-slate-900 truncate">{{ user.name }}</p>
                       <span class="inline-block px-1.5 py-0.2 rounded text-[10px] font-medium border"

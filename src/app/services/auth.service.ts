@@ -245,6 +245,14 @@ export class AuthService {
 
   readonly roles = SYSTEM_ROLES;
 
+  private persistentToken(token: string): void {
+    window.localStorage.setItem('authToken', token);
+  }
+
+  private clearPersistentToken(): void {
+    window.localStorage.removeItem('authToken');
+  }
+
   openChangePasswordModal(user?: User): void {
     this.targetUserForPasswordChange.set(user || this.currentUserSignal());
     this.showChangePasswordModal.set(true);
@@ -261,7 +269,10 @@ export class AuthService {
       tap((user) => {
         if (user.user) {
           this.currentUserSignal.set(user.user);
+          this.tokenSignal.set(user.accessToken);
+          this.persistentToken(user.accessToken);
           this.isAuthenticatedSignal.set(true);
+          //this.setLogin(user.user);
         }
       }),
       map(() => true),
@@ -269,44 +280,41 @@ export class AuthService {
     )
   }
 
-  /* login(email: string, password?: string): { success: boolean; message?: string; mustChangePassword?: boolean; user?: User } {
+  //setLogin(user?: User): { success: boolean; message?: string; mustChangePassword?: boolean;} {
     //hacer login con el api this.http.post<User>(`${this.baseUrl}/auth/login`, { email, password, tenantId: '796cc9d6-6c6f-4187-8abf-e57eecf4e9c0' }) y guardar la respuesta e currentUser signal
-    const loginResult = this.authSesion(email, password)
 
-    console.log(loginResult)
-
-    if (!loginResult) {
+    /* if (!loginResult) {
       return { success: false, message: 'Error de autenticación. Verifique sus credenciales.' };
-    }
-    const user = this.currentUserSignal();
-    if (!user) {
+    } */
+    
+  /*   if (!user) {
       return { success: false, message: 'Usuario no encontrado en la base de datos empresarial.' };
     }
 
       if (user.status === 'INACTIVO') {
         return { success: false, message: 'La cuenta de usuario se encuentra INACTIVA. Contacte a Dirección/TI.' };
-      }
+      } */
 
-      if (password !== undefined && password.trim().length === 0) {
+      /* if (password !== undefined && password.trim().length === 0) {
         return { success: false, message: 'La contraseña no puede estar vacía.' };
-      }
+      } */
 
       // Verify password if the user has one defined
-      if (user.password && password && user.password !== password.trim()) {
+      /* if (user.password && password && user.password !== password.trim()) {
         return { success: false, message: 'Contraseña incorrecta. Verifique sus credenciales con el Administrador.' };
-      }
+      } */
 
       // Check if user has a temporary password that must be changed
-      if (user.mustChangePassword) {
+      /* if (user.mustChangePassword) {
         return {
           success: true,
           mustChangePassword: true,
           user,
           message: 'Debe cambiar su clave temporal antes de acceder al sistema.'
         };
-      }
+      } */
 
-      this.switchUser(user);
+   /*    this.switchUser(user);
       this.isAuthenticatedSignal.set(true);
     
       return { success: true, mustChangePassword: false };
@@ -330,11 +338,26 @@ export class AuthService {
     return { success: true, mustChangePassword: false, user };
   }
 
+  //hacer logout con el api con Authorization header this.http.post(`${this.baseUrl}/auth/logout`, { token: this.tokenSignal() }) y limpiar la currentUser signal y token signal
   logout(): void {
-    this.http.post(`${this.baseUrl}/auth/logout`, {}).subscribe({
+    this.http.post(`${this.baseUrl}/auth/logout`, { 
+      token: this.tokenSignal() }, {
+      headers: {
+        Authorization: `Bearer ${this.tokenSignal()}`
+      }
+    }).subscribe({
       next: () => {
-        this.currentUserSignal.set(this.usersSignal()[0] || DEMO_USERS[0]);
+        this.currentUserSignal.set(null as any);
+        this.tokenSignal.set('');
         this.isAuthenticatedSignal.set(false);
+        this.clearPersistentToken();
+      },
+      error: (err) => {
+        console.error('Error during logout:', err);
+        this.currentUserSignal.set(null as any);
+        this.tokenSignal.set('');
+        this.isAuthenticatedSignal.set(false);
+        this.clearPersistentToken();
       }
     });
   }
