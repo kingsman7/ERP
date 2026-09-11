@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, catchError, of } from 'rxjs';
-import { Bom, CrmDeal, Customer, Invoice, KardexMovement, Product, ProductionOrder, Supplier, Warehouse } from '../models/erp.models';
+import { Bom, CrmDeal, Customer, Invoice, KardexMovement, Product, ProductCategory, ProductionOrder, Supplier, Warehouse } from '../models/erp.models';
 
 @Injectable({
   providedIn: 'root'
@@ -16,10 +16,24 @@ export class ApiService {
     );
   }
 
+  getCategories(): Observable<ProductCategory[]> {
+    return this.http.get<ProductCategory[]>(`${this.baseUrl}/categories`).pipe(
+      catchError(() => of([]))
+    );
+  }
+
+  createCategory(category: ProductCategory): Observable<ProductCategory> {
+    return this.http.post<ProductCategory>(`${this.baseUrl}/categories`, category);
+  }
+
   getWarehouses(): Observable<Warehouse[]> {
     return this.http.get<Warehouse[]>(`${this.baseUrl}/warehouses`).pipe(
       catchError(() => of([]))
     );
+  }
+
+  createWarehouse(warehouse: Warehouse): Observable<Warehouse> {
+    return this.http.post<Warehouse>(`${this.baseUrl}/warehouses`, warehouse);
   }
 
   getCustomers(): Observable<Customer[]> {

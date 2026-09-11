@@ -35,7 +35,7 @@ export interface AuditLog {
   userId: string;
   userName: string;
   userRole: UserRole;
-  action: 'CREATE_INVOICE' | 'ADJUST_STOCK' | 'PURCHASE_RECEIPT' | 'CONVERT_QUOTE' | 'CREATE_QUOTE' | 'UPDATE_QUOTE_STATUS' | 'CASH_CLOSING' | 'USER_LOGIN' | 'CREATE_PRODUCT' | 'CREATE_SUPPLIER' | 'CREATE_CUSTOMER' | 'UPDATE_CUSTOMER' | 'SYNC_BCV_RATES' | 'UPDATE_EXCHANGE_RATE' | 'UPDATE_PRODUCT_PRICES' | 'CREATE_BOM' | 'UPDATE_BOM' | 'CREATE_PRODUCTION_ORDER' | 'COMPLETE_PRODUCTION_ORDER' | 'CANCEL_PRODUCTION_ORDER' | 'CREATE_CRM_DEAL' | 'UPDATE_CRM_DEAL' | 'CREATE_JOURNAL_ENTRY' | 'CONFIG_BACKUP_SCHEDULE' | 'CREATE_BACKUP' | 'RESTORE_DATABASE' | 'CREATE_DISPATCH_GUIDE' | 'UPDATE_DISPATCH_STATUS' | 'RECEIVE_DELIVERY' | 'RECEIVE_DELIVERY_ORDER' | 'CANCEL_DISPATCH_GUIDE' | 'INVOICE_DISPATCH_GUIDE' | 'CREATE_BANK_ACCOUNT' | 'UPDATE_BANK_ACCOUNT' | 'RECORD_CXC_PAYMENT' | 'RECORD_CXP_PAYMENT' | 'RECORD_BANK_TRANSFER' | 'CREATE_PAYABLE_BILL';
+  action: 'CREATE_INVOICE' | 'ADJUST_STOCK' | 'PURCHASE_RECEIPT' | 'CONVERT_QUOTE' | 'CREATE_QUOTE' | 'UPDATE_QUOTE_STATUS' | 'CASH_CLOSING' | 'USER_LOGIN' | 'CREATE_PRODUCT' | 'UPDATE_PRODUCT' | 'DELETE_PRODUCT' | 'CREATE_SUPPLIER' | 'CREATE_CUSTOMER' | 'UPDATE_CUSTOMER' | 'SYNC_BCV_RATES' | 'UPDATE_EXCHANGE_RATE' | 'UPDATE_PRODUCT_PRICES' | 'CREATE_BOM' | 'UPDATE_BOM' | 'CREATE_PRODUCTION_ORDER' | 'COMPLETE_PRODUCTION_ORDER' | 'CANCEL_PRODUCTION_ORDER' | 'CREATE_CRM_DEAL' | 'UPDATE_CRM_DEAL' | 'CREATE_JOURNAL_ENTRY' | 'CONFIG_BACKUP_SCHEDULE' | 'CREATE_BACKUP' | 'RESTORE_DATABASE' | 'CREATE_DISPATCH_GUIDE' | 'UPDATE_DISPATCH_STATUS' | 'RECEIVE_DELIVERY' | 'RECEIVE_DELIVERY_ORDER' | 'CANCEL_DISPATCH_GUIDE' | 'INVOICE_DISPATCH_GUIDE' | 'CREATE_BANK_ACCOUNT' | 'UPDATE_BANK_ACCOUNT' | 'RECORD_CXC_PAYMENT' | 'RECORD_CXP_PAYMENT' | 'RECORD_BANK_TRANSFER' | 'CREATE_PAYABLE_BILL' | 'CREATE_WAREHOUSE' | 'UPDATE_WAREHOUSE' | 'DELETE_WAREHOUSE' | 'CREATE_CATEGORY' | 'UPDATE_CATEGORY' | 'DELETE_CATEGORY';
   module: 'INVENTORY' | 'AUTH' | 'PURCHASES' | 'SALES' | 'POS' | 'FINANCE' | 'MRP' | 'CRM' | 'ACCOUNTING' | 'BACKUP' | 'LOGISTICS' | 'TREASURY';
   isCritical?: boolean;
   criticalCategory?: 'PRICE_CHANGE' | 'MANUAL_STOCK_ADJUSTMENT' | 'INVOICE_CANCEL' | 'DB_RESTORE' | 'SECURITY_ROLE';
@@ -108,12 +108,26 @@ export interface BcvExchangeRateState {
   bcvOfficialDate: string;
 }
 
+export interface ProductCategory {
+  id: string;
+  code: string;
+  name: string;
+  description?: string;
+  color?: string; // 'blue' | 'emerald' | 'amber' | 'purple' | 'sky' | 'rose' | 'indigo'
+  createdAt?: string;
+}
+
 export interface Warehouse {
   id: string;
   code: string;
   name: string;
   location: string;
   isMain: boolean;
+  status?: 'ACTIVE' | 'INACTIVE';
+  capacity?: number;
+  managerName?: string;
+  phone?: string;
+  description?: string;
 }
 
 export interface StockByWarehouse {
@@ -128,6 +142,8 @@ export interface Product {
   barcode: string;
   name: string;
   category: string;
+  categories?: string[]; // Soporte para múltiples categorías simultáneas
+  primaryWarehouseId?: string; // Almacén principal o de pertenencia
   unit: 'UND' | 'KG' | 'LT' | 'CJ' | 'MT' | 'PQ';
   costPrice: number; // Costo Promedio Ponderado actual
   salePrice: number; // Alias or Base Price (Nivel 1)

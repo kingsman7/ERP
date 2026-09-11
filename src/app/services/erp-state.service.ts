@@ -1,6 +1,7 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
 import {
   Product,
+  ProductCategory,
   ProductPrices,
   PriceLevelKey,
   PriceLevelConfig,
@@ -72,7 +73,24 @@ export class ErpStateService {
   private syncWithBackend() {
     this.apiService.getProducts().subscribe((data: Product[]) => {
       if (data && data.length > 0) {
-        this.products.set(data);
+        const normalized = data.map(p => ({
+          ...p,
+          categories: (p.categories && p.categories.length > 0) ? p.categories : [p.category].filter(Boolean),
+          primaryWarehouseId: p.primaryWarehouseId || (p.stockByWarehouse?.[0]?.warehouseId || this.warehouses()[0]?.id)
+        }));
+        this.products.set(normalized);
+      }
+    });
+
+    this.apiService.getCategories().subscribe((data: ProductCategory[]) => {
+      if (data && data.length > 0) {
+        this.categories.set(data);
+      }
+    });
+
+    this.apiService.getWarehouses().subscribe((data: Warehouse[]) => {
+      if (data && data.length > 0) {
+        this.warehouses.set(data);
       }
     });
   }
@@ -258,10 +276,20 @@ export class ErpStateService {
   }
 
   // Core Reactive Signals
+  readonly categories = signal<ProductCategory[]>([
+    { id: 'cat-01', code: 'HERR', name: 'Herramientas Eléctricas', description: 'Taladros, esmeriles, sierras y equipos de poder', color: 'blue', createdAt: '2026-01-10 08:00:00' },
+    { id: 'cat-02', code: 'RED', name: 'Redes y Telecom', description: 'Cableado estructurado, conectores y fibra óptica', color: 'purple', createdAt: '2026-01-10 08:00:00' },
+    { id: 'cat-03', code: 'PIN', name: 'Acabados y Pinturas', description: 'Pinturas látex, esmaltes y solventes', color: 'emerald', createdAt: '2026-01-10 08:00:00' },
+    { id: 'cat-04', code: 'ILU', name: 'Iluminación', description: 'Luminarias LED, reflectores y bombillería', color: 'amber', createdAt: '2026-01-10 08:00:00' },
+    { id: 'cat-05', code: 'ABR', name: 'Abrasivos y Corte', description: 'Discos diamantados, lijas y desbaste', color: 'rose', createdAt: '2026-01-10 08:00:00' },
+    { id: 'cat-06', code: 'FERR', name: 'Ferretería General', description: 'Tornillería, anclajes y fijaciones', color: 'sky', createdAt: '2026-01-10 08:00:00' },
+    { id: 'cat-07', code: 'SEG', name: 'Seguridad Industrial', description: 'EPP, cascos, guantes y protección visual', color: 'indigo', createdAt: '2026-01-10 08:00:00' }
+  ]);
+
   readonly warehouses = signal<Warehouse[]>([
-    { id: 'wh-01', code: 'ALM-CENTRAL', name: 'Almacén Central (Bodega Principal)', location: 'Av. Industrial 4050, Nave B', isMain: true },
-    { id: 'wh-02', code: 'ALM-NORTE', name: 'Almacén Sucursal Norte', location: 'Parque Comercial Norte Local 12', isMain: false },
-    { id: 'wh-03', code: 'DEP-03', name: 'Depósito 3 (Logística Rápida)', location: 'Zona Portuaria Almacén 8', isMain: false }
+    { id: 'wh-01', code: 'ALM-CENTRAL', name: 'Almacén Central (Bodega Principal)', location: 'Av. Industrial 4050, Nave B', isMain: true, status: 'ACTIVE', capacity: 15000, managerName: 'Carlos Morales', phone: '+58 212 555-1001', description: 'Bodega principal de almacenamiento y despacho mayorista' },
+    { id: 'wh-02', code: 'ALM-NORTE', name: 'Almacén Sucursal Norte', location: 'Parque Comercial Norte Local 12', isMain: false, status: 'ACTIVE', capacity: 8000, managerName: 'Elena Rivas', phone: '+58 212 555-2002', description: 'Almacén de distribución para la zona norte' },
+    { id: 'wh-03', code: 'DEP-03', name: 'Depósito 3 (Logística Rápida)', location: 'Zona Portuaria Almacén 8', isMain: false, status: 'ACTIVE', capacity: 5000, managerName: 'Marcos Peña', phone: '+58 212 555-3003', description: 'Depósito de tránsito aduanero y despacho expreso' }
   ]);
 
   /* readonly products = signal<Product[]>([
@@ -2132,7 +2160,16 @@ export class ErpStateService {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (raw) {
           const parsed = JSON.parse(raw);
-          if (parsed.products) this.products.set(parsed.products);
+          if (parsed.categories && parsed.categories.length > 0) this.categories.set(parsed.categories);
+          if (parsed.warehouses && parsed.warehouses.length > 0) this.warehouses.set(parsed.warehouses);
+          if (parsed.products) {
+            const normalized = parsed.products.map((p: Product) => ({
+              ...p,
+              categories: (p.categories && p.categories.length > 0) ? p.categories : [p.category].filter(Boolean),
+              primaryWarehouseId: p.primaryWarehouseId || (p.stockByWarehouse?.[0]?.warehouseId || this.warehouses()[0]?.id)
+            }));
+            this.products.set(normalized);
+          }
           if (parsed.kardexMovements) this.kardexMovements.set(parsed.kardexMovements);
           if (parsed.purchaseOrders) this.purchaseOrders.set(parsed.purchaseOrders);
           if (parsed.invoices) this.invoices.set(parsed.invoices);
@@ -2164,6 +2201,8 @@ export class ErpStateService {
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
         const payload = {
+          categories: this.categories(),
+          warehouses: this.warehouses(),
           products: this.products(),
           kardexMovements: this.kardexMovements(),
           purchaseOrders: this.purchaseOrders(),
@@ -4157,11 +4196,33 @@ export class ErpStateService {
 
   // Create Product Helper
   createProduct(prod: Omit<Product, 'id' | 'updatedAt' | 'totalStock'>): Product {
-    const totalStock = (prod.stockByWarehouse || []).reduce((s, w) => s + w.quantity, 0);
+    const allWarehouses = this.warehouses();
+    const existingStockMap = new Map<string, number>();
+    (prod.stockByWarehouse || []).forEach(sw => {
+      existingStockMap.set(sw.warehouseId, sw.quantity);
+    });
+
+    const populatedStockByWarehouse = allWarehouses.map(wh => ({
+      warehouseId: wh.id,
+      warehouseName: wh.name,
+      quantity: existingStockMap.get(wh.id) || 0
+    }));
+
+    const totalStock = populatedStockByWarehouse.reduce((s, w) => s + w.quantity, 0);
     const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+
+    const categories = (prod.categories && prod.categories.length > 0) 
+      ? prod.categories 
+      : (prod.category ? [prod.category] : ['General']);
+    const primaryCategory = categories[0] || 'General';
+
     const newProd: Product = {
       ...prod,
       id: 'prod-' + Date.now().toString(36),
+      category: primaryCategory,
+      categories,
+      primaryWarehouseId: prod.primaryWarehouseId || allWarehouses[0]?.id,
+      stockByWarehouse: populatedStockByWarehouse,
       totalStock,
       updatedAt: nowStr
     };
@@ -4171,6 +4232,254 @@ export class ErpStateService {
     this.notify('success', 'Producto Creado', `Se agregó ${newProd.name} al catálogo.`);
     this.saveState();
     return newProd;
+  }
+
+  updateProduct(id: string, updated: Partial<Product>): { success: boolean; message?: string } {
+    const target = this.products().find(p => p.id === id);
+    if (!target) return { success: false, message: 'Producto no encontrado.' };
+
+    const categories = updated.categories && updated.categories.length > 0
+      ? updated.categories
+      : (updated.category ? [updated.category] : target.categories);
+    const category = categories && categories.length > 0 ? categories[0] : target.category;
+
+    const stockByWarehouse = updated.stockByWarehouse || target.stockByWarehouse;
+    const totalStock = stockByWarehouse.reduce((s, w) => s + w.quantity, 0);
+    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+
+    this.products.update(list => list.map(p => {
+      if (p.id === id) {
+        return {
+          ...p,
+          ...updated,
+          category,
+          categories,
+          stockByWarehouse,
+          totalStock,
+          updatedAt: nowStr
+        };
+      }
+      return p;
+    }));
+
+    this.logAudit('UPDATE_PRODUCT', 'INVENTORY', `Modificación de Producto: ${target.sku}`, `Actualización de ficha técnica de ${target.name}.`, target as unknown as Record<string, unknown>, updated as unknown as Record<string, unknown>);
+    this.notify('info', 'Producto Actualizado', `Ficha de ${target.name} actualizada correctamente.`);
+    this.saveState();
+    return { success: true };
+  }
+
+  deleteProduct(id: string): { success: boolean; message?: string } {
+    const target = this.products().find(p => p.id === id);
+    if (!target) return { success: false, message: 'Producto no encontrado.' };
+
+    if (target.totalStock > 0) {
+      return { success: false, message: `No se puede eliminar el producto ${target.sku} porque tiene ${target.totalStock} unidades en existencias. Realice un ajuste o salida antes de eliminar.` };
+    }
+
+    this.products.update(list => list.filter(p => p.id !== id));
+    this.logAudit('DELETE_PRODUCT', 'INVENTORY', `Eliminación de Producto: ${target.sku}`, `Se dio de baja el producto ${target.name}.`, target as unknown as Record<string, unknown>, null);
+    this.notify('warning', 'Producto Eliminado', `Producto ${target.name} retirado del catálogo.`);
+    this.saveState();
+    return { success: true };
+  }
+
+  // Category Management CRUD
+  createCategory(data: { name: string; code?: string; description?: string; color?: string }): { success: boolean; category?: ProductCategory; message?: string } {
+    const name = (data.name || '').trim();
+    if (!name) return { success: false, message: 'El nombre de la categoría es requerido.' };
+    
+    const existing = this.categories().find(c => c.name.toLowerCase() === name.toLowerCase());
+    if (existing) return { success: false, message: `Ya existe una categoría llamada "${name}".` };
+
+    const code = (data.code || name.substring(0, 4)).trim().toUpperCase();
+    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    const newCat: ProductCategory = {
+      id: 'cat-' + Date.now().toString(36),
+      name,
+      code,
+      description: (data.description || '').trim(),
+      color: data.color || 'blue',
+      createdAt: nowStr
+    };
+
+    this.categories.update(prev => [...prev, newCat]);
+    this.logAudit('CREATE_CATEGORY', 'INVENTORY', `Nueva Categoría: ${newCat.name}`, `Se registró la categoría de productos ${newCat.name} (${newCat.code}).`, null, newCat as unknown as Record<string, unknown>);
+    this.notify('success', 'Categoría Creada', `Categoría "${newCat.name}" agregada exitosamente.`);
+    this.saveState();
+    return { success: true, category: newCat };
+  }
+
+  updateCategory(id: string, updated: Partial<ProductCategory>): { success: boolean; message?: string } {
+    const target = this.categories().find(c => c.id === id);
+    if (!target) return { success: false, message: 'Categoría no encontrada.' };
+
+    const oldName = target.name;
+    const newName = updated.name ? updated.name.trim() : target.name;
+
+    this.categories.update(list => list.map(c => c.id === id ? { ...c, ...updated, name: newName } : c));
+    
+    if (oldName !== newName) {
+      this.products.update(prods => prods.map(p => {
+        let modified = false;
+        let newCat = p.category;
+        let newCats = p.categories ? [...p.categories] : [p.category];
+
+        if (newCat === oldName) {
+          newCat = newName;
+          modified = true;
+        }
+        if (newCats.includes(oldName)) {
+          newCats = newCats.map(c => c === oldName ? newName : c);
+          modified = true;
+        }
+        return modified ? { ...p, category: newCat, categories: newCats } : p;
+      }));
+    }
+
+    this.logAudit('UPDATE_CATEGORY', 'INVENTORY', `Actualización Categoría: ${newName}`, `Se modificó la categoría ${oldName}.`, target as unknown as Record<string, unknown>, updated as unknown as Record<string, unknown>);
+    this.notify('info', 'Categoría Actualizada', `Categoría "${newName}" actualizada.`);
+    this.saveState();
+    return { success: true };
+  }
+
+  deleteCategory(id: string): { success: boolean; message?: string } {
+    const target = this.categories().find(c => c.id === id);
+    if (!target) return { success: false, message: 'Categoría no encontrada.' };
+
+    const prodsUsing = this.products().filter(p => p.category === target.name || (p.categories && p.categories.includes(target.name)));
+    if (prodsUsing.length > 0) {
+      return { success: false, message: `No se puede eliminar la categoría "${target.name}" porque está asignada a ${prodsUsing.length} producto(s). Reasigne los productos primero.` };
+    }
+
+    this.categories.update(list => list.filter(c => c.id !== id));
+    this.logAudit('DELETE_CATEGORY', 'INVENTORY', `Eliminación Categoría: ${target.name}`, `Se eliminó la categoría ${target.name}.`, target as unknown as Record<string, unknown>, null);
+    this.notify('warning', 'Categoría Eliminada', `Categoría "${target.name}" eliminada del catálogo.`);
+    this.saveState();
+    return { success: true };
+  }
+
+  // Warehouse Management CRUD
+  createWarehouse(data: { code: string; name: string; location: string; isMain?: boolean; status?: 'ACTIVE' | 'INACTIVE'; capacity?: number; managerName?: string; phone?: string; description?: string }): { success: boolean; warehouse?: Warehouse; message?: string } {
+    const code = (data.code || '').trim().toUpperCase();
+    const name = (data.name || '').trim();
+    const location = (data.location || '').trim();
+
+    if (!code || !name) return { success: false, message: 'Código y Nombre del almacén son obligatorios.' };
+
+    const existingCode = this.warehouses().find(w => w.code.toUpperCase() === code);
+    if (existingCode) return { success: false, message: `Ya existe un almacén con el código "${code}".` };
+
+    const isMain = Boolean(data.isMain);
+    const newWh: Warehouse = {
+      id: 'wh-' + Date.now().toString(36),
+      code,
+      name,
+      location: location || 'Sede Principal',
+      isMain,
+      status: data.status || 'ACTIVE',
+      capacity: data.capacity || 10000,
+      managerName: data.managerName || '',
+      phone: data.phone || '',
+      description: data.description || ''
+    };
+
+    this.warehouses.update(prev => {
+      let updated = prev;
+      if (isMain) {
+        updated = updated.map(w => ({ ...w, isMain: false }));
+      }
+      return [...updated, newWh];
+    });
+
+    this.products.update(prods => prods.map(p => {
+      const hasWh = p.stockByWarehouse?.some(s => s.warehouseId === newWh.id);
+      if (!hasWh) {
+        return {
+          ...p,
+          stockByWarehouse: [...(p.stockByWarehouse || []), { warehouseId: newWh.id, warehouseName: newWh.name, quantity: 0 }]
+        };
+      }
+      return p;
+    }));
+
+    this.logAudit('CREATE_WAREHOUSE', 'INVENTORY', `Nuevo Almacén: ${newWh.code}`, `Se creó el almacén ${newWh.name} en ${newWh.location}.`, null, newWh as unknown as Record<string, unknown>);
+    this.notify('success', 'Almacén Creado', `Almacén "${newWh.name}" registrado correctamente.`);
+    this.saveState();
+    return { success: true, warehouse: newWh };
+  }
+
+  updateWarehouse(id: string, updated: Partial<Warehouse>): { success: boolean; message?: string } {
+    const target = this.warehouses().find(w => w.id === id);
+    if (!target) return { success: false, message: 'Almacén no encontrado.' };
+
+    const isMain = updated.isMain !== undefined ? updated.isMain : target.isMain;
+
+    this.warehouses.update(list => {
+      return list.map(w => {
+        if (w.id === id) {
+          return { ...w, ...updated, isMain };
+        }
+        if (isMain && w.id !== id) {
+          return { ...w, isMain: false };
+        }
+        return w;
+      });
+    });
+
+    if (updated.name && updated.name !== target.name) {
+      this.products.update(prods => prods.map(p => ({
+        ...p,
+        stockByWarehouse: (p.stockByWarehouse || []).map(s => s.warehouseId === id ? { ...s, warehouseName: updated.name! } : s)
+      })));
+    }
+
+    this.logAudit('UPDATE_WAREHOUSE', 'INVENTORY', `Actualización Almacén: ${target.code}`, `Se modificaron los datos del almacén ${target.name}.`, target as unknown as Record<string, unknown>, updated as unknown as Record<string, unknown>);
+    this.notify('info', 'Almacén Actualizado', `Almacén "${updated.name || target.name}" actualizado.`);
+    this.saveState();
+    return { success: true };
+  }
+
+  deleteWarehouse(id: string): { success: boolean; message?: string } {
+    const target = this.warehouses().find(w => w.id === id);
+    if (!target) return { success: false, message: 'Almacén no encontrado.' };
+
+    if (this.warehouses().length <= 1) {
+      return { success: false, message: 'No se puede eliminar el único almacén del sistema.' };
+    }
+
+    if (target.isMain) {
+      return { success: false, message: 'No se puede eliminar el almacén Principal. Establezca otro almacén como Principal primero.' };
+    }
+
+    const productsWithStock = this.products().filter(p => {
+      const entry = p.stockByWarehouse?.find(s => s.warehouseId === id);
+      return entry && entry.quantity > 0;
+    });
+
+    if (productsWithStock.length > 0) {
+      const totalQty = productsWithStock.reduce((acc, p) => acc + (p.stockByWarehouse?.find(s => s.warehouseId === id)?.quantity || 0), 0);
+      return { success: false, message: `No se puede eliminar "${target.name}" porque contiene ${totalQty} unidades distribuidas en ${productsWithStock.length} producto(s). Realice una transferencia de inventario antes de eliminarlo.` };
+    }
+
+    this.warehouses.update(list => list.filter(w => w.id !== id));
+    this.products.update(prods => prods.map(p => ({
+      ...p,
+      stockByWarehouse: (p.stockByWarehouse || []).filter(s => s.warehouseId !== id)
+    })));
+
+    this.logAudit('DELETE_WAREHOUSE', 'INVENTORY', `Eliminación Almacén: ${target.code}`, `Se eliminó el almacén ${target.name}.`, target as unknown as Record<string, unknown>, null);
+    this.notify('warning', 'Almacén Eliminado', `Almacén "${target.name}" eliminado del sistema.`);
+    this.saveState();
+    return { success: true };
+  }
+
+  setMainWarehouse(id: string): void {
+    const target = this.warehouses().find(w => w.id === id);
+    if (!target) return;
+
+    this.warehouses.update(list => list.map(w => ({ ...w, isMain: w.id === id })));
+    this.notify('success', 'Almacén Principal Asignado', `"${target.name}" es ahora el almacén principal por defecto.`);
+    this.saveState();
   }
 
   // Create Supplier Helper

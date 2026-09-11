@@ -80,10 +80,20 @@ const MOCK_PRODUCTS = [
   }
 ];
 
+const MOCK_CATEGORIES = [
+  { id: 'cat-01', code: 'HERR', name: 'Herramientas Eléctricas', description: 'Taladros, esmeriles, sierras y equipos de poder', color: 'blue' },
+  { id: 'cat-02', code: 'RED', name: 'Redes y Telecom', description: 'Cableado estructurado, conectores y fibra', color: 'purple' },
+  { id: 'cat-03', code: 'PIN', name: 'Acabados y Pinturas', description: 'Pinturas látex, esmaltes y solventes', color: 'emerald' },
+  { id: 'cat-04', code: 'ILU', name: 'Iluminación', description: 'Luminarias LED, reflectores y bombillería', color: 'amber' },
+  { id: 'cat-05', code: 'ABR', name: 'Abrasivos y Corte', description: 'Discos diamantados, lijas y desbaste', color: 'rose' },
+  { id: 'cat-06', code: 'FERR', name: 'Ferretería General', description: 'Tornillería, anclajes y fijaciones', color: 'sky' },
+  { id: 'cat-07', code: 'SEG', name: 'Seguridad Industrial', description: 'EPP, cascos, guantes y protección visual', color: 'indigo' }
+];
+
 const MOCK_WAREHOUSES = [
-  { id: 'wh-01', code: 'ALM-CENTRAL', name: 'Almacén Central (Bodega Principal)', location: 'Av. Industrial 4050, Nave B', isMain: true },
-  { id: 'wh-02', code: 'ALM-NORTE', name: 'Almacén Sucursal Norte', location: 'Parque Comercial Norte Local 12', isMain: false },
-  { id: 'wh-03', code: 'DEP-03', name: 'Depósito 3 (Logística Rápida)', location: 'Zona Portuaria Almacén 8', isMain: false }
+  { id: 'wh-01', code: 'ALM-CENTRAL', name: 'Almacén Central (Bodega Principal)', location: 'Av. Industrial 4050, Nave B', isMain: true, status: 'ACTIVE', capacity: 15000, managerName: 'Carlos Morales', phone: '+58 212 555-1001' },
+  { id: 'wh-02', code: 'ALM-NORTE', name: 'Almacén Sucursal Norte', location: 'Parque Comercial Norte Local 12', isMain: false, status: 'ACTIVE', capacity: 8000, managerName: 'Elena Rivas', phone: '+58 212 555-2002' },
+  { id: 'wh-03', code: 'DEP-03', name: 'Depósito 3 (Logística Rápida)', location: 'Zona Portuaria Almacén 8', isMain: false, status: 'ACTIVE', capacity: 5000, managerName: 'Marcos Peña', phone: '+58 212 555-3003' }
 ];
 
 const MOCK_CUSTOMERS = [
@@ -109,8 +119,54 @@ app.post('/api/products', (req, res) => {
   res.status(201).json(newProduct);
 });
 
+app.get('/api/categories', (req, res) => {
+  res.json(MOCK_CATEGORIES);
+});
+
+app.post('/api/categories', (req, res) => {
+  const newCat = req.body;
+  newCat.id = newCat.id || `cat-${Date.now()}`;
+  MOCK_CATEGORIES.push(newCat);
+  res.status(201).json(newCat);
+});
+
 app.get('/api/warehouses', (req, res) => {
   res.json(MOCK_WAREHOUSES);
+});
+
+app.post('/api/warehouses', (req, res) => {
+  const newWh = req.body;
+  newWh.id = newWh.id || `wh-${Date.now()}`;
+  if (newWh.isMain) {
+    MOCK_WAREHOUSES.forEach(w => w.isMain = false);
+  }
+  MOCK_WAREHOUSES.push(newWh);
+  res.status(201).json(newWh);
+});
+
+app.put('/api/warehouses/:id', (req, res) => {
+  const { id } = req.params;
+  const idx = MOCK_WAREHOUSES.findIndex(w => w.id === id);
+  if (idx !== -1) {
+    if (req.body.isMain) {
+      MOCK_WAREHOUSES.forEach(w => w.isMain = false);
+    }
+    MOCK_WAREHOUSES[idx] = { ...MOCK_WAREHOUSES[idx], ...req.body };
+    res.json(MOCK_WAREHOUSES[idx]);
+  } else {
+    res.status(404).json({ error: 'Warehouse not found' });
+  }
+});
+
+app.delete('/api/warehouses/:id', (req, res) => {
+  const { id } = req.params;
+  const idx = MOCK_WAREHOUSES.findIndex(w => w.id === id);
+  if (idx !== -1) {
+    MOCK_WAREHOUSES.splice(idx, 1);
+    res.json({ success: true });
+  } else {
+    res.status(404).json({ error: 'Warehouse not found' });
+  }
 });
 
 app.get('/api/customers', (req, res) => {
