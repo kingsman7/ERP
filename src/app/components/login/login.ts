@@ -10,12 +10,12 @@ import { User, UserRole } from '../../models/erp.models';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [MatIconModule, ReactiveFormsModule],
   template: `
-    <div class="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex flex-col justify-between text-slate-100 font-sans selection:bg-blue-600 selection:text-white p-4 sm:p-6 lg:p-8">
+    <div class="min-h-screen bg-linear-to-br from-slate-950 via-slate-900 to-slate-950 flex flex-col justify-between text-slate-100 font-sans selection:bg-blue-600 selection:text-white p-4 sm:p-6 lg:p-8">
       
       <!-- Top Navigation Header / Status Pill -->
       <header class="w-full max-w-7xl mx-auto flex items-center justify-between py-2">
         <div class="flex items-center space-x-3">
-          <div class="w-10 h-10 bg-gradient-to-tr from-blue-600 to-indigo-500 rounded-xl flex items-center justify-center font-black text-white text-xl shadow-lg shadow-blue-500/20 ring-1 ring-white/20">
+          <div class="w-10 h-10 bg-linear-to-tr from-blue-600 to-indigo-500 rounded-xl flex items-center justify-center font-black text-white text-xl shadow-lg shadow-blue-500/20 ring-1 ring-white/20">
             4
           </div>
           <div>
@@ -205,7 +205,7 @@ import { User, UserRole } from '../../models/erp.models';
                   id="btn-login-submit"
                   type="submit"
                   [disabled]="isLoading()"
-                  class="w-full mt-2 py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-blue-600/30 transition-all flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50">
+                  class="w-full mt-2 py-3 px-4 bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-blue-600/30 transition-all flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50">
                   @if (isLoading()) {
                     <mat-icon class="animate-spin text-base">refresh</mat-icon>
                     <span>Verificando Credenciales...</span>

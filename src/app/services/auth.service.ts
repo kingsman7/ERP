@@ -184,6 +184,7 @@ export const DEMO_USERS: User[] = [
 })
 export class AuthService {
   private static readonly STORAGE_KEY = '4inline_erp_users_v2';
+  private static readonly SESSION_KEY = '4inline_erp_session_v1';
   private http = inject(HttpClient);
   private baseUrl = '/api';
 
@@ -215,9 +216,10 @@ export class AuthService {
   }
 
   private usersSignal = signal<User[]>(this.loadStoredUsers());
-  private currentUserSignal = signal<User>(this.usersSignal()[0] || DEMO_USERS[0]);
+  private currentUserSignal = signal<User>(this.loadStoredSession()?.user || this.usersSignal()[0] || DEMO_USERS[0]);
   private tokenSignal = signal<string>('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.nexus_erp_mock_token_2026');
-  private isAuthenticatedSignal = signal<boolean>(false);
+  private isAuthenticatedSignal = signal<boolean>(this.loadStoredSession() !== null);
+  private authInitializedSignal = signal<boolean>(false);
 
   // Global Change Password Modal State
   readonly showChangePasswordModal = signal<boolean>(false);
@@ -227,6 +229,7 @@ export class AuthService {
   readonly currentUser = this.currentUserSignal.asReadonly();
   readonly token = this.tokenSignal.asReadonly();
   readonly isAuthenticated = this.isAuthenticatedSignal.asReadonly();
+  readonly authInitialized = this.authInitializedSignal.asReadonly();
 
   readonly currentRoleConfig = computed(() => {
     const role = this.currentUserSignal()?.role;
@@ -244,6 +247,76 @@ export class AuthService {
   }
 
   readonly roles = SYSTEM_ROLES;
+
+  constructor() {
+    this.restoreSession();
+  }
+
+  private loadStoredSession(): { user: User; token: string; demo: boolean } | null {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const stored = localStorage.getItem(AuthService.SESSION_KEY);
+        if (stored) {
+          const session = JSON.parse(stored);
+          if (session?.user && session?.token) return session;
+        }
+      }
+    } catch (e) {
+      console.warn('Error loading auth session from localStorage:', e);
+    }
+    return null;
+  }
+
+  private persistSession(user: User, token: string, demo = false): void {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.setItem(AuthService.SESSION_KEY, JSON.stringify({ user, token, demo }));
+      }
+    } catch (e) {
+      console.warn('Error persisting auth session:', e);
+    }
+  }
+
+  private clearPersistedSession(): void {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      localStorage.removeItem(AuthService.SESSION_KEY);
+    }
+  }
+
+  private restoreSession(): void {
+    const session = this.loadStoredSession();
+    if (!session) {
+      this.isAuthenticatedSignal.set(false);
+      this.authInitializedSignal.set(true);
+      return;
+    }
+
+    this.tokenSignal.set(session.token);
+    this.currentUserSignal.set(session.user);
+
+    if (session.demo) {
+      this.isAuthenticatedSignal.set(true);
+      this.authInitializedSignal.set(true);
+      return;
+    }
+
+    this.http.post<{ accessToken: string }>(`${this.baseUrl}/auth/refresh`, {}, { withCredentials: true })
+      .subscribe({
+        next: response => {
+          this.tokenSignal.set(response.accessToken);
+          this.persistentToken(response.accessToken);
+          this.persistSession(session.user, response.accessToken);
+          this.isAuthenticatedSignal.set(true);
+          this.authInitializedSignal.set(true);
+        },
+        error: () => {
+          this.clearPersistentToken();
+          this.clearPersistedSession();
+          this.isAuthenticatedSignal.set(false);
+          this.authInitializedSignal.set(true);
+        }
+      });
+  }
 
   private persistentToken(token: string): void {
     window.localStorage.setItem('authToken', token);
@@ -264,13 +337,14 @@ export class AuthService {
   }
 
   login(email: string, password?: string): Observable<boolean> {
-    return this.http.post<AuthUser>(`${this.baseUrl}/auth/login`, { email, password, tenantId: '796cc9d6-6c6f-4187-8abf-e57eecf4e9c0' })
+    return this.http.post<AuthUser>(`${this.baseUrl}/auth/login`, { email, password, tenantId: '796cc9d6-6c6f-4187-8abf-e57eecf4e9c0' }, { withCredentials: true })
       .pipe(
       tap((user) => {
         if (user.user) {
           this.currentUserSignal.set(user.user);
           this.tokenSignal.set(user.accessToken);
           this.persistentToken(user.accessToken);
+          this.persistSession(user.user, user.accessToken);
           this.isAuthenticatedSignal.set(true);
           //this.setLogin(user.user);
         }
@@ -334,6 +408,9 @@ export class AuthService {
     }
 
     this.switchUser(user);
+    const token = 'demo-session-' + user.id;
+    this.tokenSignal.set(token);
+    this.persistSession(user, token, true);
     this.isAuthenticatedSignal.set(true);
     return { success: true, mustChangePassword: false, user };
   }
@@ -344,13 +421,15 @@ export class AuthService {
       token: this.tokenSignal() }, {
       headers: {
         Authorization: `Bearer ${this.tokenSignal()}`
-      }
+      },
+      withCredentials: true
     }).subscribe({
       next: () => {
         this.currentUserSignal.set(null as any);
         this.tokenSignal.set('');
         this.isAuthenticatedSignal.set(false);
         this.clearPersistentToken();
+        this.clearPersistedSession();
       },
       error: (err) => {
         console.error('Error during logout:', err);
@@ -358,6 +437,7 @@ export class AuthService {
         this.tokenSignal.set('');
         this.isAuthenticatedSignal.set(false);
         this.clearPersistentToken();
+        this.clearPersistedSession();
       }
     });
   }
