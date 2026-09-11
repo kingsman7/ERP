@@ -27,21 +27,23 @@ import { Invoice } from '../../models/erp.models';
             Bienvenido, <span class="text-slate-800 font-semibold">{{ authService.currentUser().name }}</span>. Inventarios valorizados CPP, Manufactura MRP, CRM Pipeline, Facturación BCV y Contabilidad NIIF.
           </p>
         </div>
-
-        <div class="flex items-center space-x-2">
-          <button 
-            (click)="navigate.emit('mrp')"
-            class="px-3.5 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 rounded-xl text-xs font-semibold flex items-center space-x-1.5 border border-amber-500/30 transition-all">
-            <mat-icon class="text-base text-amber-600">precision_manufacturing</mat-icon>
-            <span>MRP</span>
-          </button>
-
-          <button 
-            (click)="navigate.emit('crm')"
-            class="px-3.5 py-2 bg-violet-500/10 hover:bg-violet-500/20 text-violet-800 rounded-xl text-xs font-semibold flex items-center space-x-1.5 border border-violet-500/30 transition-all">
-            <mat-icon class="text-base text-violet-600">view_kanban</mat-icon>
-            <span>CRM</span>
-          </button>
+        <div class="flex flex-wrap gap-2 items-center space-x-2">
+          @if (!canAccess('mrp:manager')){
+            <button 
+              (click)="navigate.emit('mrp')"
+              class="px-3.5 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 rounded-xl text-xs font-semibold flex items-center space-x-1.5 border border-amber-500/30 transition-all">
+              <mat-icon class="text-base text-amber-600">precision_manufacturing</mat-icon>
+              <span>MRP</span>
+            </button>
+          }
+          @if (!canAccess('crm:manager')){
+            <button 
+              (click)="navigate.emit('crm')"
+              class="px-3.5 py-2 bg-violet-500/10 hover:bg-violet-500/20 text-violet-800 rounded-xl text-xs font-semibold flex items-center space-x-1.5 border border-violet-500/30 transition-all">
+              <mat-icon class="text-base text-violet-600">view_kanban</mat-icon>
+              <span>CRM</span>
+            </button>
+          }
 
           <button 
             (click)="navigate.emit('treasury')"
@@ -49,14 +51,14 @@ import { Invoice } from '../../models/erp.models';
             <mat-icon class="text-base text-sky-600">account_balance_wallet</mat-icon>
             <span>Tesorería & CxC</span>
           </button>
-
-          <button 
-            (click)="navigate.emit('accounting')"
-            class="px-3.5 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-800 rounded-xl text-xs font-semibold flex items-center space-x-1.5 border border-emerald-500/30 transition-all">
-            <mat-icon class="text-base text-emerald-600">account_balance</mat-icon>
-            <span>Contabilidad</span>
-          </button>
-
+          @if(!canAccess('accounting:view')){
+            <button 
+              (click)="navigate.emit('accounting')"
+              class="px-3.5 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-800 rounded-xl text-xs font-semibold flex items-center space-x-1.5 border border-emerald-500/30 transition-all">
+              <mat-icon class="text-base text-emerald-600">account_balance</mat-icon>
+              <span>Contabilidad</span>
+            </button>
+          }
           <button 
             (click)="navigate.emit('backups')"
             class="px-3.5 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-800 rounded-xl text-xs font-semibold flex items-center space-x-1.5 border border-indigo-500/30 transition-all">
@@ -304,49 +306,55 @@ import { Invoice } from '../../models/erp.models';
         <div class="col-span-1 md:col-span-2 lg:col-span-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
           
           <!-- MRP Card -->
-          <button 
-            type="button" 
-            (click)="navigate.emit('mrp')" 
-            class="bg-gradient-to-br from-amber-500/5 to-amber-500/15 p-4 rounded-2xl border border-amber-200/80 shadow-xs hover:shadow-md cursor-pointer transition-all flex items-center justify-between group text-left">
-            <div>
-              <span class="text-[10px] font-bold text-amber-700 uppercase tracking-wider block">Manufactura & MRP</span>
-              <h4 class="text-base sm:text-lg font-bold text-slate-800 mt-0.5">{{ stateService.productionOrders().length }} Órdenes Fabricación</h4>
-              <p class="text-[11px] text-slate-500 mt-0.5">Explosión BOM & Descuento MP</p>
-            </div>
-            <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform shrink-0">
-              <mat-icon class="text-lg">precision_manufacturing</mat-icon>
-            </div>
-          </button>
+           @if(!canAccess('mrp:manager')){
+            <button 
+              type="button" 
+              (click)="navigate.emit('mrp')" 
+              class="bg-gradient-to-br from-amber-500/5 to-amber-500/15 p-4 rounded-2xl border border-amber-200/80 shadow-xs hover:shadow-md cursor-pointer transition-all flex items-center justify-between group text-left">
+              <div>
+                <span class="text-[10px] font-bold text-amber-700 uppercase tracking-wider block">Manufactura & MRP</span>
+                <h4 class="text-base sm:text-lg font-bold text-slate-800 mt-0.5">{{ stateService.productionOrders().length }} Órdenes Fabricación</h4>
+                <p class="text-[11px] text-slate-500 mt-0.5">Explosión BOM & Descuento MP</p>
+              </div>
+              <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform shrink-0">
+                <mat-icon class="text-lg">precision_manufacturing</mat-icon>
+              </div>
+            </button>
+          }
 
           <!-- CRM Card -->
-          <button 
-            type="button" 
-            (click)="navigate.emit('crm')" 
-            class="bg-gradient-to-br from-violet-500/5 to-violet-500/15 p-4 rounded-2xl border border-violet-200/80 shadow-xs hover:shadow-md cursor-pointer transition-all flex items-center justify-between group text-left">
-            <div>
-              <span class="text-[10px] font-bold text-violet-700 uppercase tracking-wider block">CRM Pipeline Comercial</span>
-              <h4 class="text-base sm:text-lg font-bold text-slate-800 mt-0.5">\${{ stateService.crmPipelineTotalValue().toFixed(2) }}</h4>
-              <p class="text-[11px] text-slate-500 mt-0.5">{{ stateService.crmDeals().length }} Oportunidades en Kanban</p>
-            </div>
-            <div class="w-10 h-10 rounded-xl bg-violet-600 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform shrink-0">
-              <mat-icon class="text-lg">view_kanban</mat-icon>
-            </div>
-          </button>
+          @if(!canAccess('crm:manager')){ 
+            <button 
+              type="button" 
+              (click)="navigate.emit('crm')" 
+              class="bg-gradient-to-br from-violet-500/5 to-violet-500/15 p-4 rounded-2xl border border-violet-200/80 shadow-xs hover:shadow-md cursor-pointer transition-all flex items-center justify-between group text-left">
+              <div>
+                <span class="text-[10px] font-bold text-violet-700 uppercase tracking-wider block">CRM Pipeline Comercial</span>
+                <h4 class="text-base sm:text-lg font-bold text-slate-800 mt-0.5">\${{ stateService.crmPipelineTotalValue().toFixed(2) }}</h4>
+                <p class="text-[11px] text-slate-500 mt-0.5">{{ stateService.crmDeals().length }} Oportunidades en Kanban</p>
+              </div>
+              <div class="w-10 h-10 rounded-xl bg-violet-600 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform shrink-0">
+                <mat-icon class="text-lg">view_kanban</mat-icon>
+              </div>
+            </button>
+          }
 
           <!-- Accounting Card -->
-          <button 
-            type="button" 
-            (click)="navigate.emit('accounting')" 
-            class="bg-gradient-to-br from-emerald-500/5 to-emerald-500/15 p-4 rounded-2xl border border-emerald-200/80 shadow-xs hover:shadow-md cursor-pointer transition-all flex items-center justify-between group text-left">
-            <div>
-              <span class="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">Contabilidad NIIF</span>
-              <h4 class="text-base sm:text-lg font-bold text-slate-800 mt-0.5">\${{ stateService.totalAccountingAssets().toFixed(2) }} Activos</h4>
-              <p class="text-[11px] text-slate-500 mt-0.5">Partida Doble & P&L Automático</p>
-            </div>
-            <div class="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform shrink-0">
-              <mat-icon class="text-lg">account_balance</mat-icon>
-            </div>
-          </button>
+          @if (!canAccess('accounting:view')){ 
+            <button 
+              type="button" 
+              (click)="navigate.emit('accounting')" 
+              class="bg-gradient-to-br from-emerald-500/5 to-emerald-500/15 p-4 rounded-2xl border border-emerald-200/80 shadow-xs hover:shadow-md cursor-pointer transition-all flex items-center justify-between group text-left">
+              <div>
+                <span class="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">Contabilidad NIIF</span>
+                <h4 class="text-base sm:text-lg font-bold text-slate-800 mt-0.5">\${{ stateService.totalAccountingAssets().toFixed(2) }} Activos</h4>
+                <p class="text-[11px] text-slate-500 mt-0.5">Partida Doble & P&L Automático</p>
+              </div>
+              <div class="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform shrink-0">
+                <mat-icon class="text-lg">account_balance</mat-icon>
+              </div>
+            </button>
+          }
 
         </div>
 
@@ -407,8 +415,11 @@ import { Invoice } from '../../models/erp.models';
 export class DashboardComponent {
   stateService = inject(ErpStateService);
   authService = inject(AuthService);
-
+  
   timeframe = signal<'dia' | 'mes'>('mes');
   navigate = output<NavTab>();
   viewInvoice = output<Invoice>();
+  canAccess(...permissions: string[]): boolean {
+    return permissions.some(permission => this.authService.hasPermission(permission));
+  }
 }

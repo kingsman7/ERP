@@ -2,6 +2,7 @@ import { Injectable, signal, computed, inject } from '@angular/core';
 import { User, RoleConfig, UserRole, AuthUser } from '../models/erp.models';
 import { HttpClient } from '@angular/common/http';
 import { catchError, map, Observable, of, tap } from 'rxjs';
+import { AuditService } from './audit.servie';
 
 export const SYSTEM_ROLES: RoleConfig[] = [
   {
@@ -187,6 +188,7 @@ export class AuthService {
   private static readonly SESSION_KEY = '4inline_erp_session_v1';
   private http = inject(HttpClient);
   private baseUrl = '/api';
+  auditService = inject(AuditService);
 
   private loadStoredUsers(): User[] {
     try {
@@ -346,7 +348,17 @@ export class AuthService {
           this.persistentToken(user.accessToken);
           this.persistSession(user.user, user.accessToken);
           this.isAuthenticatedSignal.set(true);
-          //this.setLogin(user.user);
+          this.auditService.createLog({
+            userId: user.user.id,
+            userName: user.user.name, 
+            userRole: user.user.role,
+            action: 'LOGIN',
+            module: 'AUTH',
+            isCritical: false,
+            details: { message: 'User logged in successfully' },
+            ipAddress: '',
+            createdAt: new Date()
+          });
         }
       }),
       map(() => true),
