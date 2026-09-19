@@ -412,7 +412,7 @@ import { Invoice } from '../../models/erp.models';
     </div>
   `
 })
-export class DashboardComponent {
+export default class DashboardComponent {
   stateService = inject(ErpStateService);
   authService = inject(AuthService);
   

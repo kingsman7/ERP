@@ -1265,7 +1265,7 @@ import { InvoiceModal } from '../invoice-modal/invoice-modal';
     </div>
   `
 })
-export class LogisticsComponent {
+export default class LogisticsComponent {
   stateService = inject(ErpStateService);
   authService = inject(AuthService);
 

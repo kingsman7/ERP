@@ -833,7 +833,7 @@ import { QuotePrintModal } from './quote-print-modal';
     </div>
   `
 })
-export class QuotesComponent {
+export default class QuotesComponent {
   stateService = inject(ErpStateService);
   authService = inject(AuthService);
   shortcutService = inject(KeyboardShortcutsService);

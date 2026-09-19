@@ -1,6 +1,6 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, of, tap, catchError } from 'rxjs';
+import { Observable, of, tap, catchError, forkJoin, map } from 'rxjs';
 import { 
   Tenant, 
   SubscriptionPlan, 
@@ -35,10 +35,10 @@ export class SuperAdminService {
   private readonly MASTER_API_BASE = '/api/v1/master';
 
   // Signals
-  readonly tenants = signal<Tenant[]>(this.loadInitialTenants());
-  readonly plans = signal<SubscriptionPlan[]>(this.loadInitialPlans());
-  readonly auditLogs = signal<TenantAuditLog[]>(this.loadInitialAuditLogs());
-  readonly activeImpersonation = signal<ImpersonationSession | null>(this.loadInitialImpersonation());
+  readonly tenants = signal<Tenant[]>([]);
+  readonly plans = signal<SubscriptionPlan[]>([]);
+  readonly auditLogs = signal<TenantAuditLog[]>([]);
+  readonly activeImpersonation = signal<ImpersonationSession | null>(null);
   readonly selectedTenant = signal<Tenant | null>(null);
 
   // Search and Filter State
@@ -141,40 +141,26 @@ export class SuperAdminService {
   });
 
   constructor() {
-    this.fetchMasterData();
   }
 
   // =========================================================================
   // Master API Methods
   // =========================================================================
 
-  fetchMasterData(): void {
+  fetchMasterData(): Observable<boolean> {
     this.isLoading.set(true);
-    this.http.get<Tenant[]>(`${this.MASTER_API_BASE}/tenants`).pipe(
-      tap(data => {
-        if (Array.isArray(data) && data.length > 0) {
-          this.tenants.set(data);
-          this.saveTenantsToStorage(data);
-        }
+    return forkJoin({
+      tenants: this.http.get<Tenant[]>(`${this.MASTER_API_BASE}/tenants`).pipe(catchError(() => of([]))),
+      plans: this.http.get<SubscriptionPlan[]>(`${this.MASTER_API_BASE}/plans`).pipe(catchError(() => of([])))
+    }).pipe(
+      tap(({ tenants, plans }) => {
+        if (tenants.length > 0) { this.tenants.set(tenants); this.saveTenantsToStorage(tenants); }
+        if (plans.length > 0) { this.plans.set(plans); this.savePlansToStorage(plans); }
         this.isLoading.set(false);
         this.lastSyncTime.set(new Date().toISOString());
       }),
-      catchError(() => {
-        // Fallback gracefully to signal data
-        this.isLoading.set(false);
-        return of(this.tenants());
-      })
-    ).subscribe();
-
-    this.http.get<SubscriptionPlan[]>(`${this.MASTER_API_BASE}/plans`).pipe(
-      tap(data => {
-        if (Array.isArray(data) && data.length > 0) {
-          this.plans.set(data);
-          this.savePlansToStorage(data);
-        }
-      }),
-      catchError(() => of(this.plans()))
-    ).subscribe();
+      map(() => true)
+    );
   }
 
   getTenants(): Observable<Tenant[]> {

@@ -893,7 +893,7 @@ interface CartItem {
     </div>
   `
 })
-export class SalesPosComponent {
+export default class SalesPosComponent {
   stateService = inject(ErpStateService);
   authService = inject(AuthService);
   emailService = inject(EmailNotificationService);

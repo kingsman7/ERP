@@ -215,7 +215,7 @@ import { KardexMovement } from '../../models/erp.models';
     </div>
   `
 })
-export class KardexComponent {
+export default class KardexComponent {
   stateService = inject(ErpStateService);
 
   selectedProductId = signal<string>('ALL');

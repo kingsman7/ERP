@@ -1,8 +1,8 @@
 import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/core';
 import { ReactiveFormsModule, FormGroup, FormControl, Validators } from '@angular/forms';
+import { Router } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { AuthService } from '../../services/auth.service';
-import { ErpStateService } from '../../services/erp-state.service';
 import { User, UserRole } from '../../models/erp.models';
 
 @Component({
@@ -35,8 +35,7 @@ import { User, UserRole } from '../../models/erp.models';
 
           <div class="flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-300">
             <mat-icon class="text-emerald-400 text-sm">currency_exchange</mat-icon>
-            <span class="font-mono font-bold text-emerald-400">Bs. {{ stateService.bcvState().usdRate.toFixed(2) }}</span>
-            <span class="text-[10px] text-slate-400 uppercase font-bold">BCV</span>
+            <span class="text-[10px] text-slate-400 uppercase font-bold">Tasa BCV disponible al ingresar</span>
           </div>
         </div>
       </header>
@@ -297,9 +296,9 @@ import { User, UserRole } from '../../models/erp.models';
     </div>
   `
 })
-export class LoginComponent {
+export default class LoginComponent {
   authService = inject(AuthService);
-  stateService = inject(ErpStateService);
+  private router = inject(Router);
 
   activeTab = signal<'CREDENTIALS' | 'DEMO_ROLES'>('CREDENTIALS');
   showPassword = signal<boolean>(false);
@@ -331,16 +330,8 @@ export class LoginComponent {
         next: (result)=> {
           if (result) {
             this.successMessage.set('Autenticación exitosa. Redirigiendo al espacio de trabajo...');
-            this.stateService.logAudit(
-              'USER_LOGIN',
-              'AUTH',
-              'Inicio de sesión exitoso',
-              `El usuario ${email} inició sesión satisfactoriamente en el ERP.`,
-              undefined,
-              undefined,
-              { email }
-            );
             this.isLoading.set(false);
+            void this.router.navigate(['/app/dashboard']);
           } else {
             this.isLoading.set(false);
             this.errorMessage.set('Error al validar credenciales.');
@@ -367,22 +358,14 @@ export class LoginComponent {
     setTimeout(() => {
       this.authService.loginAsDemoUser(user.id);
       this.isLoading.set(false);
-      this.stateService.logAudit(
-        'USER_LOGIN',
-        'AUTH',
-        `Inicio de sesión rápido: ${user.name}`,
-        `El usuario ${user.name} ingresó mediante el selector de roles demo (${user.role}).`,
-        undefined,
-        undefined,
-        { userId: user.id, role: user.role }
-      );
+      void this.router.navigate(['/app/dashboard']);
     }, 300);
   }
 
   fillAdminCredentials = (): void => {
     this.loginForm.patchValue({
-      email: 'admin.morales@4-inLine.com',
-      password: 'Admin2026*'
+      email: '',
+      password: ''
     });
     this.errorMessage.set(null);
   }

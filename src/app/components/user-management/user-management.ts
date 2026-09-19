@@ -843,7 +843,7 @@ import { User, UserRole } from '../../models/erp.models';
     </div>
   `
 })
-export class UserManagementComponent {
+export default class UserManagementComponent {
   authService = inject(AuthService);
   stateService = inject(ErpStateService);
 

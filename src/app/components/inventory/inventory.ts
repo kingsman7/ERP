@@ -3,16 +3,31 @@ import { ReactiveFormsModule, FormGroup, FormControl, Validators } from '@angula
 import { MatIconModule } from '@angular/material/icon';
 import { ErpStateService } from '../../services/erp-state.service';
 import { AuthService } from '../../services/auth.service';
+import { ApiService } from '../../services/api.service';
 import { KeyboardShortcutsService } from '../../services/keyboard-shortcuts.service';
 import { Product, ProductPrices, ProductCategory, Warehouse } from '../../models/erp.models';
 import { exportInventoryToCsv } from '../../utils/csv-exporter';
+import { DecimalPipe } from '@angular/common';
+import { forkJoin, switchMap } from 'rxjs';
 
 @Component({
   selector: 'app-inventory',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, MatIconModule],
+  imports: [ReactiveFormsModule, MatIconModule, DecimalPipe],
   template: `
     <div class="space-y-6 pb-12">
+      @if (stateService.inventoryLoading()) {
+        <div role="status" class="flex items-center gap-2 px-4 py-3 rounded-xl border border-sky-200 bg-sky-50 text-sky-800 text-xs">
+          <mat-icon class="animate-spin text-base">sync</mat-icon>
+          <span>Cargando inventario y categorías desde el backend...</span>
+        </div>
+      }
+      @if (stateService.inventoryError(); as inventoryError) {
+        <div role="alert" class="flex items-center gap-2 px-4 py-3 rounded-xl border border-amber-200 bg-amber-50 text-amber-900 text-xs">
+          <mat-icon class="text-base">cloud_off</mat-icon>
+          <span>{{ inventoryError }}</span>
+        </div>
+      }
       
       <!-- Top Section: Header & Action Bar -->
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -27,7 +42,7 @@ import { exportInventoryToCsv } from '../../utils/csv-exporter';
                   Inventario, Esquema de 5 Precios e Impuestos
                 </h1>
                 <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-50 text-indigo-700">
-                  Tasa BCV: Bs. {{ stateService.bcvState().usdRate.toFixed(2) }}
+                  Tasa BCV: Bs. {{ stateService.bcvState().usdRate | number:'1.2-2' }}
                 </span>
               </div>
               <p class="text-xs text-slate-500">
@@ -1230,10 +1245,11 @@ import { exportInventoryToCsv } from '../../utils/csv-exporter';
     </div>
   `
 })
-export class InventoryComponent {
+export default class InventoryComponent {
   stateService = inject(ErpStateService);
   authService = inject(AuthService);
   shortcutService = inject(KeyboardShortcutsService);
+  apiService = inject(ApiService);
 
   searchTerm = signal<string>('');
   selectedCategory = signal<string>('ALL');
@@ -1515,7 +1531,6 @@ export class InventoryComponent {
         name: val.name!.trim(),
         location: val.location!.trim(),
         isMain: Boolean(val.isMain),
-        status: val.status || 'ACTIVE',
         capacity: Number(val.capacity) || 10000,
         managerName: (val.managerName || '').trim(),
         phone: (val.phone || '').trim(),
@@ -1530,7 +1545,6 @@ export class InventoryComponent {
         name: val.name!.trim(),
         location: val.location!.trim(),
         isMain: Boolean(val.isMain),
-        status: val.status || 'ACTIVE',
         capacity: Number(val.capacity) || 10000,
         managerName: (val.managerName || '').trim(),
         phone: (val.phone || '').trim(),
@@ -1679,19 +1693,35 @@ export class InventoryComponent {
     const val = this.adjustForm.value;
     const qty = Number(val.quantity || 1);
     const qtyDelta = val.adjustmentType === 'MERMA' ? -qty : qty;
+    const type = val.adjustmentType === 'MERMA'
+      ? 'SHRINKAGE'
+      : val.adjustmentType === 'SOBRANTE'
+        ? 'PHYSICAL_COUNT'
+        : 'PHYSICAL_COUNT';
 
-    const result = this.stateService.adjustStock(
-      val.productId!,
-      val.warehouseId!,
-      val.adjustmentType!,
-      qtyDelta,
-      val.supportDocument!,
-      val.justificationReason!
-    );
+    this.apiService.createStockAdjustment({
+      productId: val.productId!,
+      warehouseId: val.warehouseId!,
+      quantityDelta: qtyDelta,
+      type,
+      reason: val.justificationReason!.trim(),
+      supportDocType: 'OTHER',
+      supportDocNum: val.supportDocument!.trim()
+    }).pipe(
+      switchMap(() => forkJoin({
+        inventory: this.stateService.loadInventory(),
+        kardex: this.stateService.loadRouteData('kardex')
+      }))
+    ).subscribe({
+      next: () => {
+        this.showAdjustModal.set(false);
+        this.stateService.notify('success', 'Ajuste registrado', 'El ajuste se registró y el inventario fue actualizado desde el backend.');
+      },
+      error: () => {
+        this.stateService.notify('error', 'Error al registrar ajuste', 'No fue posible registrar el ajuste de stock. Verifique los datos e intente nuevamente.');
+      }
+    });
 
-    if (result.success) {
-      this.showAdjustModal.set(false);
-    }
   }
 
   submitNewProduct() {

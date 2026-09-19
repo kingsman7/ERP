@@ -1,4 +1,5 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
+import { defer, finalize, forkJoin, map, Observable, of, tap } from 'rxjs';
 import {
   Product,
   ProductCategory,
@@ -64,35 +65,166 @@ export class ErpStateService {
   private apiService = inject(ApiService);
 
   readonly products = signal<Product[]>([]);
+  readonly inventoryLoading = signal(false);
+  readonly inventoryError = signal<string | null>(null);
 
   constructor() {
-    this.syncWithBackend();
-    this.loadPersistedState();
+    this.clearBackendCollections();
   }
 
-  private syncWithBackend() {
-    this.apiService.getProducts().subscribe((data: Product[]) => {
-      if (data && data.length > 0) {
-        const normalized = data.map(p => ({
-          ...p,
-          categories: (p.categories && p.categories.length > 0) ? p.categories : [p.category].filter(Boolean),
-          primaryWarehouseId: p.primaryWarehouseId || (p.stockByWarehouse?.[0]?.warehouseId || this.warehouses()[0]?.id)
-        }));
-        this.products.set(normalized);
-      }
-    });
+  loadInventory(): Observable<boolean> {
+    return defer(() => {
+      this.inventoryLoading.set(true);
+      this.inventoryError.set(null);
+      return forkJoin({
+        products: this.apiService.getProducts(),
+        categories: this.apiService.getCategories(),
+        warehouses: this.apiService.getWarehouses()
+      });
+    }).pipe(
+      tap(({ products, categories, warehouses }) => {
+        this.products.set(products.map(product => ({
+          ...product,
+          categories: product.categories?.length ? product.categories : [product.category].filter(Boolean),
+          primaryWarehouseId: product.primaryWarehouseId || product.stockByWarehouse?.[0]?.warehouseId || this.warehouses()[0]?.id
+        })));
+        this.categories.set(categories);
+        this.warehouses.set(warehouses);
+      }),
+      map(() => true),
+      finalize(() => this.inventoryLoading.set(false))
+    );
+  }
 
-    this.apiService.getCategories().subscribe((data: ProductCategory[]) => {
-      if (data && data.length > 0) {
-        this.categories.set(data);
-      }
-    });
+  loadRouteData(route: string): Observable<boolean> {
+    const loaders: Record<string, () => Observable<boolean>> = {
+      dashboard: () => this.loadDashboard(),
+      kardex: () => this.loadKardex(),
+      purchases: () => this.loadPurchases(),
+      'sales-pos': () => this.loadSales(),
+      quotes: () => this.loadQuotes(),
+      logistics: () => this.loadLogistics(),
+      mrp: () => this.loadMrp(),
+      crm: () => this.loadCrm(),
+      accounting: () => this.loadAccounting(),
+      treasury: () => this.loadTreasury(),
+      'cash-closing': () => this.loadCashSessions(),
+      'audit-log': () => this.loadAudit(),
+    };
+    return loaders[route]?.() ?? of(true);
+  }
 
-    this.apiService.getWarehouses().subscribe((data: Warehouse[]) => {
-      if (data && data.length > 0) {
-        this.warehouses.set(data);
-      }
-    });
+  private loadDashboard(): Observable<boolean> {
+    return forkJoin({
+      invoices: this.apiService.getInvoices(),
+      bcv: this.apiService.getCurrentBcv(),
+      companyProfile: this.apiService.getCompanyProfile()
+    }).pipe(
+      tap(({ invoices, bcv, companyProfile }) => {
+        this.invoices.set(invoices);
+        this.bcvState.update(current => ({ ...current, ...bcv }));
+        this.companyProfile.update(current => ({ ...current, ...companyProfile }));
+      }), map(() => true)
+    );
+  }
+
+  private loadKardex(): Observable<boolean> {
+    return forkJoin({ movements: this.apiService.getKardexMovements() }).pipe(
+      tap(({ movements }) => this.kardexMovements.set(movements)), map(() => true)
+    );
+  }
+
+  private loadPurchases(): Observable<boolean> {
+    return forkJoin({ suppliers: this.apiService.getSuppliers(), orders: this.apiService.getPurchaseOrders() }).pipe(
+      tap(({ suppliers, orders }) => { this.suppliers.set(suppliers); this.purchaseOrders.set(orders); }), map(() => true)
+    );
+  }
+
+  private loadSales(): Observable<boolean> {
+    return forkJoin({ invoices: this.apiService.getInvoices(), customers: this.apiService.getCustomers() }).pipe(
+      tap(({ invoices, customers }) => { this.invoices.set(invoices); this.customers.set(customers); }), map(() => true)
+    );
+  }
+
+  private loadQuotes(): Observable<boolean> {
+    return forkJoin({ quotes: this.apiService.getQuotes(), customers: this.apiService.getCustomers() }).pipe(
+      tap(({ quotes, customers }) => { this.quotes.set(quotes); this.customers.set(customers); }), map(() => true)
+    );
+  }
+
+  private loadLogistics(): Observable<boolean> {
+    return forkJoin({ dispatches: this.apiService.getDispatchGuides(), deliveries: this.apiService.getDeliveryOrders() }).pipe(
+      tap(({ dispatches, deliveries }) => { this.dispatchGuides.set(dispatches); this.deliveryOrders.set(deliveries); }), map(() => true)
+    );
+  }
+
+  private loadMrp(): Observable<boolean> {
+    return forkJoin({ boms: this.apiService.getBoms(), orders: this.apiService.getProductionOrders() }).pipe(
+      tap(({ boms, orders }) => { this.boms.set(boms); this.productionOrders.set(orders); }), map(() => true)
+    );
+  }
+
+  private loadCrm(): Observable<boolean> {
+    return this.apiService.getCrmDeals().pipe(tap(deals => this.crmDeals.set(deals)), map(() => true));
+  }
+
+  private loadAccounting(): Observable<boolean> {
+    return forkJoin({ accounts: this.apiService.getAccounts(), entries: this.apiService.getJournalEntries() }).pipe(
+      tap(({ accounts, entries }) => { this.accounts.set(accounts); this.journalEntries.set(entries); }), map(() => true)
+    );
+  }
+
+  private loadTreasury(): Observable<boolean> {
+    return forkJoin({
+      banks: this.apiService.getBankAccounts(),
+      transactions: this.apiService.getTreasuryTransactions(),
+      bills: this.apiService.getPayableBills()
+    }).pipe(
+      tap(({ banks, transactions, bills }) => { this.bankAccounts.set(banks); this.treasuryTransactions.set(transactions); this.payableBills.set(bills); }),
+      map(() => true)
+    );
+  }
+
+  private loadAudit(): Observable<boolean> {
+    return this.apiService.getAuditLogs().pipe(tap(logs => this.auditLogs.set(logs)), map(() => true));
+  }
+
+  private loadCashSessions(): Observable<boolean> {
+    return this.apiService.getCashSessions().pipe(
+      tap(sessions => {
+        this.cashSessionHistory.set(sessions.filter(session => session.status !== 'ABIERTA'));
+        const active = sessions.find(session => session.status === 'ABIERTA');
+        if (active) this.activeCashSession.set(active);
+      }),
+      map(() => true)
+    );
+  }
+
+  private clearBackendCollections(): void {
+    this.products.set([]);
+    this.categories.set([]);
+    this.warehouses.set([]);
+    this.suppliers.set([]);
+    this.customers.set([]);
+    this.kardexMovements.set([]);
+    this.purchaseOrders.set([]);
+    this.invoices.set([]);
+    this.quotes.set([]);
+    this.dispatchGuides.set([]);
+    this.deliveryOrders.set([]);
+    this.auditLogs.set([]);
+    this.cashSessionHistory.set([]);
+    this.boms.set([]);
+    this.productionOrders.set([]);
+    this.crmDeals.set([]);
+    this.accounts.set([]);
+    this.journalEntries.set([]);
+    this.bankAccounts.set([]);
+    this.payableBills.set([]);
+    this.treasuryTransactions.set([]);
+    this.activeCashSession.update(session => ({ ...session, id: '', sessionCode: '', cashierId: '', cashierName: '', openDate: '', status: 'CERRADA', initialAmount: 0, totalCashSales: 0, totalCardSales: 0, totalTransferSales: 0, totalCreditSales: 0, totalSales: 0 }));
+    this.bcvState.set({ usdRate: 0, eurRate: 0, origin: 'API_BCV', lastSync: '', isSyncing: false, status: 'SYNCED', bcvOfficialDate: '' });
+    this.companyProfile.update(profile => ({ ...profile, legalName: '', tradeName: '', taxId: '', planTier: 'BASE', isSpecialTaxpayer: false, specialTaxpayerDesignationNumber: '', address: '', phone: '', email: '', defaultIvaRate: 0, igtfRate: 0 }));
   }
 
   // Price Level Configurations
@@ -291,321 +423,6 @@ export class ErpStateService {
     { id: 'wh-02', code: 'ALM-NORTE', name: 'Almacén Sucursal Norte', location: 'Parque Comercial Norte Local 12', isMain: false, status: 'ACTIVE', capacity: 8000, managerName: 'Elena Rivas', phone: '+58 212 555-2002', description: 'Almacén de distribución para la zona norte' },
     { id: 'wh-03', code: 'DEP-03', name: 'Depósito 3 (Logística Rápida)', location: 'Zona Portuaria Almacén 8', isMain: false, status: 'ACTIVE', capacity: 5000, managerName: 'Marcos Peña', phone: '+58 212 555-3003', description: 'Depósito de tránsito aduanero y despacho expreso' }
   ]);
-
-  /* readonly products = signal<Product[]>([
-    {
-      id: 'prod-01',
-      sku: 'ELE-TAL-750',
-      barcode: '775123400101',
-      name: 'Taladro Percutor Industrial 750W 1/2"',
-      category: 'Herramientas Eléctricas',
-      unit: 'UND',
-      costPrice: 42.50, // Costo Promedio Ponderado
-      salePrice: 78.90, // Precio 1 Detal
-      prices: {
-        price1: 78.90, // Detal
-        price2: 67.00, // Mayor
-        price3: 59.00, // Distribuidor
-        price4: 55.00, // VIP
-        price5: 51.00  // Especial
-      },
-      isTaxExempt: false,
-      taxRate: 0.16,
-      minStock: 8,
-      totalStock: 34,
-      stockByWarehouse: [
-        { warehouseId: 'wh-01', warehouseName: 'Almacén Central', quantity: 22 },
-        { warehouseId: 'wh-02', warehouseName: 'Almacén Sucursal Norte', quantity: 8 },
-        { warehouseId: 'wh-03', warehouseName: 'Depósito 3', quantity: 4 }
-      ],
-      status: 'ACTIVE',
-      updatedAt: '2026-08-18 07:15:00'
-    },
-    {
-      id: 'prod-02',
-      sku: 'RED-CAT6-305',
-      barcode: '775123400102',
-      name: 'Bobina Cable Red UTP Cat6 100% Cobre 305m',
-      category: 'Redes y Telecom',
-      unit: 'UND',
-      costPrice: 85.00,
-      salePrice: 139.00,
-      prices: {
-        price1: 139.00,
-        price2: 118.00,
-        price3: 104.00,
-        price4: 98.00,
-        price5: 92.00
-      },
-      isTaxExempt: false,
-      taxRate: 0.16,
-      minStock: 5,
-      totalStock: 18,
-      stockByWarehouse: [
-        { warehouseId: 'wh-01', warehouseName: 'Almacén Central', quantity: 12 },
-        { warehouseId: 'wh-02', warehouseName: 'Almacén Sucursal Norte', quantity: 4 },
-        { warehouseId: 'wh-03', warehouseName: 'Depósito 3', quantity: 2 }
-      ],
-      status: 'ACTIVE',
-      updatedAt: '2026-08-18 07:15:00'
-    },
-    {
-      id: 'prod-03',
-      sku: 'PIN-LAT-04L',
-      barcode: '775123400103',
-      name: 'Pintura Látex Super Lavable Blanco Nieve 4L',
-      category: 'Acabados y Pinturas',
-      unit: 'LT',
-      costPrice: 14.20,
-      salePrice: 28.50,
-      prices: {
-        price1: 28.50,
-        price2: 24.20,
-        price3: 21.30,
-        price4: 19.90,
-        price5: 18.50
-      },
-      isTaxExempt: false,
-      taxRate: 0.16,
-      minStock: 15,
-      totalStock: 52,
-      stockByWarehouse: [
-        { warehouseId: 'wh-01', warehouseName: 'Almacén Central', quantity: 35 },
-        { warehouseId: 'wh-02', warehouseName: 'Almacén Sucursal Norte', quantity: 12 },
-        { warehouseId: 'wh-03', warehouseName: 'Depósito 3', quantity: 5 }
-      ],
-      status: 'ACTIVE',
-      updatedAt: '2026-08-18 07:15:00'
-    },
-    {
-      id: 'prod-04',
-      sku: 'ELE-DIS-20A',
-      barcode: '775123400104',
-      name: 'Disyuntor Termomagnético Bipolar 20A 10kA',
-      category: 'Material Eléctrico',
-      unit: 'UND',
-      costPrice: 6.80,
-      salePrice: 14.50,
-      prices: {
-        price1: 14.50,
-        price2: 12.30,
-        price3: 10.80,
-        price4: 10.00,
-        price5: 9.40
-      },
-      isTaxExempt: false,
-      taxRate: 0.16,
-      minStock: 20,
-      totalStock: 85,
-      stockByWarehouse: [
-        { warehouseId: 'wh-01', warehouseName: 'Almacén Central', quantity: 50 },
-        { warehouseId: 'wh-02', warehouseName: 'Almacén Sucursal Norte', quantity: 25 },
-        { warehouseId: 'wh-03', warehouseName: 'Depósito 3', quantity: 10 }
-      ],
-      status: 'ACTIVE',
-      updatedAt: '2026-08-18 07:15:00'
-    },
-    {
-      id: 'prod-05',
-      sku: 'ILU-LED-50W',
-      barcode: '775123400105',
-      name: 'Reflector LED Industrial Exterior IP65 50W 6500K',
-      category: 'Iluminación',
-      unit: 'UND',
-      costPrice: 18.90,
-      salePrice: 38.00,
-      prices: {
-        price1: 38.00,
-        price2: 32.30,
-        price3: 28.50,
-        price4: 26.60,
-        price5: 24.70
-      },
-      isTaxExempt: false,
-      taxRate: 0.16,
-      minStock: 10,
-      totalStock: 6, // Bajo Stock Alert
-      stockByWarehouse: [
-        { warehouseId: 'wh-01', warehouseName: 'Almacén Central', quantity: 4 },
-        { warehouseId: 'wh-02', warehouseName: 'Almacén Sucursal Norte', quantity: 2 },
-        { warehouseId: 'wh-03', warehouseName: 'Depósito 3', quantity: 0 }
-      ],
-      status: 'ACTIVE',
-      updatedAt: '2026-08-18 07:15:00'
-    },
-    {
-      id: 'prod-06',
-      sku: 'HER-CAJ-24P',
-      barcode: '775123400106',
-      name: 'Caja de Herramientas Plástica Profesional 24"',
-      category: 'Herramientas Manuales',
-      unit: 'UND',
-      costPrice: 19.50,
-      salePrice: 36.90,
-      prices: {
-        price1: 36.90,
-        price2: 31.30,
-        price3: 27.60,
-        price4: 25.80,
-        price5: 24.00
-      },
-      isTaxExempt: false,
-      taxRate: 0.16,
-      minStock: 6,
-      totalStock: 14,
-      stockByWarehouse: [
-        { warehouseId: 'wh-01', warehouseName: 'Almacén Central', quantity: 8 },
-        { warehouseId: 'wh-02', warehouseName: 'Almacén Sucursal Norte', quantity: 4 },
-        { warehouseId: 'wh-03', warehouseName: 'Depósito 3', quantity: 2 }
-      ],
-      status: 'ACTIVE',
-      updatedAt: '2026-08-18 07:15:00'
-    },
-    {
-      id: 'prod-07',
-      sku: 'TOR-DRY-100',
-      barcode: '775123400107',
-      name: 'Caja Tornillo Drywall Fosfatado 6x1" (1,000 Unidades)',
-      category: 'Fijaciones y Tornillería',
-      unit: 'CJ',
-      costPrice: 7.20,
-      salePrice: 15.00,
-      prices: {
-        price1: 15.00,
-        price2: 12.75,
-        price3: 11.25,
-        price4: 10.50,
-        price5: 9.75
-      },
-      isTaxExempt: false,
-      taxRate: 0.16,
-      minStock: 12,
-      totalStock: 48,
-      stockByWarehouse: [
-        { warehouseId: 'wh-01', warehouseName: 'Almacén Central', quantity: 30 },
-        { warehouseId: 'wh-02', warehouseName: 'Almacén Sucursal Norte', quantity: 12 },
-        { warehouseId: 'wh-03', warehouseName: 'Depósito 3', quantity: 6 }
-      ],
-      status: 'ACTIVE',
-      updatedAt: '2026-08-18 07:15:00'
-    },
-    {
-      id: 'prod-08',
-      sku: 'SER-CONS-01',
-      barcode: '775123400108',
-      name: 'Servicio de Consultoría Técnica e Inspección en Obra',
-      category: 'Servicios Profesionales',
-      unit: 'UND',
-      costPrice: 0.00,
-      salePrice: 100.00,
-      prices: {
-        price1: 100.00, // Detal
-        price2: 85.00,  // Mayor
-        price3: 75.00,  // Distribuidor
-        price4: 70.00,  // VIP
-        price5: 65.00   // Especial
-      },
-      isTaxExempt: true, // EXENTO DE IVA
-      taxRate: 0.0,
-      minStock: 0,
-      totalStock: 999, // Servicio no tangible
-      stockByWarehouse: [
-        { warehouseId: 'wh-01', warehouseName: 'Almacén Central', quantity: 999 },
-        { warehouseId: 'wh-02', warehouseName: 'Almacén Sucursal Norte', quantity: 999 },
-        { warehouseId: 'wh-03', warehouseName: 'Depósito 3', quantity: 999 }
-      ],
-      status: 'ACTIVE',
-      updatedAt: '2026-08-18 07:15:00'
-    },
-    {
-      id: 'prod-rm-01',
-      sku: 'MP-CAR-50W',
-      barcode: '775123400201',
-      name: 'Materia Prima: Carcasa Aluminio Fundido IP65 50W',
-      category: 'Materia Prima & Insumos',
-      unit: 'UND',
-      costPrice: 5.50,
-      salePrice: 9.00,
-      prices: { price1: 9.00, price2: 8.00, price3: 7.50, price4: 7.00, price5: 6.50 },
-      isTaxExempt: false,
-      taxRate: 0.16,
-      minStock: 20,
-      totalStock: 85,
-      stockByWarehouse: [
-        { warehouseId: 'wh-01', warehouseName: 'Almacén Central', quantity: 60 },
-        { warehouseId: 'wh-02', warehouseName: 'Almacén Sucursal Norte', quantity: 15 },
-        { warehouseId: 'wh-03', warehouseName: 'Depósito 3', quantity: 10 }
-      ],
-      status: 'ACTIVE',
-      updatedAt: '2026-08-18 07:15:00'
-    },
-    {
-      id: 'prod-rm-02',
-      sku: 'MP-COB-50W',
-      barcode: '775123400202',
-      name: 'Materia Prima: Módulo Chip LED COB 50W 6500K Epistar',
-      category: 'Materia Prima & Insumos',
-      unit: 'UND',
-      costPrice: 4.80,
-      salePrice: 8.00,
-      prices: { price1: 8.00, price2: 7.20, price3: 6.80, price4: 6.20, price5: 5.80 },
-      isTaxExempt: false,
-      taxRate: 0.16,
-      minStock: 25,
-      totalStock: 110,
-      stockByWarehouse: [
-        { warehouseId: 'wh-01', warehouseName: 'Almacén Central', quantity: 80 },
-        { warehouseId: 'wh-02', warehouseName: 'Almacén Sucursal Norte', quantity: 20 },
-        { warehouseId: 'wh-03', warehouseName: 'Depósito 3', quantity: 10 }
-      ],
-      status: 'ACTIVE',
-      updatedAt: '2026-08-18 07:15:00'
-    },
-    {
-      id: 'prod-rm-03',
-      sku: 'MP-DRV-50W',
-      barcode: '775123400203',
-      name: 'Materia Prima: Driver Fuente Regulada 85-265V IP67 1500mA',
-      category: 'Materia Prima & Insumos',
-      unit: 'UND',
-      costPrice: 3.20,
-      salePrice: 6.00,
-      prices: { price1: 6.00, price2: 5.40, price3: 4.90, price4: 4.50, price5: 4.00 },
-      isTaxExempt: false,
-      taxRate: 0.16,
-      minStock: 20,
-      totalStock: 74,
-      stockByWarehouse: [
-        { warehouseId: 'wh-01', warehouseName: 'Almacén Central', quantity: 50 },
-        { warehouseId: 'wh-02', warehouseName: 'Almacén Sucursal Norte', quantity: 14 },
-        { warehouseId: 'wh-03', warehouseName: 'Depósito 3', quantity: 10 }
-      ],
-      status: 'ACTIVE',
-      updatedAt: '2026-08-18 07:15:00'
-    },
-    {
-      id: 'prod-rm-04',
-      sku: 'MP-CAB-SIL',
-      barcode: '775123400204',
-      name: 'Materia Prima: Cable Siliconado Alta Temperatura 3x1.0mm',
-      category: 'Materia Prima & Insumos',
-      unit: 'MT',
-      costPrice: 0.85,
-      salePrice: 1.60,
-      prices: { price1: 1.60, price2: 1.40, price3: 1.25, price4: 1.15, price5: 1.05 },
-      isTaxExempt: false,
-      taxRate: 0.16,
-      minStock: 50,
-      totalStock: 240,
-      stockByWarehouse: [
-        { warehouseId: 'wh-01', warehouseName: 'Almacén Central', quantity: 180 },
-        { warehouseId: 'wh-02', warehouseName: 'Almacén Sucursal Norte', quantity: 40 },
-        { warehouseId: 'wh-03', warehouseName: 'Depósito 3', quantity: 20 }
-      ],
-      status: 'ACTIVE',
-      updatedAt: '2026-08-18 07:15:00'
-    }
-  ]); */
 
   readonly suppliers = signal<Supplier[]>([
     {
@@ -2605,6 +2422,13 @@ export class ErpStateService {
     };
 
     this.products.update(prods => prods.map(p => p.id === productId ? updatedProd : p));
+    this.apiService.updateProduct(productId, updatedProd).subscribe({
+      next: saved => this.products.update(products => products.map(product => product.id === productId ? saved : product)),
+      error: () => {
+        this.products.update(products => products.map(product => product.id === productId ? prod : product));
+        this.notify('error', 'Precios no guardados', 'El backend rechazó la actualización de precios e impuestos.');
+      }
+    });
     this.logAudit(
       'UPDATE_PRODUCT_PRICES',
       'INVENTORY',
@@ -4228,6 +4052,17 @@ export class ErpStateService {
     };
 
     this.products.update(ps => [newProd, ...ps]);
+    this.apiService.createProduct(newProd).subscribe({
+      next: saved => {
+        this.products.update(products => products.map(product => product.id === newProd.id || product.sku === newProd.sku ? saved : product));
+        this.saveState();
+      },
+      error: () => {
+        this.products.update(products => products.filter(product => product.id !== newProd.id));
+        this.saveState();
+        this.notify('error', 'Producto no creado', 'El backend rechazó el registro del producto.');
+      }
+    });
     this.logAudit('CREATE_PRODUCT', 'INVENTORY', `Creación de Producto: ${prod.sku}`, `Alta de producto ${prod.name} con stock inicial de ${totalStock} UND.`, null, newProd as unknown as Record<string, unknown>);
     this.notify('success', 'Producto Creado', `Se agregó ${newProd.name} al catálogo.`);
     this.saveState();
@@ -4261,6 +4096,13 @@ export class ErpStateService {
       }
       return p;
     }));
+    this.apiService.updateProduct(id, { ...updated, category, categories }).subscribe({
+      next: saved => this.products.update(products => products.map(product => product.id === id ? saved : product)),
+      error: () => {
+        this.products.update(products => products.map(product => product.id === id ? target : product));
+        this.notify('error', 'Producto no actualizado', 'El backend rechazó los cambios del producto.');
+      }
+    });
 
     this.logAudit('UPDATE_PRODUCT', 'INVENTORY', `Modificación de Producto: ${target.sku}`, `Actualización de ficha técnica de ${target.name}.`, target as unknown as Record<string, unknown>, updated as unknown as Record<string, unknown>);
     this.notify('info', 'Producto Actualizado', `Ficha de ${target.name} actualizada correctamente.`);
@@ -4277,6 +4119,12 @@ export class ErpStateService {
     }
 
     this.products.update(list => list.filter(p => p.id !== id));
+    this.apiService.deleteProduct(id).subscribe({
+      error: () => {
+        this.products.update(products => [target, ...products]);
+        this.notify('error', 'Producto no eliminado', 'El backend rechazó la eliminación del producto.');
+      }
+    });
     this.logAudit('DELETE_PRODUCT', 'INVENTORY', `Eliminación de Producto: ${target.sku}`, `Se dio de baja el producto ${target.name}.`, target as unknown as Record<string, unknown>, null);
     this.notify('warning', 'Producto Eliminado', `Producto ${target.name} retirado del catálogo.`);
     this.saveState();
@@ -4303,6 +4151,17 @@ export class ErpStateService {
     };
 
     this.categories.update(prev => [...prev, newCat]);
+    this.apiService.createCategory(newCat).subscribe({
+      next: saved => {
+        this.categories.update(categories => categories.map(category => category.id === newCat.id || category.name.toLowerCase() === newCat.name.toLowerCase() ? saved : category));
+        this.saveState();
+      },
+      error: () => {
+        this.categories.update(categories => categories.filter(category => category.id !== newCat.id));
+        this.saveState();
+        this.notify('error', 'Categoría no creada', 'El backend rechazó el registro de la categoría.');
+      }
+    });
     this.logAudit('CREATE_CATEGORY', 'INVENTORY', `Nueva Categoría: ${newCat.name}`, `Se registró la categoría de productos ${newCat.name} (${newCat.code}).`, null, newCat as unknown as Record<string, unknown>);
     this.notify('success', 'Categoría Creada', `Categoría "${newCat.name}" agregada exitosamente.`);
     this.saveState();
@@ -4316,7 +4175,8 @@ export class ErpStateService {
     const oldName = target.name;
     const newName = updated.name ? updated.name.trim() : target.name;
 
-    this.categories.update(list => list.map(c => c.id === id ? { ...c, ...updated, name: newName } : c));
+    const nextCategory = { ...target, ...updated, name: newName };
+    this.categories.update(list => list.map(c => c.id === id ? nextCategory : c));
     
     if (oldName !== newName) {
       this.products.update(prods => prods.map(p => {
@@ -4336,6 +4196,25 @@ export class ErpStateService {
       }));
     }
 
+    this.apiService.updateCategory(id, updated).subscribe({
+      next: saved => {
+        this.categories.update(list => list.map(category => category.id === id ? saved : category));
+        this.saveState();
+      },
+      error: () => {
+        this.categories.update(list => list.map(category => category.id === id ? target : category));
+        if (oldName !== newName) {
+          this.products.update(prods => prods.map(product => ({
+            ...product,
+            category: product.category === newName ? oldName : product.category,
+            categories: product.categories?.map(category => category === newName ? oldName : category)
+          })));
+        }
+        this.saveState();
+        this.notify('error', 'Categoría no actualizada', 'El backend rechazó los cambios de la categoría.');
+      }
+    });
+
     this.logAudit('UPDATE_CATEGORY', 'INVENTORY', `Actualización Categoría: ${newName}`, `Se modificó la categoría ${oldName}.`, target as unknown as Record<string, unknown>, updated as unknown as Record<string, unknown>);
     this.notify('info', 'Categoría Actualizada', `Categoría "${newName}" actualizada.`);
     this.saveState();
@@ -4352,6 +4231,13 @@ export class ErpStateService {
     }
 
     this.categories.update(list => list.filter(c => c.id !== id));
+    this.apiService.deleteCategory(id).subscribe({
+      error: () => {
+        this.categories.update(list => [...list, target]);
+        this.saveState();
+        this.notify('error', 'Categoría no eliminada', 'El backend rechazó la eliminación de la categoría.');
+      }
+    });
     this.logAudit('DELETE_CATEGORY', 'INVENTORY', `Eliminación Categoría: ${target.name}`, `Se eliminó la categoría ${target.name}.`, target as unknown as Record<string, unknown>, null);
     this.notify('warning', 'Categoría Eliminada', `Categoría "${target.name}" eliminada del catálogo.`);
     this.saveState();
@@ -4371,18 +4257,23 @@ export class ErpStateService {
 
     const isMain = Boolean(data.isMain);
     const newWh: Warehouse = {
-      id: 'wh-' + Date.now().toString(36),
+      id: "",
       code,
       name,
       location: location || 'Sede Principal',
       isMain,
-      status: data.status || 'ACTIVE',
       capacity: data.capacity || 10000,
       managerName: data.managerName || '',
       phone: data.phone || '',
       description: data.description || ''
     };
-
+    this.apiService.createWarehouse(newWh).subscribe({
+      next: saved => {
+        this.warehouses.update(list => list.map(w => w.id === newWh.id || w.code.toUpperCase() === newWh.code.toUpperCase() ? saved : w));
+        this.saveState();
+      }
+    });
+    
     this.warehouses.update(prev => {
       let updated = prev;
       if (isMain) {

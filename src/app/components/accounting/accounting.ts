@@ -503,7 +503,7 @@ import { Account, AccountType } from '../../models/erp.models';
     </div>
   `
 })
-export class AccountingComponent {
+export default class AccountingComponent {
   stateService = inject(ErpStateService);
   authService = inject(AuthService);
   shortcutService = inject(KeyboardShortcutsService);

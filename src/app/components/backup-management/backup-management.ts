@@ -784,7 +784,7 @@ import { ErpBackupMetadata, BackupScheduleFrequency } from '../../models/erp.mod
     </div>
   `
 })
-export class BackupManagementComponent {
+export default class BackupManagementComponent {
   backupService = inject(ErpBackupService);
   firebaseService = inject(FirebaseService);
   erpState = inject(ErpStateService);

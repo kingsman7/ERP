@@ -212,7 +212,7 @@ import { AuthService } from '../../services/auth.service';
     </div>
   `
 })
-export class CashClosingComponent {
+export default class CashClosingComponent {
   stateService = inject(ErpStateService);
   authService = inject(AuthService);
 

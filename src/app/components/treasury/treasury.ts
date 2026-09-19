@@ -2093,7 +2093,7 @@ export interface DetailItemRow {
 
   `
 })
-export class TreasuryComponent {
+export default class TreasuryComponent {
   stateService = inject(ErpStateService);
   authService = inject(AuthService);
   fb = inject(FormBuilder);

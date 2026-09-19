@@ -1416,7 +1416,7 @@ import { Bom, ProductionOrder, Product, EmailAlertLog } from '../../models/erp.m
     </div>
   `
 })
-export class MrpComponent {
+export default class MrpComponent {
   stateService = inject(ErpStateService);
   authService = inject(AuthService);
   emailService = inject(EmailNotificationService);

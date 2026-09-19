@@ -5,11 +5,12 @@ import { AuthService } from '../../services/auth.service';
 import { ErpStateService } from '../../services/erp-state.service';
 import { KeyboardShortcutsService } from '../../services/keyboard-shortcuts.service';
 import { User, CriticalAuditNotification, CriticalAuditCategory } from '../../models/erp.models';
+import { DecimalPipe } from '@angular/common';
 
 @Component({
   selector: 'app-header',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatIconModule, ReactiveFormsModule],
+  imports: [MatIconModule, ReactiveFormsModule, DecimalPipe],
   template: `
     <header class="h-16 bg-[#0f172a] text-slate-200 border-b border-slate-800 px-4 sm:px-8 flex items-center justify-between sticky top-0 z-30 shadow-md select-none">
       
@@ -66,7 +67,7 @@ import { User, CriticalAuditNotification, CriticalAuditCategory } from '../../mo
           <div class="text-left leading-tight hidden xs:block">
             <span class="text-[10px] uppercase font-bold text-slate-400 block">Tasa Oficial</span>
             <span class="text-xs font-mono font-bold text-emerald-400">
-              Bs. {{ stateService.bcvState().usdRate.toFixed(2) }}
+              Bs. {{ stateService.bcvState().usdRate | number:'1.2-2' }}
             </span>
           </div>
           <span class="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold"
@@ -76,12 +77,12 @@ import { User, CriticalAuditNotification, CriticalAuditCategory } from '../../mo
         </button>
 
         <!-- Architecture Ficha Técnica Shortcut -->
-        <button 
+        <!-- <button 
           (click)="openArchitecture.emit()"
           class="hidden md:flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-800/90 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-semibold transition-all border border-slate-700 cursor-pointer">
           <mat-icon class="text-blue-400 text-base">architecture</mat-icon>
           <span>Ficha Técnica</span>
-        </button>
+        </button> -->
 
         <!-- Cash Register Status Button -->
         <button 
@@ -394,13 +395,13 @@ import { User, CriticalAuditNotification, CriticalAuditCategory } from '../../mo
             <div class="grid grid-cols-2 gap-3">
               <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-200">
                 <span class="text-[10px] uppercase font-bold text-emerald-800 block mb-0.5">Dólar Oficial (USD)</span>
-                <p class="text-lg font-mono font-bold text-emerald-950">Bs. {{ stateService.bcvState().usdRate.toFixed(2) }}</p>
+                <p class="text-lg font-mono font-bold text-emerald-950">Bs. {{ stateService.bcvState().usdRate | number:'1.2-2' }}</p>
                 <span class="text-[10px] text-emerald-700">Origen: {{ stateService.bcvState().origin }}</span>
               </div>
 
               <div class="p-3 bg-indigo-50 rounded-xl border border-indigo-200">
                 <span class="text-[10px] uppercase font-bold text-indigo-800 block mb-0.5">Euro Oficial (EUR)</span>
-                <p class="text-lg font-mono font-bold text-indigo-950">Bs. {{ stateService.bcvState().eurRate.toFixed(2) }}</p>
+                <p class="text-lg font-mono font-bold text-indigo-950">Bs. {{ stateService.bcvState().eurRate | number:'1.2-2' }}</p>
                 <span class="text-[10px] text-indigo-700">Tasa Cruzada EUR/USD</span>
               </div>
             </div>

@@ -383,6 +383,7 @@ export class SidebarComponent {
   }
 
   selectTab(tab: NavTab) {
+    console.log('SidebarComponent: selectTab', tab);
     this.tabChange.emit(tab);
   }
 }

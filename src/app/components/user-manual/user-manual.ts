@@ -322,7 +322,7 @@ import { AuthService } from '../../services/auth.service';
     </div>
   `
 })
-export class UserManualComponent {
+export default class UserManualComponent {
   erpState = inject(ErpStateService);
   authService = inject(AuthService);
 

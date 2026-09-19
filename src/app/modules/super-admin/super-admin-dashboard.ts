@@ -21,7 +21,7 @@ export type SuperAdminSubTab = 'tenants' | 'plans' | 'health' | 'audit';
   imports: [MatIconModule, ReactiveFormsModule],
   templateUrl: './super-admin-dashboard.html'
 })
-export class SuperAdminDashboardComponent {
+export default class SuperAdminDashboardComponent {
   superAdminService = inject(SuperAdminService);
   erpState = inject(ErpStateService);
   authService = inject(AuthService);

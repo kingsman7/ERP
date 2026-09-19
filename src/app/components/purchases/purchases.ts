@@ -599,7 +599,7 @@ interface TempItem {
     </div>
   `
 })
-export class PurchasesComponent {
+export default class PurchasesComponent {
   stateService = inject(ErpStateService);
   authService = inject(AuthService);
   shortcutService = inject(KeyboardShortcutsService);

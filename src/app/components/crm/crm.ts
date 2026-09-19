@@ -373,7 +373,7 @@ interface StageColumn {
     </div>
   `
 })
-export class CrmComponent {
+export default class CrmComponent {
   stateService = inject(ErpStateService);
   authService = inject(AuthService);
   shortcutService = inject(KeyboardShortcutsService);

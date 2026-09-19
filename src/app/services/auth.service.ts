@@ -2,6 +2,8 @@ import { Injectable, signal, computed, inject } from '@angular/core';
 import { User, RoleConfig, UserRole, AuthUser } from '../models/erp.models';
 import { HttpClient } from '@angular/common/http';
 import { catchError, map, Observable, of, tap } from 'rxjs';
+import { HttpContext } from '@angular/common/http';
+import { SKIP_AUTH_REFRESH } from './auth-context';
 import { AuditService } from './audit.servie';
 
 export const SYSTEM_ROLES: RoleConfig[] = [
@@ -217,8 +219,9 @@ export class AuthService {
     }
   }
 
-  private usersSignal = signal<User[]>(this.loadStoredUsers());
-  private currentUserSignal = signal<User>(this.loadStoredSession()?.user || this.usersSignal()[0] || DEMO_USERS[0]);
+  private demoUsersSignal = signal<User[]>(this.loadStoredUsers());
+  private usersSignal = signal<User[]>([]);
+  private currentUserSignal = signal<User>(this.loadStoredSession()?.user || this.demoUsersSignal()[0] || DEMO_USERS[0]);
   private tokenSignal = signal<string>('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.nexus_erp_mock_token_2026');
   private isAuthenticatedSignal = signal<boolean>(this.loadStoredSession() !== null);
   private authInitializedSignal = signal<boolean>(false);
@@ -245,7 +248,16 @@ export class AuthService {
 
   // Backward-compatible getter for availableDemoUsers
   get availableDemoUsers(): User[] {
-    return this.usersSignal();
+    return this.demoUsersSignal();
+  }
+
+  loadUsersFromBackend(): Observable<User[]> {
+    return this.http.get<User[]>(`${this.baseUrl}/users`).pipe(
+      tap(users => {
+        if (Array.isArray(users)) this.usersSignal.set(users);
+      }),
+      catchError(() => of([]))
+    );
   }
 
   readonly roles = SYSTEM_ROLES;
@@ -302,12 +314,14 @@ export class AuthService {
       return;
     }
 
-    this.http.post<{ accessToken: string }>(`${this.baseUrl}/auth/refresh`, {}, { withCredentials: true })
-      .subscribe({
-        next: response => {
-          this.tokenSignal.set(response.accessToken);
-          this.persistentToken(response.accessToken);
-          this.persistSession(session.user, response.accessToken);
+    if (this.hasValidAccessToken(session.token)) {
+      this.isAuthenticatedSignal.set(true);
+      this.authInitializedSignal.set(true);
+      return;
+    }
+
+    this.refreshAccessToken().subscribe({
+        next: () => {
           this.isAuthenticatedSignal.set(true);
           this.authInitializedSignal.set(true);
         },
@@ -320,12 +334,60 @@ export class AuthService {
       });
   }
 
+  private hasValidAccessToken(token: string): boolean {
+    try {
+      const encodedPayload = token.split('.')[1]
+        .replace(/-/g, '+')
+        .replace(/_/g, '/');
+      const paddedPayload = encodedPayload.padEnd(Math.ceil(encodedPayload.length / 4) * 4, '=');
+      const payload = JSON.parse(atob(paddedPayload)) as { exp?: number };
+      return typeof payload.exp === 'number' && payload.exp * 1000 > Date.now();
+    } catch {
+      return false;
+    }
+  }
+
   private persistentToken(token: string): void {
-    window.localStorage.setItem('authToken', token);
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem('authToken', token);
+    }
   }
 
   private clearPersistentToken(): void {
-    window.localStorage.removeItem('authToken');
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.removeItem('authToken');
+    }
+  }
+
+  readonly sessionExpired = signal(false);
+
+  refreshAccessToken(): Observable<boolean> {
+    return this.http.post<{ accessToken: string }>(`${this.baseUrl}/auth/refresh`, {}, {
+      withCredentials: true,
+      context: new HttpContext().set(SKIP_AUTH_REFRESH, true),
+    }).pipe(
+      tap(response => {
+        this.tokenSignal.set(response.accessToken);
+        this.persistentToken(response.accessToken);
+        const user = this.currentUserSignal();
+        if (user) this.persistSession(user, response.accessToken);
+      }),
+      map(() => true),
+      catchError(() => of(false))
+    );
+  }
+
+  handleExpiredSession(): void {
+    this.clearPersistentToken();
+    this.clearPersistedSession();
+    this.tokenSignal.set('');
+    this.isAuthenticatedSignal.set(false);
+    this.currentUserSignal.set(null as any);
+    this.sessionExpired.set(true);
+  }
+
+  acknowledgeSessionExpired(): void {
+    this.sessionExpired.set(false);
   }
 
   openChangePasswordModal(user?: User): void {
@@ -408,7 +470,7 @@ export class AuthService {
   } */
 
   loginAsDemoUser(userId: string): { success: boolean; mustChangePassword?: boolean; user?: User } {
-    const user = this.usersSignal().find(u => u.id === userId);
+    const user = this.demoUsersSignal().find(u => u.id === userId);
     if (!user) return { success: false };
 
     if (user.status === 'INACTIVO') {
