@@ -5,11 +5,12 @@ import { ErpStateService } from '../../services/erp-state.service';
 import { AuthService } from '../../services/auth.service';
 import { KeyboardShortcutsService } from '../../services/keyboard-shortcuts.service';
 import { Account, AccountType } from '../../models/erp.models';
+import { DecimalPipe } from '@angular/common'; 
 
 @Component({
   selector: 'app-accounting',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatIconModule, ReactiveFormsModule],
+  imports: [MatIconModule, ReactiveFormsModule, DecimalPipe],
   template: `
     <div class="space-y-6">
       
@@ -46,7 +47,7 @@ import { Account, AccountType } from '../../models/erp.models';
         <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
           <div>
             <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Total Activos (1)</p>
-            <h3 class="text-2xl font-bold text-slate-800 mt-1">\${{ stateService.totalAccountingAssets().toFixed(2) }}</h3>
+            <h3 class="text-2xl font-bold text-slate-800 mt-1">\${{ stateService.totalAccountingAssets() | number:'1.2-2' }}</h3>
             <p class="text-[11px] text-slate-400 font-medium mt-0.5">Bs. {{ (stateService.totalAccountingAssets() * stateService.bcvState().usdRate).toLocaleString('es-VE', { minimumFractionDigits: 2 }) }}</p>
           </div>
           <div class="w-11 h-11 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
@@ -58,7 +59,7 @@ import { Account, AccountType } from '../../models/erp.models';
         <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
           <div>
             <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Total Pasivos (2)</p>
-            <h3 class="text-2xl font-bold text-slate-800 mt-1">\${{ stateService.totalAccountingLiabilities().toFixed(2) }}</h3>
+            <h3 class="text-2xl font-bold text-slate-800 mt-1">\${{ stateService.totalAccountingLiabilities() | number:'1.2-2' }}</h3>
             <p class="text-[11px] text-slate-400 font-medium mt-0.5">Obligaciones y deudas</p>
           </div>
           <div class="w-11 h-11 rounded-xl bg-rose-50 flex items-center justify-center text-rose-600">
@@ -70,7 +71,7 @@ import { Account, AccountType } from '../../models/erp.models';
         <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
           <div>
             <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Patrimonio Neto (3)</p>
-            <h3 class="text-2xl font-bold text-slate-800 mt-1">\${{ stateService.totalAccountingEquity().toFixed(2) }}</h3>
+            <h3 class="text-2xl font-bold text-slate-800 mt-1">\${{ stateService.totalAccountingEquity() | number:'1.2-2' }}</h3>
             <p class="text-[11px] text-emerald-600 font-medium mt-0.5">Capital y reservas</p>
           </div>
           <div class="w-11 h-11 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">
@@ -83,7 +84,7 @@ import { Account, AccountType } from '../../models/erp.models';
           <div>
             <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Utilidad Neta Período</p>
             <h3 class="text-2xl font-bold mt-1" [class]="stateService.netIncomePeriod() >= 0 ? 'text-emerald-700' : 'text-rose-600'">
-              \${{ stateService.netIncomePeriod().toFixed(2) }}
+              \${{ stateService.netIncomePeriod() | number:'1.2-2' }}
             </h3>
             <p class="text-[11px] text-slate-500 font-medium mt-0.5">Ingresos - Costos - Gastos</p>
           </div>
@@ -203,10 +204,10 @@ import { Account, AccountType } from '../../models/erp.models';
                             <td class="py-1.5 px-3 font-sans text-slate-800 font-medium">{{ line.accountName }}</td>
                             <td class="py-1.5 px-3 font-sans text-slate-500 text-[11px]">{{ line.description }}</td>
                             <td class="py-1.5 px-3 text-right font-bold" [class.text-emerald-700]="line.debit > 0">
-                              {{ line.debit > 0 ? ('$' + line.debit.toFixed(2)) : '-' }}
+                              {{ line.debit > 0 ? ('$' + line.debit | number:'.2-2') : '-' }}
                             </td>
                             <td class="py-1.5 px-3 text-right font-bold" [class.text-blue-700]="line.credit > 0">
-                              {{ line.credit > 0 ? ('$' + line.credit.toFixed(2)) : '-' }}
+                              {{ line.credit > 0 ? ('$' + line.credit | number:'.2-2') : '-' }}
                             </td>
                           </tr>
                         }
@@ -214,8 +215,8 @@ import { Account, AccountType } from '../../models/erp.models';
                       <tfoot>
                         <tr class="bg-slate-50/75 font-bold font-mono border-t border-slate-200 text-slate-800">
                           <td colspan="3" class="py-2 px-3 text-right uppercase text-[10px] tracking-wider text-slate-500 font-sans">Sumas Iguales:</td>
-                          <td class="py-2 px-3 text-right text-emerald-800">\${{ entry.totalDebit.toFixed(2) }}</td>
-                          <td class="py-2 px-3 text-right text-blue-800">\${{ entry.totalCredit.toFixed(2) }}</td>
+                          <td class="py-2 px-3 text-right text-emerald-800">\${{ entry.totalDebit | number:'1.2-2' }}</td>
+                          <td class="py-2 px-3 text-right text-blue-800">\${{ entry.totalCredit | number:'1.2-2' }}</td>
                         </tr>
                       </tfoot>
                     </table>
@@ -319,13 +320,13 @@ import { Account, AccountType } from '../../models/erp.models';
                   <div>
                     <div class="flex justify-between font-bold text-slate-800 pb-1 border-b border-slate-200">
                       <span>1. TOTAL ACTIVOS</span>
-                      <span class="font-mono">\${{ stateService.totalAccountingAssets().toFixed(2) }}</span>
+                      <span class="font-mono">\${{ stateService.totalAccountingAssets()  | number: '1.2-2' }}</span>
                     </div>
                     <div class="pl-3 pt-1.5 space-y-1 text-slate-600 font-mono text-[11px]">
                       @for (acc of getAccountsByType('ACTIVO'); track acc.id) {
                         <div class="flex justify-between">
                           <span>{{ acc.code }} {{ acc.name }}</span>
-                          <span>\${{ acc.balance.toFixed(2) }}</span>
+                          <span>\${{ acc.balance  | number: '1.2-2' }}</span>
                         </div>
                       }
                     </div>
@@ -335,13 +336,13 @@ import { Account, AccountType } from '../../models/erp.models';
                   <div class="pt-2">
                     <div class="flex justify-between font-bold text-slate-800 pb-1 border-b border-slate-200">
                       <span>2. TOTAL PASIVOS</span>
-                      <span class="font-mono">\${{ stateService.totalAccountingLiabilities().toFixed(2) }}</span>
+                      <span class="font-mono">\${{ stateService.totalAccountingLiabilities()  | number: '1.2-2' }}</span>
                     </div>
                     <div class="pl-3 pt-1.5 space-y-1 text-slate-600 font-mono text-[11px]">
                       @for (acc of getAccountsByType('PASIVO'); track acc.id) {
                         <div class="flex justify-between">
                           <span>{{ acc.code }} {{ acc.name }}</span>
-                          <span>\${{ acc.balance.toFixed(2) }}</span>
+                          <span>\${{ acc.balance  | number: '1.2-2' }}</span>
                         </div>
                       }
                     </div>
@@ -351,13 +352,13 @@ import { Account, AccountType } from '../../models/erp.models';
                   <div class="pt-2">
                     <div class="flex justify-between font-bold text-slate-800 pb-1 border-b border-slate-200">
                       <span>3. TOTAL PATRIMONIO</span>
-                      <span class="font-mono">\${{ stateService.totalAccountingEquity().toFixed(2) }}</span>
+                      <span class="font-mono">\${{ stateService.totalAccountingEquity()  | number: '1.2-2' }}</span>
                     </div>
                     <div class="pl-3 pt-1.5 space-y-1 text-slate-600 font-mono text-[11px]">
                       @for (acc of getAccountsByType('PATRIMONIO'); track acc.id) {
                         <div class="flex justify-between">
                           <span>{{ acc.code }} {{ acc.name }}</span>
-                          <span>\${{ acc.balance.toFixed(2) }}</span>
+                          <span>\${{ acc.balance  | number: '1.2-2' }}</span>
                         </div>
                       }
                     </div>
@@ -379,27 +380,27 @@ import { Account, AccountType } from '../../models/erp.models';
                   
                   <div class="flex justify-between font-semibold text-slate-700 py-1.5 border-b border-slate-200">
                     <span>(+) Ingresos Operacionales por Ventas (4)</span>
-                    <span class="font-mono font-bold text-teal-700">\${{ stateService.totalAccountingRevenue().toFixed(2) }}</span>
+                    <span class="font-mono font-bold text-teal-700">\${{ stateService.totalAccountingRevenue()  | number: '1.2-2' }}</span>
                   </div>
 
                   <div class="flex justify-between font-semibold text-slate-700 py-1.5 border-b border-slate-200">
                     <span>(-) Costo de Ventas y Producción (5)</span>
-                    <span class="font-mono font-bold text-rose-700">\${{ stateService.totalAccountingCost().toFixed(2) }}</span>
+                    <span class="font-mono font-bold text-rose-700">\${{ stateService.totalAccountingCost()  | number: '1.2-2' }}</span>
                   </div>
 
                   <div class="flex justify-between font-bold text-slate-900 py-2 bg-emerald-50 px-3 rounded-lg border border-emerald-200">
                     <span>(=) Utilidad Bruta en Ventas</span>
-                    <span class="font-mono font-bold text-emerald-800">\${{ (stateService.totalAccountingRevenue() - stateService.totalAccountingCost()).toFixed(2) }}</span>
+                    <span class="font-mono font-bold text-emerald-800">\${{ (stateService.totalAccountingRevenue() - stateService.totalAccountingCost())  | number: '1.2-2' }}</span>
                   </div>
 
                   <div class="flex justify-between font-semibold text-slate-700 py-1.5 border-b border-slate-200">
                     <span>(-) Gastos de Operación y Administración (6)</span>
-                    <span class="font-mono font-bold text-amber-700">\${{ stateService.totalAccountingExpenses().toFixed(2) }}</span>
+                    <span class="font-mono font-bold text-amber-700">\${{ stateService.totalAccountingExpenses()  | number: '1.2-2' }}</span>
                   </div>
 
                   <div class="flex justify-between font-bold text-slate-900 py-2.5 bg-slate-900 text-white px-3 rounded-lg mt-4">
                     <span>(=) UTILIDAD NETA DEL EJERCICIO</span>
-                    <span class="font-mono text-emerald-400 text-sm">\${{ stateService.netIncomePeriod().toFixed(2) }}</span>
+                    <span class="font-mono text-emerald-400 text-sm">\${{ stateService.netIncomePeriod()  | number: '1.2-2' }}</span>
                   </div>
 
                 </div>
@@ -472,9 +473,9 @@ import { Account, AccountType } from '../../models/erp.models';
               <div class="p-3 rounded-xl border flex items-center justify-between font-mono font-bold text-xs"
                 [class]="isBalanced() ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800'">
                 <div>
-                  <span>Total Debe: \${{ formTotalDebit().toFixed(2) }}</span>
+                  <span>Total Debe: \${{ formTotalDebit()  | number: '1.2-2' }}</span>
                   <span class="mx-3">|</span>
-                  <span>Total Haber: \${{ formTotalCredit().toFixed(2) }}</span>
+                  <span>Total Haber: \${{ formTotalCredit()  | number: '1.2-2' }}</span>
                 </div>
                 <div>
                   @if (isBalanced()) {
@@ -485,7 +486,7 @@ import { Account, AccountType } from '../../models/erp.models';
                   } @else {
                     <span class="text-rose-700 flex items-center space-x-1">
                       <mat-icon class="text-xs">error</mat-icon>
-                      <span>DIFERENCIA: \${{ Math.abs(formTotalDebit() - formTotalCredit()).toFixed(2) }}</span>
+                      <span>DIFERENCIA: \${{ Math.abs(formTotalDebit() - formTotalCredit())  | number: '1.2-2' }}</span>
                     </span>
                   }
                 </div>

@@ -10,6 +10,7 @@ import {
   Invoice,
   PurchaseOrder
 } from '../../models/erp.models';
+import { DecimalPipe } from '@angular/common';
 
 export type TreasurySubTab = 'overview' | 'bank-accounts' | 'cxc' | 'cxp' | 'transactions';
 
@@ -45,7 +46,7 @@ export interface DetailItemRow {
 @Component({
   selector: 'app-treasury',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatIconModule, ReactiveFormsModule],
+  imports: [MatIconModule, ReactiveFormsModule, DecimalPipe],
   template: `
     <div class="space-y-6">
       
@@ -327,7 +328,7 @@ export interface DetailItemRow {
                     </div>
 
                     <div class="text-right flex flex-col items-end">
-                      <p class="text-xs font-bold text-slate-900">\${{ cxc.balanceUsd.toFixed(2) }}</p>
+                      <p class="text-xs font-bold text-slate-900">\${{ cxc.balanceUsd  | number: '1.2-2' }}</p>
                       <p class="text-[10px] text-slate-500">Bs. {{ cxc.balanceVes.toLocaleString('es-VE', { minimumFractionDigits: 2 }) }}</p>
                       <div class="flex items-center space-x-1.5 mt-1">
                         <button 
@@ -392,7 +393,7 @@ export interface DetailItemRow {
                     </div>
 
                     <div class="text-right flex flex-col items-end">
-                      <p class="text-xs font-bold text-slate-900">\${{ bill.balanceUsd.toFixed(2) }}</p>
+                      <p class="text-xs font-bold text-slate-900">\${{ bill.balanceUsd  | number: '1.2-2' }}</p>
                       <p class="text-[10px] text-slate-500">Bs. {{ bill.balanceVes.toLocaleString('es-VE', { minimumFractionDigits: 2 }) }}</p>
                       <div class="flex items-center space-x-1.5 mt-1">
                         <button 
@@ -587,13 +588,13 @@ export interface DetailItemRow {
                         {{ cxc.dueDate }}
                       </td>
                       <td class="py-3.5 px-4 text-right font-bold text-slate-900">
-                        \${{ cxc.totalUsd.toFixed(2) }}
+                        \${{ cxc.totalUsd  | number: '1.2-2' }}
                       </td>
                       <td class="py-3.5 px-4 text-right text-emerald-600 font-semibold">
-                        \${{ cxc.paidUsd.toFixed(2) }}
+                        \${{ cxc.paidUsd  | number: '1.2-2' }}
                       </td>
                       <td class="py-3.5 px-4 text-right font-extrabold" [class]="cxc.balanceUsd > 0 ? 'text-amber-600' : 'text-slate-400'">
-                        \${{ cxc.balanceUsd.toFixed(2) }}
+                        \${{ cxc.balanceUsd  | number: '1.2-2' }}
                         <span class="block text-[10px] text-slate-400 font-normal">Bs. {{ cxc.balanceVes.toLocaleString('es-VE', { minimumFractionDigits: 2 }) }}</span>
                       </td>
                       <td class="py-3.5 px-4 text-center">
@@ -729,13 +730,13 @@ export interface DetailItemRow {
                         {{ bill.dueDate }}
                       </td>
                       <td class="py-3.5 px-4 text-right font-bold text-slate-900">
-                        \${{ bill.totalAmountUsd.toFixed(2) }}
+                        \${{ bill.totalAmountUsd  | number: '1.2-2' }}
                       </td>
                       <td class="py-3.5 px-4 text-right text-emerald-600 font-semibold">
-                        \${{ bill.paidAmountUsd.toFixed(2) }}
+                        \${{ bill.paidAmountUsd  | number: '1.2-2' }}
                       </td>
                       <td class="py-3.5 px-4 text-right font-extrabold" [class]="bill.balanceUsd > 0 ? 'text-amber-600' : 'text-slate-400'">
-                        \${{ bill.balanceUsd.toFixed(2) }}
+                        \${{ bill.balanceUsd  | number: '1.2-2' }}
                         <span class="block text-[10px] text-slate-400 font-normal">Bs. {{ bill.balanceVes.toLocaleString('es-VE', { minimumFractionDigits: 2 }) }}</span>
                       </td>
                       <td class="py-3.5 px-4 text-center">
@@ -837,7 +838,7 @@ export interface DetailItemRow {
                         {{ tx.paymentMethod }} ({{ tx.referenceNumber || 'N/A' }})
                       </td>
                       <td class="py-3.5 px-4 text-right font-bold text-slate-900">
-                        \${{ tx.amountUsd.toFixed(2) }}
+                        \${{ tx.amountUsd  | number: '1.2-2' }}
                       </td>
                       <td class="py-3.5 px-4 text-right font-medium text-slate-600">
                         Bs. {{ tx.amountVes.toLocaleString('es-VE', { minimumFractionDigits: 2 }) }}
@@ -887,11 +888,11 @@ export interface DetailItemRow {
             <div class="bg-slate-50 p-3 rounded-2xl border border-slate-200/80 flex items-center justify-between">
               <div>
                 <p class="text-[10px] uppercase font-semibold text-slate-400">Saldo Pendiente</p>
-                <p class="text-lg font-bold text-slate-900">\${{ selectedCxc()?.balanceUsd?.toFixed(2) }}</p>
+                <p class="text-lg font-bold text-slate-900">\${{ selectedCxc()?.balanceUsd  | number: '1.2-2' }}</p>
               </div>
               <div class="text-right">
                 <p class="text-[10px] uppercase font-semibold text-slate-400">Tasa Oficial BCV</p>
-                <p class="text-xs font-mono font-bold text-sky-600">Bs. {{ stateService.bcvState().usdRate.toFixed(2) }} / USD</p>
+                <p class="text-xs font-mono font-bold text-sky-600">Bs. {{ stateService.bcvState().usdRate  | number: '1.2-2' }} / USD</p>
               </div>
             </div>
 
@@ -929,7 +930,7 @@ export interface DetailItemRow {
                 formControlName="bankAccountId" 
                 class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800">
                 @for (bank of stateService.bankAccounts(); track bank.id) {
-                  <option [value]="bank.id">{{ bank.accountName }} ({{ bank.currency }}) - Saldo: {{ bank.currency === 'VES' ? 'Bs. ' : '$' }}{{ bank.balance.toFixed(2) }}</option>
+                  <option [value]="bank.id">{{ bank.accountName }} ({{ bank.currency }}) - Saldo: {{ bank.currency === 'VES' ? 'Bs. ' : '$' }}{{ bank.balance  | number: '1.2-2' }}</option>
                 }
               </select>
             </div>
@@ -999,11 +1000,11 @@ export interface DetailItemRow {
             <div class="bg-slate-50 p-3 rounded-2xl border border-slate-200/80 flex items-center justify-between">
               <div>
                 <p class="text-[10px] uppercase font-semibold text-slate-400">Saldo por Pagar</p>
-                <p class="text-lg font-bold text-slate-900">\${{ selectedBill()?.balanceUsd?.toFixed(2) }}</p>
+                <p class="text-lg font-bold text-slate-900">\${{ selectedBill()?.balanceUsd  | number: '1.2-2' }}</p>
               </div>
               <div class="text-right">
                 <p class="text-[10px] uppercase font-semibold text-slate-400">Tasa Oficial BCV</p>
-                <p class="text-xs font-mono font-bold text-sky-600">Bs. {{ stateService.bcvState().usdRate.toFixed(2) }} / USD</p>
+                <p class="text-xs font-mono font-bold text-sky-600">Bs. {{ stateService.bcvState().usdRate  | number: '1.2-2' }} / USD</p>
               </div>
             </div>
 
@@ -1040,7 +1041,7 @@ export interface DetailItemRow {
                 formControlName="bankAccountId" 
                 class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500 text-slate-800">
                 @for (bank of stateService.bankAccounts(); track bank.id) {
-                  <option [value]="bank.id">{{ bank.accountName }} ({{ bank.currency }}) - Saldo: {{ bank.currency === 'VES' ? 'Bs. ' : '$' }}{{ bank.balance.toFixed(2) }}</option>
+                  <option [value]="bank.id">{{ bank.accountName }} ({{ bank.currency }}) - Saldo: {{ bank.currency === 'VES' ? 'Bs. ' : '$' }}{{ bank.balance  | number: '1.2-2' }}</option>
                 }
               </select>
             </div>
@@ -1234,7 +1235,7 @@ export interface DetailItemRow {
                 formControlName="sourceBankAccountId" 
                 class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800">
                 @for (bank of stateService.bankAccounts(); track bank.id) {
-                  <option [value]="bank.id">{{ bank.accountName }} ({{ bank.currency }}) - Disp: {{ bank.currency === 'VES' ? 'Bs. ' : '$' }}{{ bank.balance.toFixed(2) }}</option>
+                  <option [value]="bank.id">{{ bank.accountName }} ({{ bank.currency }}) - Disp: {{ bank.currency === 'VES' ? 'Bs. ' : '$' }}{{ bank.balance  | number: '1.2-2' }}</option>
                 }
               </select>
             </div>
@@ -1246,7 +1247,7 @@ export interface DetailItemRow {
                 formControlName="destinationBankAccountId" 
                 class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800">
                 @for (bank of stateService.bankAccounts(); track bank.id) {
-                  <option [value]="bank.id">{{ bank.accountName }} ({{ bank.currency }}) - Disp: {{ bank.currency === 'VES' ? 'Bs. ' : '$' }}{{ bank.balance.toFixed(2) }}</option>
+                  <option [value]="bank.id">{{ bank.accountName }} ({{ bank.currency }}) - Disp: {{ bank.currency === 'VES' ? 'Bs. ' : '$' }}{{ bank.balance  | number: '1.2-2' }}</option>
                 }
               </select>
             </div>
@@ -1515,7 +1516,7 @@ export interface DetailItemRow {
                   <span>Registrar Cobro</span>
                 </button>
               }
-              <span class="text-xs text-slate-500 font-medium">Tasa Oficial BCV: <strong class="text-sky-700 font-mono">Bs. {{ (selectedCxcDetailInvoice()?.bcvRate || stateService.bcvState().usdRate).toFixed(2) }} / USD</strong></span>
+              <span class="text-xs text-slate-500 font-medium">Tasa Oficial BCV: <strong class="text-sky-700 font-mono">Bs. {{ (selectedCxcDetailInvoice()?.bcvRate || stateService.bcvState().usdRate)  | number: '1.2-2' }} / USD</strong></span>
             </div>
 
             <!-- Navegación de Sub-Pestañas del Documento -->
@@ -1573,15 +1574,15 @@ export interface DetailItemRow {
                   <p class="text-[10px] uppercase font-bold text-slate-400">Estado de Saldo CxC</p>
                   <div class="flex items-baseline space-x-2 mt-1">
                     <span class="text-lg font-black" [class]="(selectedCxcItem()?.balanceUsd || 0) > 0 ? 'text-amber-600' : 'text-emerald-600'">
-                      \${{ (selectedCxcItem()?.balanceUsd || 0).toFixed(2) }}
+                      \${{ (selectedCxcItem()?.balanceUsd || 0)  | number: '1.2-2' }}
                     </span>
                     <span class="text-[10px] text-slate-400">saldo pendiente</span>
                   </div>
                   <p class="text-[11px] text-slate-500 font-mono">Bs. {{ (selectedCxcItem()?.balanceVes || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 }) }}</p>
                 </div>
                 <div class="mt-2 pt-2 border-t border-slate-100 text-[10px] flex justify-between text-slate-500">
-                  <span>Facturado: <strong>\${{ (selectedCxcItem()?.totalUsd || 0).toFixed(2) }}</strong></span>
-                  <span>Cobrado: <strong class="text-emerald-600">\${{ (selectedCxcItem()?.paidUsd || 0).toFixed(2) }}</strong></span>
+                  <span>Facturado: <strong>\${{ (selectedCxcItem()?.totalUsd || 0)  | number: '1.2-2' }}</strong></span>
+                  <span>Cobrado: <strong class="text-emerald-600">\${{ (selectedCxcItem()?.paidUsd || 0)  | number: '1.2-2' }}</strong></span>
                 </div>
               </div>
             </div>
@@ -1608,10 +1609,10 @@ export interface DetailItemRow {
                           <td class="py-2.5 px-3 font-semibold text-slate-900">{{ item.productName }}</td>
                           <td class="py-2.5 px-3 font-mono text-[11px] text-slate-500">{{ item.sku }}</td>
                           <td class="py-2.5 px-3 text-right font-mono">{{ item.quantity }}</td>
-                          <td class="py-2.5 px-3 text-right font-mono">\${{ item.unitPrice.toFixed(2) }}</td>
+                          <td class="py-2.5 px-3 text-right font-mono">\${{ item.unitPrice  | number: '1.2-2' }}</td>
                           <td class="py-2.5 px-3 text-right text-slate-400 font-mono">{{ item.discountPercent || 0 }}%</td>
                           <td class="py-2.5 px-3 text-right text-slate-500 font-mono">{{ item.taxRate ? (item.taxRate * 100).toFixed(0) : '16' }}%</td>
-                          <td class="py-2.5 px-3 text-right font-bold text-slate-900 font-mono">\${{ item.total.toFixed(2) }}</td>
+                          <td class="py-2.5 px-3 text-right font-bold text-slate-900 font-mono">\${{ item.total  | number: '1.2-2' }}</td>
                         </tr>
                       }
                     </tbody>
@@ -1623,22 +1624,22 @@ export interface DetailItemRow {
                   <div class="w-full sm:w-80 bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2 text-xs">
                     <div class="flex justify-between text-slate-600">
                       <span>Base Gravada (16%):</span>
-                      <span class="font-mono font-semibold">\${{ (selectedCxcDetailInvoice()?.taxDetails?.taxableBase || (selectedCxcItem()?.totalUsd || 0) / 1.16).toFixed(2) }}</span>
+                      <span class="font-mono font-semibold">\${{ (selectedCxcDetailInvoice()?.taxDetails?.taxableBase || (selectedCxcItem()?.totalUsd || 0) / 1.16)  | number: '1.2-2' }}</span>
                     </div>
                     <div class="flex justify-between text-slate-600">
                       <span>Débito Fiscal IVA (16%):</span>
-                      <span class="font-mono font-semibold">\${{ (selectedCxcDetailInvoice()?.taxDetails?.ivaAmount || (selectedCxcItem()?.totalUsd || 0) - ((selectedCxcItem()?.totalUsd || 0) / 1.16)).toFixed(2) }}</span>
+                      <span class="font-mono font-semibold">\${{ (selectedCxcDetailInvoice()?.taxDetails?.ivaAmount || (selectedCxcItem()?.totalUsd || 0) - ((selectedCxcItem()?.totalUsd || 0) / 1.16))  | number: '1.2-2' }}</span>
                     </div>
                     @if (selectedCxcDetailInvoice()?.taxDetails?.igtfAmount) {
                       <div class="flex justify-between text-slate-600">
                         <span>IGTF (3% Divisas):</span>
-                        <span class="font-mono font-semibold">\${{ selectedCxcDetailInvoice()?.taxDetails?.igtfAmount?.toFixed(2) }}</span>
+                        <span class="font-mono font-semibold">\${{ selectedCxcDetailInvoice()?.taxDetails?.igtfAmount  | number: '1.2-2' }}</span>
                       </div>
                     }
                     <div class="pt-2 border-t border-slate-200 flex justify-between items-baseline font-bold text-slate-900 text-sm">
                       <span>Total Facturado:</span>
                       <div class="text-right">
-                        <span class="font-mono text-base text-emerald-700">\${{ (selectedCxcDetailInvoice()?.total || selectedCxcItem()?.totalUsd || 0).toFixed(2) }}</span>
+                        <span class="font-mono text-base text-emerald-700">\${{ (selectedCxcDetailInvoice()?.total || selectedCxcItem()?.totalUsd || 0)  | number: '1.2-2' }}</span>
                         <span class="block text-[10px] text-slate-400 font-normal">Bs. {{ (selectedCxcDetailInvoice()?.totalVes || selectedCxcItem()?.totalVes || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 }) }}</span>
                       </div>
                     </div>
@@ -1677,7 +1678,7 @@ export interface DetailItemRow {
                           <td class="py-2.5 px-3">{{ tx.paymentMethod }}</td>
                           <td class="py-2.5 px-3 text-slate-600">{{ tx.bankAccountName }}</td>
                           <td class="py-2.5 px-3 font-mono text-[11px]">{{ tx.referenceNumber || 'N/A' }}</td>
-                          <td class="py-2.5 px-3 text-right font-bold text-emerald-600 font-mono">\${{ tx.amountUsd.toFixed(2) }}</td>
+                          <td class="py-2.5 px-3 text-right font-bold text-emerald-600 font-mono">\${{ tx.amountUsd  | number: '1.2-2' }}</td>
                           <td class="py-2.5 px-3 text-right font-mono text-slate-500">Bs. {{ tx.amountVes.toLocaleString('es-VE', { minimumFractionDigits: 2 }) }}</td>
                           <td class="py-2.5 px-3 text-center">
                             <span class="px-2 py-0.5 text-[9px] font-bold rounded-full bg-emerald-100 text-emerald-800">
@@ -1700,10 +1701,10 @@ export interface DetailItemRow {
                 <div class="bg-emerald-50/60 border border-emerald-200/80 p-4 rounded-2xl flex items-center justify-between text-xs">
                   <div class="flex items-center space-x-2">
                     <mat-icon class="text-emerald-600">verified</mat-icon>
-                    <span class="font-medium text-emerald-900">Total Recaudado: <strong class="font-mono">\${{ (selectedCxcItem()?.paidUsd || 0).toFixed(2) }}</strong> (Bs. {{ (selectedCxcItem()?.paidVes || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 }) }})</span>
+                    <span class="font-medium text-emerald-900">Total Recaudado: <strong class="font-mono">\${{ (selectedCxcItem()?.paidUsd || 0)  | number: '1.2-2' }}</strong> (Bs. {{ (selectedCxcItem()?.paidVes || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 }) }})</span>
                   </div>
                   <div class="font-bold text-slate-700">
-                    Remanente pendiente: <span class="font-mono text-amber-700">\${{ (selectedCxcItem()?.balanceUsd || 0).toFixed(2) }}</span>
+                    Remanente pendiente: <span class="font-mono text-amber-700">\${{ (selectedCxcItem()?.balanceUsd || 0)  | number: '1.2-2' }}</span>
                   </div>
                 </div>
               </div>
@@ -1737,10 +1738,10 @@ export interface DetailItemRow {
                           <td class="py-2.5 px-3 font-semibold text-slate-900">{{ line.accountName }}</td>
                           <td class="py-2.5 px-3 text-slate-500">{{ line.description }}</td>
                           <td class="py-2.5 px-3 text-right font-mono font-bold" [class]="line.debit > 0 ? 'text-slate-900' : 'text-slate-300'">
-                            \${{ line.debit.toFixed(2) }}
+                            \${{ line.debit  | number: '1.2-2' }}
                           </td>
                           <td class="py-2.5 px-3 text-right font-mono font-bold" [class]="line.credit > 0 ? 'text-slate-900' : 'text-slate-300'">
-                            \${{ line.credit.toFixed(2) }}
+                            \${{ line.credit  | number: '1.2-2' }}
                           </td>
                         </tr>
                       }
@@ -1829,7 +1830,7 @@ export interface DetailItemRow {
                   <span>Registrar Pago a Proveedor</span>
                 </button>
               }
-              <span class="text-xs text-slate-500 font-medium">Tasa Oficial BCV: <strong class="text-sky-700 font-mono">Bs. {{ stateService.bcvState().usdRate.toFixed(2) }} / USD</strong></span>
+              <span class="text-xs text-slate-500 font-medium">Tasa Oficial BCV: <strong class="text-sky-700 font-mono">Bs. {{ stateService.bcvState().usdRate  | number: '1.2-2' }} / USD</strong></span>
             </div>
 
             <!-- Navegación de Sub-Pestañas del Documento -->
@@ -1887,15 +1888,15 @@ export interface DetailItemRow {
                   <p class="text-[10px] uppercase font-bold text-slate-400">Estado de Saldo CxP</p>
                   <div class="flex items-baseline space-x-2 mt-1">
                     <span class="text-lg font-black" [class]="(selectedCxpBill()?.balanceUsd || 0) > 0 ? 'text-amber-600' : 'text-emerald-600'">
-                      \${{ (selectedCxpBill()?.balanceUsd || 0).toFixed(2) }}
+                      \${{ (selectedCxpBill()?.balanceUsd || 0)  | number: '1.2-2' }}
                     </span>
                     <span class="text-[10px] text-slate-400">por liquidar</span>
                   </div>
                   <p class="text-[11px] text-slate-500 font-mono">Bs. {{ (selectedCxpBill()?.balanceVes || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 }) }}</p>
                 </div>
                 <div class="mt-2 pt-2 border-t border-slate-100 text-[10px] flex justify-between text-slate-500">
-                  <span>Facturado: <strong>\${{ (selectedCxpBill()?.totalAmountUsd || 0).toFixed(2) }}</strong></span>
-                  <span>Pagado: <strong class="text-emerald-600">\${{ (selectedCxpBill()?.paidAmountUsd || 0).toFixed(2) }}</strong></span>
+                  <span>Facturado: <strong>\${{ (selectedCxpBill()?.totalAmountUsd || 0)  | number: '1.2-2' }}</strong></span>
+                  <span>Pagado: <strong class="text-emerald-600">\${{ (selectedCxpBill()?.paidAmountUsd || 0)  | number: '1.2-2' }}</strong></span>
                 </div>
               </div>
             </div>
@@ -1922,9 +1923,9 @@ export interface DetailItemRow {
                             <td class="py-2.5 px-3 font-semibold text-slate-900">{{ it.productName }}</td>
                             <td class="py-2.5 px-3 font-mono text-[11px] text-slate-500">{{ it.sku }}</td>
                             <td class="py-2.5 px-3 text-right font-mono">{{ it.quantity }}</td>
-                            <td class="py-2.5 px-3 text-right font-mono">\${{ it.unitCost.toFixed(2) }}</td>
+                            <td class="py-2.5 px-3 text-right font-mono">\${{ it.unitCost  | number: '1.2-2' }}</td>
                             <td class="py-2.5 px-3 text-right text-slate-500 font-mono">{{ it.taxRate ? (it.taxRate * 100).toFixed(0) : '16' }}%</td>
-                            <td class="py-2.5 px-3 text-right font-bold text-slate-900 font-mono">\${{ (it.quantity * it.unitCost).toFixed(2) }}</td>
+                            <td class="py-2.5 px-3 text-right font-bold text-slate-900 font-mono">\${{ (it.quantity * it.unitCost)  | number: '1.2-2' }}</td>
                           </tr>
                         }
                       </tbody>
@@ -1954,7 +1955,7 @@ export interface DetailItemRow {
                   <div class="w-full sm:w-80 bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2 text-xs">
                     <div class="flex justify-between text-slate-600">
                       <span>Total Factura Proveedor (USD):</span>
-                      <span class="font-mono font-bold text-slate-900 text-sm">\${{ (selectedCxpBill()?.totalAmountUsd || 0).toFixed(2) }}</span>
+                      <span class="font-mono font-bold text-slate-900 text-sm">\${{ (selectedCxpBill()?.totalAmountUsd || 0)  | number: '1.2-2' }}</span>
                     </div>
                     <div class="flex justify-between text-slate-600">
                       <span>Equivalente Oficial (VES):</span>
@@ -1962,7 +1963,7 @@ export interface DetailItemRow {
                     </div>
                     <div class="pt-2 border-t border-slate-200 flex justify-between items-baseline font-bold text-slate-900">
                       <span>Saldo Pendiente:</span>
-                      <span class="font-mono text-amber-700 text-base">\${{ (selectedCxpBill()?.balanceUsd || 0).toFixed(2) }}</span>
+                      <span class="font-mono text-amber-700 text-base">\${{ (selectedCxpBill()?.balanceUsd || 0)  | number: '1.2-2' }}</span>
                     </div>
                   </div>
                 </div>
@@ -1999,7 +2000,7 @@ export interface DetailItemRow {
                           <td class="py-2.5 px-3">{{ tx.paymentMethod }}</td>
                           <td class="py-2.5 px-3 text-slate-600">{{ tx.bankAccountName }}</td>
                           <td class="py-2.5 px-3 font-mono text-[11px]">{{ tx.referenceNumber || 'N/A' }}</td>
-                          <td class="py-2.5 px-3 text-right font-bold text-amber-600 font-mono">\${{ tx.amountUsd.toFixed(2) }}</td>
+                          <td class="py-2.5 px-3 text-right font-bold text-amber-600 font-mono">\${{ tx.amountUsd  | number: '1.2-2' }}</td>
                           <td class="py-2.5 px-3 text-right font-mono text-slate-500">Bs. {{ tx.amountVes.toLocaleString('es-VE', { minimumFractionDigits: 2 }) }}</td>
                           <td class="py-2.5 px-3 text-center">
                             <span class="px-2 py-0.5 text-[9px] font-bold rounded-full bg-amber-100 text-amber-800">
@@ -2022,10 +2023,10 @@ export interface DetailItemRow {
                 <div class="bg-amber-50/60 border border-amber-200/80 p-4 rounded-2xl flex items-center justify-between text-xs">
                   <div class="flex items-center space-x-2">
                     <mat-icon class="text-amber-600">verified</mat-icon>
-                    <span class="font-medium text-amber-900">Total Liquidado: <strong class="font-mono">\${{ (selectedCxpBill()?.paidAmountUsd || 0).toFixed(2) }}</strong> (Bs. {{ (selectedCxpBill()?.paidAmountVes || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 }) }})</span>
+                    <span class="font-medium text-amber-900">Total Liquidado: <strong class="font-mono">\${{ (selectedCxpBill()?.paidAmountUsd || 0)  | number: '1.2-2' }}</strong> (Bs. {{ (selectedCxpBill()?.paidAmountVes || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 }) }})</span>
                   </div>
                   <div class="font-bold text-slate-700">
-                    Saldo Restante Adeudado: <span class="font-mono text-rose-700">\${{ (selectedCxpBill()?.balanceUsd || 0).toFixed(2) }}</span>
+                    Saldo Restante Adeudado: <span class="font-mono text-rose-700">\${{ (selectedCxpBill()?.balanceUsd || 0)  | number: '1.2-2' }}</span>
                   </div>
                 </div>
               </div>
@@ -2059,10 +2060,10 @@ export interface DetailItemRow {
                           <td class="py-2.5 px-3 font-semibold text-slate-900">{{ line.accountName }}</td>
                           <td class="py-2.5 px-3 text-slate-500">{{ line.description }}</td>
                           <td class="py-2.5 px-3 text-right font-mono font-bold" [class]="line.debit > 0 ? 'text-slate-900' : 'text-slate-300'">
-                            \${{ line.debit.toFixed(2) }}
+                            \${{ line.debit  | number: '1.2-2' }}
                           </td>
                           <td class="py-2.5 px-3 text-right font-mono font-bold" [class]="line.credit > 0 ? 'text-slate-900' : 'text-slate-300'">
-                            \${{ line.credit.toFixed(2) }}
+                            \${{ line.credit  | number: '1.2-2' }}
                           </td>
                         </tr>
                       }

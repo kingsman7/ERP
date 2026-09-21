@@ -14,6 +14,7 @@ import {
   PriceLevelKey 
 } from '../../models/erp.models';
 import { exportSalesToCsv, exportSaleItemLinesToCsv } from '../../utils/csv-exporter';
+import { DecimalPipe } from '@angular/common';
 
 interface CartItem {
   product: Product;
@@ -25,7 +26,7 @@ interface CartItem {
 @Component({
   selector: 'app-sales-pos',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, FormsModule, MatIconModule],
+  imports: [ReactiveFormsModule, FormsModule, MatIconModule, DecimalPipe],
   template: `
     <div class="space-y-4 pb-12">
       
@@ -97,9 +98,9 @@ interface CartItem {
               </span>
               <div class="flex flex-col">
                 <div class="flex items-center space-x-1.5 font-mono font-bold text-slate-800 text-[11px]">
-                  <span>USD: Bs. {{ stateService.bcvState().usdRate.toFixed(2) }}</span>
+                  <span>USD: Bs. {{ stateService.bcvState().usdRate  | number: '1.2-2' }}</span>
                   <span class="text-slate-300">|</span>
-                  <span>EUR: Bs. {{ stateService.bcvState().eurRate.toFixed(2) }}</span>
+                  <span>EUR: Bs. {{ stateService.bcvState().eurRate  | number: '1.2-2' }}</span>
                 </div>
                 <span class="text-[9px] text-slate-400">
                   {{ stateService.bcvState().origin === 'API_BCV' ? 'BCV Oficial ' + stateService.bcvState().bcvOfficialDate : 'Tasa Manual' }}
@@ -231,10 +232,10 @@ interface CartItem {
                         {{ selectedPriceTierLabel() }}
                       </span>
                       <span class="text-sm font-mono font-bold text-slate-900">
-                        \${{ getAppliedProductPrice(product).toFixed(2) }}
+                        \${{ getAppliedProductPrice(product)  | number: '1.2-2' }}
                       </span>
                       <span class="text-[10px] font-mono text-emerald-700 block">
-                        Bs. {{ (getAppliedProductPrice(product) * stateService.bcvState().usdRate).toFixed(2) }}
+                        Bs. {{ (getAppliedProductPrice(product) * stateService.bcvState().usdRate)  | number: '1.2-2' }}
                       </span>
                     </div>
 
@@ -324,9 +325,9 @@ interface CartItem {
                         }
                       </div>
                       <div class="flex items-center space-x-2 mt-0.5 text-[11px] text-slate-500">
-                        <span class="font-mono">\${{ getItemUnitPrice(item).toFixed(2) }} c/u</span>
+                        <span class="font-mono">\${{ getItemUnitPrice(item)  | number: '1.2-2' }} c/u</span>
                         <span>•</span>
-                        <span class="font-mono text-emerald-700">Bs. {{ (getItemUnitPrice(item) * stateService.bcvState().usdRate).toFixed(2) }}</span>
+                        <span class="font-mono text-emerald-700">Bs. {{ (getItemUnitPrice(item) * stateService.bcvState().usdRate)  | number: '1.2-2' }}</span>
                       </div>
                     </div>
 
@@ -348,7 +349,7 @@ interface CartItem {
                     <!-- Item Subtotal -->
                     <div class="text-right min-w-[65px]">
                       <span class="font-mono font-bold text-xs text-slate-900 block">
-                        \${{ getItemSubtotal(item).toFixed(2) }}
+                        \${{ getItemSubtotal(item)  | number: '1.2-2' }}
                       </span>
                       <button 
                         (click)="removeItem(item.product.id)"
@@ -398,24 +399,24 @@ interface CartItem {
 
                 <div class="flex justify-between text-slate-500">
                   <span>Subtotal Bruto:</span>
-                  <span class="font-mono font-medium text-slate-800">\${{ cartSubtotalGross().toFixed(2) }}</span>
+                  <span class="font-mono font-medium text-slate-800">\${{ cartSubtotalGross()  | number: '1.2-2' }}</span>
                 </div>
 
                 @if (computedTaxDetails().exemptBase > 0) {
                   <div class="flex justify-between text-amber-700">
                     <span>Base Exenta (0% IVA):</span>
-                    <span class="font-mono font-medium">\${{ computedTaxDetails().exemptBase.toFixed(2) }}</span>
+                    <span class="font-mono font-medium">\${{ computedTaxDetails().exemptBase  | number: '1.2-2' }}</span>
                   </div>
                 }
 
                 <div class="flex justify-between text-slate-500">
                   <span>Base Gravable (IVA {{ (selectedIvaRate() * 100).toFixed(0) }}%):</span>
-                  <span class="font-mono font-medium text-slate-800">\${{ computedTaxDetails().taxableBase.toFixed(2) }}</span>
+                  <span class="font-mono font-medium text-slate-800">\${{ computedTaxDetails().taxableBase  | number: '1.2-2' }}</span>
                 </div>
 
                 <div class="flex justify-between text-slate-500">
                   <span>Impuesto IVA Liquidado:</span>
-                  <span class="font-mono font-medium text-slate-800">\${{ computedTaxDetails().ivaAmount.toFixed(2) }}</span>
+                  <span class="font-mono font-medium text-slate-800">\${{ computedTaxDetails().ivaAmount  | number: '1.2-2' }}</span>
                 </div>
 
                 <!-- IGTF Alert & SENIAT Status -->
@@ -426,11 +427,11 @@ interface CartItem {
                         <mat-icon class="text-xs">account_balance</mat-icon>
                         <span>Percepción IGTF 3% (Divisas / SENIAT):</span>
                       </span>
-                      <span class="block text-[9px] text-indigo-500 font-normal">Base imponible: \${{ computedTaxDetails().igtfBase.toFixed(2) }}</span>
+                      <span class="block text-[9px] text-indigo-500 font-normal">Base imponible: \${{ computedTaxDetails().igtfBase  | number: '1.2-2' }}</span>
                     </div>
                     <div class="text-right">
-                      <span class="font-mono font-bold text-xs">\${{ computedTaxDetails().igtfAmount.toFixed(2) }}</span>
-                      <span class="block text-[9px] text-indigo-600 font-mono">Bs. {{ (computedTaxDetails().igtfAmount * stateService.bcvState().usdRate).toFixed(2) }}</span>
+                      <span class="font-mono font-bold text-xs">\${{ computedTaxDetails().igtfAmount  | number: '1.2-2' }}</span>
+                      <span class="block text-[9px] text-indigo-600 font-mono">Bs. {{ (computedTaxDetails().igtfAmount * stateService.bcvState().usdRate)  | number: '1.2-2' }}</span>
                     </div>
                   </div>
                 } @else {
@@ -457,7 +458,7 @@ interface CartItem {
                   <div class="flex justify-between items-baseline">
                     <span class="font-bold text-slate-900 text-sm">TOTAL A COBRAR:</span>
                     <div class="text-right">
-                      <span class="font-mono font-bold text-lg text-emerald-600">\${{ grandTotalUsd().toFixed(2) }}</span>
+                      <span class="font-mono font-bold text-lg text-emerald-600">\${{ grandTotalUsd()  | number: '1.2-2' }}</span>
                       <span class="block font-mono font-bold text-xs text-slate-700">
                         Bs. {{ grandTotalVes().toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
                       </span>
@@ -526,7 +527,7 @@ interface CartItem {
             
             <div class="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-xs">
               <span class="text-[11px] font-medium text-slate-500 block">Total Facturado ($ USD)</span>
-              <p class="text-lg font-bold font-mono text-emerald-700 mt-0.5">\${{ totalFilteredUsd().toFixed(2) }}</p>
+              <p class="text-lg font-bold font-mono text-emerald-700 mt-0.5">\${{ totalFilteredUsd()  | number: '1.2-2' }}</p>
               <span class="text-[10px] text-slate-400 font-mono">
                 Bs. {{ totalFilteredVes().toLocaleString('es-VE', { minimumFractionDigits: 2 }) }}
               </span>
@@ -534,13 +535,13 @@ interface CartItem {
 
             <div class="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-xs">
               <span class="text-[11px] font-medium text-slate-500 block">Total IVA Recaudado ($)</span>
-              <p class="text-lg font-bold font-mono text-slate-900 mt-0.5">\${{ totalFilteredIvaUsd().toFixed(2) }}</p>
+              <p class="text-lg font-bold font-mono text-slate-900 mt-0.5">\${{ totalFilteredIvaUsd()  | number: '1.2-2' }}</p>
               <span class="text-[10px] text-slate-400">Débito fiscal IVA 16%</span>
             </div>
 
             <div class="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-xs">
               <span class="text-[11px] font-medium text-slate-500 block">Percepción IGTF 3% ($)</span>
-              <p class="text-lg font-bold font-mono text-indigo-900 mt-0.5">\${{ totalFilteredIgtfUsd().toFixed(2) }}</p>
+              <p class="text-lg font-bold font-mono text-indigo-900 mt-0.5">\${{ totalFilteredIgtfUsd()  | number: '1.2-2' }}</p>
               <span class="text-[10px] text-slate-400">Cobros en efectivo / divisas</span>
             </div>
 
@@ -673,27 +674,27 @@ interface CartItem {
                       <!-- Currency & BCV -->
                       <td class="py-3 px-3 text-[11px]">
                         <span class="font-bold text-slate-800">{{ inv.paymentCurrency }}</span>
-                        <span class="block text-[10px] text-slate-400 font-mono">Tasa: {{ inv.bcvRate.toFixed(2) }}</span>
+                        <span class="block text-[10px] text-slate-400 font-mono">Tasa: {{ inv.bcvRate  | number: '1.2-2' }}</span>
                       </td>
 
                       <!-- Subtotal -->
                       <td class="py-3 px-3 text-right font-mono text-slate-700">
-                        \${{ inv.subtotal.toFixed(2) }}
+                        \${{ inv.subtotal  | number: '1.2-2' }}
                       </td>
 
                       <!-- IVA -->
                       <td class="py-3 px-3 text-right font-mono text-slate-700">
-                        \${{ (inv.taxDetails.ivaAmount || 0).toFixed(2) }}
+                        \${{ (inv.taxDetails.ivaAmount || 0)  | number: '1.2-2' }}
                       </td>
 
                       <!-- IGTF -->
                       <td class="py-3 px-3 text-right font-mono" [class.text-indigo-700]="(inv.taxDetails.igtfAmount || 0) > 0">
-                        \${{ (inv.taxDetails.igtfAmount || 0).toFixed(2) }}
+                        \${{ (inv.taxDetails.igtfAmount || 0)  | number: '1.2-2' }}
                       </td>
 
                       <!-- Total USD -->
                       <td class="py-3 px-3 text-right font-mono font-bold text-emerald-700 text-sm">
-                        \${{ inv.total.toFixed(2) }}
+                        \${{ inv.total  | number: '1.2-2' }}
                       </td>
 
                       <!-- Total VES -->
@@ -768,7 +769,7 @@ interface CartItem {
                 </button>
               </div>
 
-              <span>Total acumulado en vista: <strong class="font-mono text-slate-900">\${{ totalFilteredUsd().toFixed(2) }}</strong> (Bs. {{ totalFilteredVes().toLocaleString('es-VE') }})</span>
+              <span>Total acumulado en vista: <strong class="font-mono text-slate-900">\${{ totalFilteredUsd()  | number: '1.2-2' }}</strong> (Bs. {{ totalFilteredVes().toLocaleString('es-VE') }})</span>
             </div>
 
           </div>

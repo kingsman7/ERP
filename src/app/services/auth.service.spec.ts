@@ -38,24 +38,27 @@ describe('AuthService session restoration', () => {
     localStorage.clear();
   });
 
-  it('keeps the session on refresh when the access token is still valid', () => {
+  it('restores the user session from persisted user data and refreshes the access token via cookie', () => {
     localStorage.setItem(SESSION_KEY, JSON.stringify({
       user: TEST_USER,
-      token: tokenWithExpiration(Math.floor(Date.now() / 1000) + 3600),
       demo: false
     }));
 
     const service = TestBed.inject(AuthService);
+    const request = http.expectOne('/api/auth/refresh');
+
+    expect(service.authInitialized()).toBeFalsy();
+    request.flush({ accessToken: tokenWithExpiration(Math.floor(Date.now() / 1000) + 3600) });
 
     expect(service.authInitialized()).toBeTruthy();
     expect(service.isAuthenticated()).toBeTruthy();
-    http.expectNone('/api/auth/refresh');
+    expect(localStorage.getItem(SESSION_KEY)).toContain('"user"');
+    expect(localStorage.getItem(SESSION_KEY)).not.toContain('"token"');
   });
 
-  it('attempts refresh only when the access token has expired', () => {
+  it('clears the session when refresh is rejected', () => {
     localStorage.setItem(SESSION_KEY, JSON.stringify({
       user: TEST_USER,
-      token: tokenWithExpiration(Math.floor(Date.now() / 1000) - 1),
       demo: false
     }));
 

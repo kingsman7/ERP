@@ -222,8 +222,8 @@ export class AuthService {
   private demoUsersSignal = signal<User[]>(this.loadStoredUsers());
   private usersSignal = signal<User[]>([]);
   private currentUserSignal = signal<User>(this.loadStoredSession()?.user || this.demoUsersSignal()[0] || DEMO_USERS[0]);
-  private tokenSignal = signal<string>('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.nexus_erp_mock_token_2026');
-  private isAuthenticatedSignal = signal<boolean>(this.loadStoredSession() !== null);
+  private tokenSignal = signal<string>('');
+  private isAuthenticatedSignal = signal<boolean>(false);
   private authInitializedSignal = signal<boolean>(false);
 
   // Global Change Password Modal State
@@ -266,13 +266,13 @@ export class AuthService {
     this.restoreSession();
   }
 
-  private loadStoredSession(): { user: User; token: string; demo: boolean } | null {
+  private loadStoredSession(): { user: User; demo: boolean } | null {
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
         const stored = localStorage.getItem(AuthService.SESSION_KEY);
         if (stored) {
           const session = JSON.parse(stored);
-          if (session?.user && session?.token) return session;
+          if (session?.user) return { user: session.user, demo: Boolean(session.demo) };
         }
       }
     } catch (e) {
@@ -281,10 +281,10 @@ export class AuthService {
     return null;
   }
 
-  private persistSession(user: User, token: string, demo = false): void {
+  private persistSession(user: User, demo = false): void {
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
-        localStorage.setItem(AuthService.SESSION_KEY, JSON.stringify({ user, token, demo }));
+        localStorage.setItem(AuthService.SESSION_KEY, JSON.stringify({ user, demo }));
       }
     } catch (e) {
       console.warn('Error persisting auth session:', e);
@@ -301,37 +301,35 @@ export class AuthService {
     const session = this.loadStoredSession();
     if (!session) {
       this.isAuthenticatedSignal.set(false);
+      this.tokenSignal.set('');
       this.authInitializedSignal.set(true);
       return;
     }
 
-    this.tokenSignal.set(session.token);
     this.currentUserSignal.set(session.user);
 
     if (session.demo) {
       this.isAuthenticatedSignal.set(true);
+      this.tokenSignal.set('demo-session-' + session.user.id);
       this.authInitializedSignal.set(true);
       return;
     }
 
-    if (this.hasValidAccessToken(session.token)) {
-      this.isAuthenticatedSignal.set(true);
-      this.authInitializedSignal.set(true);
-      return;
-    }
-
+    this.isAuthenticatedSignal.set(false);
+    this.tokenSignal.set('');
     this.refreshAccessToken().subscribe({
-        next: () => {
-          this.isAuthenticatedSignal.set(true);
-          this.authInitializedSignal.set(true);
-        },
-        error: () => {
-          this.clearPersistentToken();
-          this.clearPersistedSession();
-          this.isAuthenticatedSignal.set(false);
-          this.authInitializedSignal.set(true);
+      next: (refreshed) => {
+        this.isAuthenticatedSignal.set(refreshed);
+        this.authInitializedSignal.set(true);
+        if (!refreshed) {
+          this.handleExpiredSession();
         }
-      });
+      },
+      error: () => {
+        this.handleExpiredSession();
+        this.authInitializedSignal.set(true);
+      }
+    });
   }
 
   private hasValidAccessToken(token: string): boolean {
@@ -368,12 +366,14 @@ export class AuthService {
     }).pipe(
       tap(response => {
         this.tokenSignal.set(response.accessToken);
-        this.persistentToken(response.accessToken);
         const user = this.currentUserSignal();
-        if (user) this.persistSession(user, response.accessToken);
+        if (user) this.persistSession(user);
       }),
       map(() => true),
-      catchError(() => of(false))
+      catchError((error) => {
+        console.warn('Refresh token rejected by backend:', error);
+        return of(false);
+      })
     );
   }
 
@@ -407,12 +407,11 @@ export class AuthService {
         if (user.user) {
           this.currentUserSignal.set(user.user);
           this.tokenSignal.set(user.accessToken);
-          this.persistentToken(user.accessToken);
-          this.persistSession(user.user, user.accessToken);
+          this.persistSession(user.user);
           this.isAuthenticatedSignal.set(true);
           this.auditService.createLog({
             userId: user.user.id,
-            userName: user.user.name, 
+            userName: user.user.name,
             userRole: user.user.role,
             action: 'LOGIN',
             module: 'AUTH',
@@ -484,18 +483,13 @@ export class AuthService {
     this.switchUser(user);
     const token = 'demo-session-' + user.id;
     this.tokenSignal.set(token);
-    this.persistSession(user, token, true);
+    this.persistSession(user, true);
     this.isAuthenticatedSignal.set(true);
     return { success: true, mustChangePassword: false, user };
   }
 
-  //hacer logout con el api con Authorization header this.http.post(`${this.baseUrl}/auth/logout`, { token: this.tokenSignal() }) y limpiar la currentUser signal y token signal
   logout(): void {
-    this.http.post(`${this.baseUrl}/auth/logout`, { 
-      token: this.tokenSignal() }, {
-      headers: {
-        Authorization: `Bearer ${this.tokenSignal()}`
-      },
+    this.http.post(`${this.baseUrl}/auth/logout`, {}, {
       withCredentials: true
     }).subscribe({
       next: () => {

@@ -1,5 +1,5 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
-import { defer, finalize, forkJoin, map, Observable, of, tap } from 'rxjs';
+import { catchError, defer, finalize, forkJoin, map, Observable, of, tap } from 'rxjs';
 import {
   Product,
   ProductCategory,
@@ -135,8 +135,16 @@ export class ErpStateService {
   }
 
   private loadPurchases(): Observable<boolean> {
-    return forkJoin({ suppliers: this.apiService.getSuppliers(), orders: this.apiService.getPurchaseOrders() }).pipe(
-      tap(({ suppliers, orders }) => { this.suppliers.set(suppliers); this.purchaseOrders.set(orders); }), map(() => true)
+    return forkJoin({ 
+      suppliers: this.apiService.getSuppliers(), 
+      orders: this.apiService.getPurchaseOrders(),
+      warehouses: this.apiService.getWarehouses()
+    }).pipe(
+      tap(({ suppliers, orders, warehouses }) => { 
+        this.suppliers.set(suppliers); 
+        this.purchaseOrders.set(orders); 
+        this.warehouses.set(warehouses)
+      }), map(() => true)
     );
   }
 
@@ -424,44 +432,7 @@ export class ErpStateService {
     { id: 'wh-03', code: 'DEP-03', name: 'Depósito 3 (Logística Rápida)', location: 'Zona Portuaria Almacén 8', isMain: false, status: 'ACTIVE', capacity: 5000, managerName: 'Marcos Peña', phone: '+58 212 555-3003', description: 'Depósito de tránsito aduanero y despacho expreso' }
   ]);
 
-  readonly suppliers = signal<Supplier[]>([
-    {
-      id: 'sup-01',
-      taxId: 'J-30948572-1',
-      name: 'Distribuidora Industrial del Norte S.A.',
-      contactPerson: 'Ing. Roberto Méndez',
-      email: 'ventas@distnorte.com',
-      phone: '+52 81 8320 9000',
-      address: 'Carretera Monterrey-Saltillo Km 14.5',
-      paymentTerms: '30_DIAS',
-      category: 'Herramientas e Iluminación',
-      rating: 4.9
-    },
-    {
-      id: 'sup-02',
-      taxId: 'J-40192833-4',
-      name: 'ElectroGlobal S.A.C.',
-      contactPerson: 'Lic. Mariana Vega',
-      email: 'contacto@electroglobal.corp',
-      phone: '+52 55 5678 1234',
-      address: 'Parque Tecnológico Azcapotzalco Nave 4',
-      paymentTerms: '15_DIAS',
-      category: 'Redes y Material Eléctrico',
-      rating: 4.8
-    },
-    {
-      id: 'sup-03',
-      taxId: 'J-29837411-9',
-      name: 'Ferreterías & Materiales Unión S.R.L.',
-      contactPerson: 'Sr. Fernando Castro',
-      email: 'pedidos@unionmateriales.com',
-      phone: '+52 33 3812 4500',
-      address: 'Zona Industrial Guadalajara Manzana 12',
-      paymentTerms: 'CONTADO',
-      category: 'Pinturas y Fijaciones',
-      rating: 4.6
-    }
-  ]);
+  readonly suppliers = signal<Supplier[]>([]);
 
   readonly customers = signal<Customer[]>([
     {
@@ -593,36 +564,7 @@ export class ErpStateService {
     }
   ]);
 
-  readonly purchaseOrders = signal<PurchaseOrder[]>([
-    {
-      id: 'po-01',
-      orderNumber: 'OC-2026-0038',
-      supplierId: 'sup-01',
-      supplierName: 'Distribuidora Industrial del Norte S.A.',
-      supplierTaxId: 'J-30948572-1',
-      warehouseId: 'wh-01',
-      warehouseName: 'Almacén Central (Bodega Principal)',
-      date: '2026-08-10 09:30:00',
-      status: 'RECIBIDA',
-      items: [
-        {
-          productId: 'prod-01',
-          sku: 'ELE-TAL-750',
-          productName: 'Taladro Percutor Industrial 750W 1/2"',
-          quantity: 25,
-          unitCost: 42.00,
-          taxRate: 0.16,
-          subtotal: 1050.00,
-          total: 1218.00
-        }
-      ],
-      subtotal: 1050.00,
-      taxTotal: 168.00,
-      total: 1218.00,
-      notes: 'Despacho completo en tarima certificada.',
-      receivedBy: 'David Silva (Almacén)'
-    }
-  ]);
+  readonly purchaseOrders = signal<PurchaseOrder[]>([]);
 
   readonly invoices = signal<Invoice[]>([
     {
@@ -2159,7 +2101,7 @@ export class ErpStateService {
     }
 
     const orderNumber = 'OC-2026-' + (this.purchaseOrders().length + 39).toString().padStart(4, '0');
-    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    const nowStr = new Date().toISOString();
 
     let subtotal = 0;
     let taxTotal = 0;
@@ -2268,7 +2210,7 @@ export class ErpStateService {
       supplierTaxId: supplier.taxId,
       warehouseId: warehouse.id,
       warehouseName: warehouse.name,
-      date: nowStr,
+      orderDate : nowStr,
       status: 'RECIBIDA',
       items: poItems,
       subtotal: Number(subtotal.toFixed(2)),
@@ -2278,10 +2220,33 @@ export class ErpStateService {
       receivedBy: user.name
     };
 
-    // Apply all atomic changes
-    this.products.set(currentProducts);
-    this.purchaseOrders.update(orders => [newPO, ...orders]);
-    this.kardexMovements.update(kdx => [...kardexToAdd, ...kdx]);
+    const previousProducts = [...this.products()];
+    const previousPurchaseOrders = [...this.purchaseOrders()];
+    const previousKardex = [...this.kardexMovements()];
+    const productUpdates$ = currentProducts.map(product => this.apiService.updateProduct(product.id, product));
+
+    forkJoin({
+      purchaseOrder: this.apiService.createPurchaseOrder(newPO),
+      kardex: this.apiService.createKardexMovements(kardexToAdd),
+      products: forkJoin(productUpdates$)
+    }).pipe(
+      tap(({ purchaseOrder, kardex, products }) => {
+        this.purchaseOrders.update(orders => [purchaseOrder, ...orders]);
+        this.kardexMovements.update(kdx => [...kardex, ...kdx]);
+        this.products.set(currentProducts);
+        this.saveState();
+        this.notify('success', 'Orden de compra creada', `La orden de compra ${orderNumber} ha sido registrada exitosamente.`);
+      }),
+      catchError((error) => {
+        this.products.set(previousProducts);
+        this.purchaseOrders.set(previousPurchaseOrders);
+        this.kardexMovements.set(previousKardex);
+        this.notify('error', 'Error al crear la orden de compra', 'La operación no se confirmó en el backend y el state fue revertido.');
+        console.error('Error en registerPurchaseOrder:', error);
+        this.saveState();
+        return of({ purchaseOrder: null, kardex: [], products: [] });
+      })
+    ).subscribe();
 
     // Automatic double-entry accounting entry for purchase
     const poAccountLines: JournalEntryLine[] = [
@@ -3436,13 +3401,40 @@ export class ErpStateService {
       );
     }
 
-    // Persistencia atómica de inventario, Kardex, Guía y Orden de Entrega
-    this.products.set(currentProducts);
-    this.dispatchGuides.update(guides => [newDispatchGuide, ...guides]);
-    this.deliveryOrders.update(orders => [newDeliveryOrder, ...orders]);
-    if (kardexToAdd.length > 0) {
-      this.kardexMovements.update(kdx => [...kardexToAdd, ...kdx]);
-    }
+    const previousProducts = [...this.products()];
+    const previousGuides = [...this.dispatchGuides()];
+    const previousOrders = [...this.deliveryOrders()];
+    const previousKardex = [...this.kardexMovements()];
+
+    const dispatchGuide$ = this.apiService.createDispatchGuide(newDispatchGuide);
+    const productMutations$ = currentProducts.map(product => this.apiService.updateProduct(product.id, product));
+    const kardexMutation$ = kardexToAdd.length > 0 ? this.apiService.createKardexMovements(kardexToAdd) : of([] as KardexMovement[]);
+
+    forkJoin({
+      guide: dispatchGuide$,
+      products: forkJoin(productMutations$),
+      kardex: kardexMutation$
+    }).pipe(
+      tap(({ guide, products, kardex }) => {
+        this.products.set(currentProducts);
+        this.dispatchGuides.update(guides => [guide, ...guides.filter(item => item.id !== guide.id)]);
+        this.deliveryOrders.update(orders => [newDeliveryOrder, ...orders.filter(item => item.id !== newDeliveryOrder.id)]);
+        if (kardexToAdd.length > 0) {
+          this.kardexMovements.update(kdx => [...kardex, ...kdx]);
+        }
+        this.saveState();
+      }),
+      catchError((error) => {
+        this.products.set(previousProducts);
+        this.dispatchGuides.set(previousGuides);
+        this.deliveryOrders.set(previousOrders);
+        this.kardexMovements.set(previousKardex);
+        this.notify('error', 'Guía de despacho no creada', 'La guía no quedó persistida en el backend y el state fue revertido.');
+        console.error('Error creando guía de despacho:', error);
+        this.saveState();
+        return of(null);
+      })
+    ).subscribe();
 
     // Registro contable de inventario en tránsito
     const totalCostDispatched = dispatchItems.reduce((sum, it) => sum + (it.quantity * it.costPrice), 0);
@@ -4379,10 +4371,23 @@ export class ErpStateService {
       ...sup,
       id: 'sup-' + Date.now().toString(36)
     };
-    this.suppliers.update(ss => [newSup, ...ss]);
-    this.logAudit('CREATE_SUPPLIER', 'PURCHASES', `Nuevo Proveedor: ${sup.name}`, `Registro de proveedor ${sup.name} (${sup.taxId}).`, null, newSup as unknown as Record<string, unknown>);
-    this.notify('success', 'Proveedor Registrado', `Proveedor ${newSup.name} añadido exitosamente.`);
-    this.saveState();
+    const previousSuppliers = [...this.suppliers()];
+
+    this.apiService.createSupplier(newSup).pipe(
+      tap(saved => {
+        this.suppliers.update(ss => [saved, ...ss.filter(item => item.id !== newSup.id)]);
+        this.logAudit('CREATE_SUPPLIER', 'PURCHASES', `Nuevo Proveedor: ${sup.name}`, `Registro de proveedor ${sup.name} (${sup.taxId}).`, null, saved as unknown as Record<string, unknown>);
+        this.notify('success', 'Proveedor Registrado', `Proveedor ${saved.name} añadido exitosamente.`);
+        this.saveState();
+      }),
+      catchError((error) => {
+        this.suppliers.set(previousSuppliers);
+        this.notify('error', 'Proveedor no creado', 'El backend rechazó el registro del proveedor y no se guardó en el state.');
+        console.error('Error creando proveedor:', error);
+        this.saveState();
+        return of(null);
+      })
+    ).subscribe();
   }
 
   // Create Customer Helper
@@ -4450,6 +4455,7 @@ export class ErpStateService {
     const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
     const quoteNumber = 'COT-2026-' + (this.quotes().length + 17).toString().padStart(3, '0');
     const bcv = this.bcvState();
+    const previousQuotes = [...this.quotes()];
 
     let subtotal = 0;
     let discountTotal = 0;
@@ -4536,17 +4542,22 @@ export class ErpStateService {
       createdBy: user.name
     };
 
-    this.quotes.update(qs => [newQuote, ...qs]);
-    this.logAudit(
-      'CREATE_QUOTE',
-      'SALES',
-      `Nuevo Presupuesto ${quoteNumber}`,
-      `Cotización creada para ${customer.name} por $${newQuote.total.toFixed(2)} (Bs. ${totalVes.toLocaleString('es-VE')}) con nivel ${priceLevel}.`,
-      null,
-      newQuote as unknown as Record<string, unknown>
-    );
-    this.notify('success', 'Presupuesto Creado', `Cotización ${quoteNumber} generada.`);
-    this.saveState();
+    this.apiService.createQuote(newQuote).pipe(
+      tap(saved => {
+        this.quotes.update(qs => [saved, ...qs.filter(item => item.id !== newQuote.id)]);
+        this.logAudit('CREATE_QUOTE', 'SALES', `Nuevo Presupuesto ${saved.quoteNumber}`, `Cotización creada...`, null, saved as unknown as Record<string, unknown>);
+        this.notify('success', 'Presupuesto Creado', `Cotización ${saved.quoteNumber} generada.`);
+        this.saveState();
+      }),
+      catchError((error) => {
+        this.quotes.set(previousQuotes);
+        this.notify('error', 'Presupuesto no creado', 'El backend rechazó la creación del presupuesto y el state fue revertido.');
+        console.error('Error creando presupuesto:', error);
+        this.saveState();
+        return of(null);
+      })
+    ).subscribe();
+
     return { success: true, quoteNumber };
   }
 

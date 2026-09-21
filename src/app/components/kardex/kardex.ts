@@ -2,11 +2,12 @@ import { Component, ChangeDetectionStrategy, inject, signal, computed } from '@a
 import { MatIconModule } from '@angular/material/icon';
 import { ErpStateService } from '../../services/erp-state.service';
 import { KardexMovement } from '../../models/erp.models';
+import { DecimalPipe } from '@angular/common';
 
 @Component({
   selector: 'app-kardex',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatIconModule],
+  imports: [MatIconModule, DecimalPipe],
   template: `
     <div class="space-y-6 pb-12">
       
@@ -88,7 +89,7 @@ import { KardexMovement } from '../../models/erp.models';
             </div>
             <div>
               <span class="text-slate-400 font-medium">Costo Promedio Actual:</span>
-              <p class="font-mono font-bold text-teal-800">\${{ currentProd.costPrice.toFixed(2) }}</p>
+              <p class="font-mono font-bold text-teal-800">\${{ currentProd.costPrice  | number: '1.2-2' }}</p>
             </div>
             <div>
               <span class="text-slate-400 font-medium">Stock Total Físico:</span>
@@ -96,7 +97,7 @@ import { KardexMovement } from '../../models/erp.models';
             </div>
             <div>
               <span class="text-slate-400 font-medium">Valorización Actual:</span>
-              <p class="font-mono font-bold text-indigo-900">\${{ (currentProd.totalStock * currentProd.costPrice).toFixed(2) }}</p>
+              <p class="font-mono font-bold text-indigo-900">\${{ (currentProd.totalStock * currentProd.costPrice)  | number: '1.2-2' }}</p>
             </div>
           </div>
         }
@@ -166,10 +167,10 @@ import { KardexMovement } from '../../models/erp.models';
                     {{ m.entryQty > 0 ? '+' + m.entryQty : '-' }}
                   </td>
                   <td class="py-2.5 px-2 text-right font-mono text-slate-600 bg-emerald-50/20">
-                    {{ m.entryUnitCost > 0 ? '$' + m.entryUnitCost.toFixed(2) : '-' }}
+                    {{ m.entryUnitCost > 0 ? '$' + (m.entryUnitCost  | number: '1.2-2') : '-' }}
                   </td>
                   <td class="py-2.5 px-2 text-right font-mono font-medium text-emerald-900 bg-emerald-50/20 border-r border-slate-100">
-                    {{ m.entryTotalCost > 0 ? '$' + m.entryTotalCost.toFixed(2) : '-' }}
+                    {{ m.entryTotalCost > 0 ? '$' + (m.entryTotalCost  | number: '1.2-2') : '-' }}
                   </td>
 
                   <!-- Salidas -->
@@ -177,10 +178,10 @@ import { KardexMovement } from '../../models/erp.models';
                     {{ m.exitQty > 0 ? '-' + m.exitQty : '-' }}
                   </td>
                   <td class="py-2.5 px-2 text-right font-mono text-slate-600 bg-rose-50/20">
-                    {{ m.exitUnitCost > 0 ? '$' + m.exitUnitCost.toFixed(2) : '-' }}
+                    {{ m.exitUnitCost > 0 ? '$' + (m.exitUnitCost  | number: '1.2-2') : '-' }}
                   </td>
                   <td class="py-2.5 px-2 text-right font-mono font-medium text-rose-900 bg-rose-50/20 border-r border-slate-100">
-                    {{ m.exitTotalCost > 0 ? '$' + m.exitTotalCost.toFixed(2) : '-' }}
+                    {{ m.exitTotalCost > 0 ? '$' + (m.exitTotalCost  | number: '1.2-2') : '-' }}
                   </td>
 
                   <!-- Saldos Resultantes -->
@@ -188,10 +189,10 @@ import { KardexMovement } from '../../models/erp.models';
                     {{ m.balanceQty }}
                   </td>
                   <td class="py-2.5 px-2 text-right font-mono font-semibold text-teal-800 bg-indigo-50/20">
-                    \${{ m.balanceAverageCost.toFixed(2) }}
+                    \${{ m.balanceAverageCost  | number: '1.2-2' }}
                   </td>
                   <td class="py-2.5 px-3 text-right font-mono font-bold text-slate-900 bg-indigo-50/20">
-                    \${{ m.balanceTotalValuation.toFixed(2) }}
+                    \${{ m.balanceTotalValuation  | number: '1.2-2' }}
                   </td>
 
                 </tr>

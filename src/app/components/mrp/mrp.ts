@@ -6,11 +6,12 @@ import { AuthService } from '../../services/auth.service';
 import { EmailNotificationService } from '../../services/email-notification.service';
 import { KeyboardShortcutsService } from '../../services/keyboard-shortcuts.service';
 import { Bom, ProductionOrder, Product, EmailAlertLog } from '../../models/erp.models';
+import { DecimalPipe } from '@angular/common';
 
 @Component({
   selector: 'app-mrp',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatIconModule, ReactiveFormsModule, FormsModule],
+  imports: [MatIconModule, ReactiveFormsModule, FormsModule, DecimalPipe],
   template: `
     <div class="space-y-6">
       
@@ -112,7 +113,7 @@ import { Bom, ProductionOrder, Product, EmailAlertLog } from '../../models/erp.m
         <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
           <div>
             <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Valor en Fabricación</p>
-            <h3 class="text-2xl font-bold text-slate-800 mt-1">\${{ totalWipValue().toFixed(2) }}</h3>
+            <h3 class="text-2xl font-bold text-slate-800 mt-1">\${{ totalWipValue() | number: '1.2-2' }}</h3>
             <p class="text-[11px] text-slate-400 font-medium mt-0.5">Bs. {{ (totalWipValue() * stateService.bcvState().usdRate).toLocaleString('es-VE', { minimumFractionDigits: 2 }) }}</p>
           </div>
           <div class="w-11 h-11 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">
@@ -241,8 +242,8 @@ import { Bom, ProductionOrder, Product, EmailAlertLog } from '../../models/erp.m
                       </td>
 
                       <td class="py-3 px-4">
-                        <div class="font-bold text-slate-800 font-mono">\${{ order.totalCost.toFixed(2) }}</div>
-                        <div class="text-[10px] text-slate-400 font-mono">Unit: \${{ order.unitCost.toFixed(2) }}</div>
+                        <div class="font-bold text-slate-800 font-mono">\${{ order.totalCost | number: '1.2-2' }}</div>
+                        <div class="text-[10px] text-slate-400 font-mono">Unit: \${{ order.unitCost | number: '1.2-2' }}</div>
                       </td>
 
                       <td class="py-3 px-4 text-center">
@@ -329,7 +330,7 @@ import { Bom, ProductionOrder, Product, EmailAlertLog } from '../../models/erp.m
                         {{ bom.code }}
                       </span>
                       <span class="text-xs font-mono font-bold text-slate-900">
-                        \${{ bom.unitCost.toFixed(2) }} / un.
+                        \${{ bom.unitCost | number: '1.2-2' }} / un.
                       </span>
                     </div>
 
@@ -347,7 +348,7 @@ import { Bom, ProductionOrder, Product, EmailAlertLog } from '../../models/erp.m
                       </div>
                       <div class="flex justify-between">
                         <span>MOD + CIF:</span>
-                        <span class="font-mono">\${{ (bom.laborCost + bom.overheadCost).toFixed(2) }}</span>
+                        <span class="font-mono">\${{ (bom.laborCost + bom.overheadCost) | number: '1.2-2' }}</span>
                       </div>
                     </div>
                   </div>
@@ -472,22 +473,22 @@ import { Bom, ProductionOrder, Product, EmailAlertLog } from '../../models/erp.m
                             <div class="text-[11px] text-slate-400 font-mono">SKU: {{ item.rawMaterialSku }}</div>
                           </td>
                           <td class="py-3 px-4 text-center font-mono font-bold text-slate-800">
-                            {{ item.quantityRequired.toFixed(2) }} {{ item.unit }}
+                            {{ item.quantityRequired | number: '1.2-2' }} {{ item.unit }}
                           </td>
                           <td class="py-3 px-4 text-center font-mono font-medium text-slate-600">
-                            {{ item.stockInWarehouse.toFixed(2) }} {{ item.unit }}
+                            {{ item.stockInWarehouse | number: '1.2-2' }} {{ item.unit }}
                           </td>
                           <td class="py-3 px-4 text-center font-mono text-slate-500">
                             {{ item.reorderPoint }} {{ item.unit }}
                           </td>
                           <td class="py-3 px-4 text-center font-mono font-bold" [class]="item.balancePostProduction < item.reorderPoint ? 'text-rose-600' : 'text-emerald-700'">
-                            {{ item.balancePostProduction.toFixed(2) }} {{ item.unit }}
+                            {{ item.balancePostProduction | number: '1.2-2' }} {{ item.unit }}
                             @if (item.balancePostProduction < item.reorderPoint) {
                               <span class="block text-[9px] text-rose-500 font-semibold">ALERTA REORDEN</span>
                             }
                           </td>
                           <td class="py-3 px-4 text-right font-mono font-bold text-slate-900">
-                            \${{ item.subtotalCost.toFixed(2) }}
+                            \${{ item.subtotalCost | number: '1.2-2' }}
                           </td>
                         </tr>
                       }
@@ -523,7 +524,7 @@ import { Bom, ProductionOrder, Product, EmailAlertLog } from '../../models/erp.m
 
               <div class="p-4 bg-emerald-50/60 rounded-2xl border border-emerald-200/80">
                 <span class="text-[11px] font-bold uppercase text-emerald-700 block">Presupuesto Sugerido MRP</span>
-                <p class="text-2xl font-bold font-mono text-emerald-900 mt-1">\${{ totalReorderBudgetUsd().toFixed(2) }}</p>
+                <p class="text-2xl font-bold font-mono text-emerald-900 mt-1">\${{ totalReorderBudgetUsd() | number: '1.2-2' }}</p>
                 <span class="text-[10px] text-emerald-600 font-mono">
                   Bs. {{ (totalReorderBudgetUsd() * stateService.bcvState().usdRate).toLocaleString('es-VE', { minimumFractionDigits: 2 }) }}
                 </span>
@@ -649,7 +650,7 @@ import { Bom, ProductionOrder, Product, EmailAlertLog } from '../../models/erp.m
                         </td>
 
                         <td class="py-3 px-4 text-right font-mono">
-                          <div class="font-bold text-slate-900">\${{ item.estimatedCostUsd.toFixed(2) }}</div>
+                          <div class="font-bold text-slate-900">\${{ item.estimatedCostUsd | number: '1.2-2' }}</div>
                           <div class="text-[10px] text-slate-400">Bs. {{ item.estimatedCostVes.toLocaleString('es-VE') }}</div>
                         </td>
 
@@ -1053,7 +1054,7 @@ import { Bom, ProductionOrder, Product, EmailAlertLog } from '../../models/erp.m
                       <div class="flex-1">
                         <select formControlName="rawMaterialProductId" class="w-full bg-white border border-slate-200 rounded-lg p-1.5 text-xs font-medium text-slate-800">
                           @for (rm of rawMaterialsList(); track rm.id) {
-                            <option [value]="rm.id">{{ rm.sku }} - {{ rm.name }} (Cost: \${{ rm.costPrice.toFixed(2) }})</option>
+                            <option [value]="rm.id">{{ rm.sku }} - {{ rm.name }} (Cost: \${{ rm.costPrice | number: '1.2-2' }})</option>
                           }
                         </select>
                       </div>
@@ -1134,14 +1135,14 @@ import { Bom, ProductionOrder, Product, EmailAlertLog } from '../../models/erp.m
 
                 <div class="p-3 bg-amber-50/50 rounded-xl border border-amber-200/80">
                   <span class="text-[10px] font-semibold uppercase text-amber-700 block">Costo Total Orden</span>
-                  <span class="text-base font-bold font-mono text-amber-900 mt-0.5 block">\${{ ord.totalCost.toFixed(2) }}</span>
+                  <span class="text-base font-bold font-mono text-amber-900 mt-0.5 block">\${{ ord.totalCost | number: '1.2-2' }}</span>
                   <span class="text-[10px] text-amber-600 font-mono">Bs. {{ (ord.totalCost * bcv.usdRate).toLocaleString('es-VE', { minimumFractionDigits: 2 }) }}</span>
                 </div>
 
                 <div class="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
                   <span class="text-[10px] font-semibold uppercase text-slate-400 block">Costo Unitario Efectivo</span>
-                  <span class="text-base font-bold font-mono text-slate-900 mt-0.5 block">\${{ ord.unitCost.toFixed(2) }}</span>
-                  <span class="text-[10px] text-slate-500 font-mono">Bs. {{ (ord.unitCost * bcv.usdRate).toFixed(2) }}</span>
+                  <span class="text-base font-bold font-mono text-slate-900 mt-0.5 block">\${{ ord.unitCost | number: '1.2-2' }}</span>
+                  <span class="text-[10px] text-slate-500 font-mono">Bs. {{ (ord.unitCost * bcv.usdRate) | number: '1.2-2' }}</span>
                 </div>
 
                 <div class="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
@@ -1155,17 +1156,17 @@ import { Bom, ProductionOrder, Product, EmailAlertLog } from '../../models/erp.m
                 <div class="flex items-center space-x-1.5">
                   <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
                   <span class="text-slate-600">Materiales Directos:</span>
-                  <span class="font-bold text-slate-900">\${{ ord.directMaterialCost.toFixed(2) }}</span>
+                  <span class="font-bold text-slate-900">\${{ ord.directMaterialCost | number: '1.2-2' }}</span>
                 </div>
                 <div class="flex items-center space-x-1.5">
                   <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
                   <span class="text-slate-600">Mano de Obra (MOD):</span>
-                  <span class="font-bold text-slate-900">\${{ ord.laborCost.toFixed(2) }}</span>
+                  <span class="font-bold text-slate-900">\${{ ord.laborCost | number: '1.2-2' }}</span>
                 </div>
                 <div class="flex items-center space-x-1.5">
                   <span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
                   <span class="text-slate-600">Costos Indirectos (CIF):</span>
-                  <span class="font-bold text-slate-900">\${{ ord.overheadCost.toFixed(2) }}</span>
+                  <span class="font-bold text-slate-900">\${{ ord.overheadCost | number: '1.2-2' }}</span>
                 </div>
               </div>
 
@@ -1199,13 +1200,13 @@ import { Bom, ProductionOrder, Product, EmailAlertLog } from '../../models/erp.m
                               <span class="block text-[10px] text-slate-400 font-mono">SKU: {{ it.rawMaterialSku }}</span>
                             </td>
                             <td class="py-2.5 px-3 text-center font-mono font-bold text-slate-800">
-                              {{ needed.toFixed(2) }} {{ it.unit }}
+                              {{ needed | number: '1.2-2' }} {{ it.unit }}
                             </td>
                             <td class="py-2.5 px-3 text-center font-mono font-semibold" [class]="stockInWh < needed ? 'text-rose-600' : 'text-emerald-700'">
                               {{ stockInWh }} {{ it.unit }}
                             </td>
                             <td class="py-2.5 px-3 text-right font-mono font-bold text-slate-900">
-                              \${{ (needed * (prod?.costPrice || it.estimatedUnitCost)).toFixed(2) }}
+                              \${{ (needed * (prod?.costPrice || it.estimatedUnitCost)) | number: '1.2-2' }}
                             </td>
                           </tr>
                         }
@@ -1334,11 +1335,11 @@ import { Bom, ProductionOrder, Product, EmailAlertLog } from '../../models/erp.m
                 </div>
                 <div>
                   <span class="text-[10px] text-slate-500 block">Costo Total Lote:</span>
-                  <span class="font-bold text-slate-900">\${{ bom.totalEstimatedCost.toFixed(2) }}</span>
+                  <span class="font-bold text-slate-900">\${{ bom.totalEstimatedCost | number: '1.2-2' }}</span>
                 </div>
                 <div>
                   <span class="text-[10px] text-slate-500 block">Costo Unitario:</span>
-                  <span class="font-bold text-amber-700">\${{ bom.unitCost.toFixed(2) }}</span>
+                  <span class="font-bold text-amber-700">\${{ bom.unitCost | number: '1.2-2' }}</span>
                 </div>
               </div>
 
@@ -1363,7 +1364,7 @@ import { Bom, ProductionOrder, Product, EmailAlertLog } from '../../models/erp.m
                           </td>
                           <td class="py-2 px-3 text-center font-mono font-bold">{{ it.quantityNeeded }} {{ it.unit }}</td>
                           <td class="py-2 px-3 text-center font-mono">{{ it.wastePercent }}%</td>
-                          <td class="py-2 px-3 text-right font-mono font-bold">\${{ it.subtotalCost.toFixed(2) }}</td>
+                          <td class="py-2 px-3 text-right font-mono font-bold">\${{ it.subtotalCost | number: '1.2-2' }}</td>
                         </tr>
                       }
                     </tbody>

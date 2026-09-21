@@ -234,14 +234,14 @@ app.get('/api/suppliers', (req, res) => {
   res.json(MOCK_SUPPLIERS);
 });
 
-app.get('/api/invoices', (req, res) => {
+/* app.get('/api/invoices', (req, res) => {
   res.json([]);
 });
 
 app.post('/api/invoices', (req, res) => {
   const newInvoice = req.body;
   res.status(201).json(newInvoice);
-});
+}); */
 
 app.get('/api/kardex', (req, res) => {
   res.json([]);

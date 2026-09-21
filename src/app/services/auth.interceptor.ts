@@ -1,12 +1,13 @@
 import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
-import { inject } from '@angular/core';
+import { inject, Injector } from '@angular/core';
 import { Router } from '@angular/router';
 import { catchError, switchMap, throwError } from 'rxjs';
 import { AuthService } from './auth.service';
 import { SKIP_AUTH_REFRESH } from './auth-context';
 
 export const authInterceptor: HttpInterceptorFn = (request, next) => {
-  const authService = inject(AuthService);
+  const injector = inject(Injector);
+  const authService = injector.get(AuthService);
   const router = inject(Router);
   const token = authService.token();
   const authenticatedRequest = token

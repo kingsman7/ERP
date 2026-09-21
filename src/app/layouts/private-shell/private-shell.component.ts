@@ -109,11 +109,11 @@ export class PrivateShellComponent {
       if (action?.targetNav) this.navigateTo(action.targetNav);
     });
 
-    effect(() => {
+   /*  effect(() => {
       if (!this.authService.sessionExpired()) return;
       this.stateService.notify('warning', 'Sesion vencida', 'La sesion vencio y no pudo renovarse. Inicia sesion nuevamente para continuar.');
       this.authService.acknowledgeSessionExpired();
-    });
+    }); */
   }
 
   navigateTo(navId: NavTab): void {

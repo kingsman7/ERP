@@ -4,11 +4,12 @@ import { ErpStateService } from '../../services/erp-state.service';
 import { AuthService } from '../../services/auth.service';
 import { NavTab } from '../sidebar/sidebar';
 import { Invoice } from '../../models/erp.models';
+import { DecimalPipe } from '@angular/common';
 
 @Component({
   selector: 'app-dashboard',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatIconModule],
+  imports: [MatIconModule, DecimalPipe],
   template: `
     <div class="space-y-6 pb-12">
       
@@ -155,7 +156,7 @@ import { Invoice } from '../../models/erp.models';
             </div>
             <div>
               <p class="text-[11px] text-slate-400 font-medium">Ticket Promedio</p>
-              <p class="text-base sm:text-lg font-bold font-mono text-slate-900">\${{ (114.90 + (stateService.totalSalesToday() > 0 ? 12.3 : 0)).toFixed(2) }}</p>
+              <p class="text-base sm:text-lg font-bold font-mono text-slate-900">\${{ (114.90 + (stateService.totalSalesToday() > 0 ? 12.3 : 0)) | number: '1.2-2' }}</p>
             </div>
             <div>
               <p class="text-[11px] text-slate-400 font-medium">Margen Ponderado</p>
@@ -330,7 +331,7 @@ import { Invoice } from '../../models/erp.models';
               class="bg-gradient-to-br from-violet-500/5 to-violet-500/15 p-4 rounded-2xl border border-violet-200/80 shadow-xs hover:shadow-md cursor-pointer transition-all flex items-center justify-between group text-left">
               <div>
                 <span class="text-[10px] font-bold text-violet-700 uppercase tracking-wider block">CRM Pipeline Comercial</span>
-                <h4 class="text-base sm:text-lg font-bold text-slate-800 mt-0.5">\${{ stateService.crmPipelineTotalValue().toFixed(2) }}</h4>
+                <h4 class="text-base sm:text-lg font-bold text-slate-800 mt-0.5">\${{ stateService.crmPipelineTotalValue() | number: '1.2-2' }}</h4>
                 <p class="text-[11px] text-slate-500 mt-0.5">{{ stateService.crmDeals().length }} Oportunidades en Kanban</p>
               </div>
               <div class="w-10 h-10 rounded-xl bg-violet-600 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform shrink-0">
@@ -347,7 +348,7 @@ import { Invoice } from '../../models/erp.models';
               class="bg-gradient-to-br from-emerald-500/5 to-emerald-500/15 p-4 rounded-2xl border border-emerald-200/80 shadow-xs hover:shadow-md cursor-pointer transition-all flex items-center justify-between group text-left">
               <div>
                 <span class="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">Contabilidad NIIF</span>
-                <h4 class="text-base sm:text-lg font-bold text-slate-800 mt-0.5">\${{ stateService.totalAccountingAssets().toFixed(2) }} Activos</h4>
+                <h4 class="text-base sm:text-lg font-bold text-slate-800 mt-0.5">\${{ stateService.totalAccountingAssets() | number: '1.2-2' }} Activos</h4>
                 <p class="text-[11px] text-slate-500 mt-0.5">Partida Doble & P&L Automático</p>
               </div>
               <div class="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform shrink-0">
@@ -398,8 +399,8 @@ import { Invoice } from '../../models/erp.models';
                       [class]="k.entryQty > 0 ? 'text-emerald-600' : 'text-rose-600'">
                       {{ k.entryQty > 0 ? '+' + k.entryQty : '-' + k.exitQty }}
                     </td>
-                    <td class="py-2.5 px-3 text-right font-mono text-slate-600">\${{ (k.entryUnitCost || k.balanceAverageCost).toFixed(2) }}</td>
-                    <td class="py-2.5 px-3 text-right font-mono font-bold text-slate-900">\${{ k.balanceTotalValuation.toFixed(2) }}</td>
+                    <td class="py-2.5 px-3 text-right font-mono text-slate-600">\${{ (k.entryUnitCost || k.balanceAverageCost) | number: '1.2-2' }}</td>
+                    <td class="py-2.5 px-3 text-right font-mono font-bold text-slate-900">\${{ k.balanceTotalValuation | number: '1.2-2' }}</td>
                   </tr>
                 }
               </tbody>

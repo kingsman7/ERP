@@ -12,13 +12,14 @@ import {
 } from './models/super-admin.models';
 import { ErpStateService } from '../../services/erp-state.service';
 import { AuthService } from '../../services/auth.service';
+import { DecimalPipe } from '@angular/common';
 
 export type SuperAdminSubTab = 'tenants' | 'plans' | 'health' | 'audit';
 
 @Component({
   selector: 'app-super-admin-dashboard',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatIconModule, ReactiveFormsModule],
+  imports: [MatIconModule, ReactiveFormsModule, DecimalPipe],
   templateUrl: './super-admin-dashboard.html'
 })
 export default class SuperAdminDashboardComponent {

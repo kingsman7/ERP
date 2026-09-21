@@ -224,17 +224,17 @@ import { forkJoin, switchMap } from 'rxjs';
 
                   <!-- Cost Price (Weighted Average) -->
                   <td class="py-3 px-3 text-right font-mono font-medium text-slate-900">
-                    \${{ prod.costPrice.toFixed(2) }}
+                    \${{ prod.costPrice | number: '1.2-2' }}
                   </td>
 
                   <!-- 5 Price Tiers Snapshot -->
                   <td class="py-3 px-3 text-center">
                     <div class="inline-flex flex-col items-center space-y-0.5">
                       <div class="flex items-center space-x-1 font-mono font-bold text-slate-900">
-                        <span>P1 Detal: \${{ p1.toFixed(2) }}</span>
+                        <span>P1 Detal: \${{ p1 | number: '1.2-2' }}</span>
                       </div>
                       <div class="flex items-center space-x-1 text-[10px] font-mono text-slate-500">
-                        <span>Bs. {{ (p1 * bcv.usdRate).toFixed(2) }}</span>
+                        <span>Bs. {{ (p1 * bcv.usdRate) | number: '1.2-2' }}</span>
                         <span class="text-slate-300">•</span>
                         <button 
                           (click)="openPricesModal(prod)"
@@ -333,7 +333,7 @@ import { forkJoin, switchMap } from 'rxjs';
               <span>Exportar filtrados a CSV</span>
             </button>
           </div>
-          <span>Valor total de catálogo actual: <strong class="font-mono text-slate-900">\${{ stateService.totalInventoryValuation().toFixed(2) }}</strong> (Bs. {{ (stateService.totalInventoryValuation() * stateService.bcvState().usdRate).toLocaleString('es-VE') }})</span>
+          <span>Valor total de catálogo actual: <strong class="font-mono text-slate-900">\${{ stateService.totalInventoryValuation() | number: '1.2-2' }}</strong> (Bs. {{ (stateService.totalInventoryValuation() * stateService.bcvState().usdRate).toLocaleString('es-VE') }})</span>
         </div>
       </div>
 
@@ -408,7 +408,7 @@ import { forkJoin, switchMap } from 'rxjs';
                       formControlName="price1" 
                       class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg font-mono font-bold text-slate-900" />
                     <p class="text-[10px] text-slate-400 font-mono">
-                      Bs. {{ ((pricesForm.get('price1')?.value || 0) * stateService.bcvState().usdRate).toFixed(2) }}
+                      Bs. {{ ((pricesForm.get('price1')?.value || 0) * stateService.bcvState().usdRate) | number: '1.2-2' }}
                     </p>
                   </div>
 
@@ -424,7 +424,7 @@ import { forkJoin, switchMap } from 'rxjs';
                       formControlName="price2" 
                       class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg font-mono font-bold text-slate-900" />
                     <p class="text-[10px] text-slate-400 font-mono">
-                      Bs. {{ ((pricesForm.get('price2')?.value || 0) * stateService.bcvState().usdRate).toFixed(2) }}
+                      Bs. {{ ((pricesForm.get('price2')?.value || 0) * stateService.bcvState().usdRate) | number: '1.2-2' }}
                     </p>
                   </div>
 
@@ -440,7 +440,7 @@ import { forkJoin, switchMap } from 'rxjs';
                       formControlName="price3" 
                       class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg font-mono font-bold text-slate-900" />
                     <p class="text-[10px] text-slate-400 font-mono">
-                      Bs. {{ ((pricesForm.get('price3')?.value || 0) * stateService.bcvState().usdRate).toFixed(2) }}
+                      Bs. {{ ((pricesForm.get('price3')?.value || 0) * stateService.bcvState().usdRate) | number: '1.2-2' }}
                     </p>
                   </div>
 
@@ -456,7 +456,7 @@ import { forkJoin, switchMap } from 'rxjs';
                       formControlName="price4" 
                       class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg font-mono font-bold text-slate-900" />
                     <p class="text-[10px] text-slate-400 font-mono">
-                      Bs. {{ ((pricesForm.get('price4')?.value || 0) * stateService.bcvState().usdRate).toFixed(2) }}
+                      Bs. {{ ((pricesForm.get('price4')?.value || 0) * stateService.bcvState().usdRate) | number: '1.2-2' }}
                     </p>
                   </div>
 
@@ -472,7 +472,7 @@ import { forkJoin, switchMap } from 'rxjs';
                       formControlName="price5" 
                       class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg font-mono font-bold text-slate-900" />
                     <p class="text-[10px] text-slate-400 font-mono">
-                      Bs. {{ ((pricesForm.get('price5')?.value || 0) * stateService.bcvState().usdRate).toFixed(2) }}
+                      Bs. {{ ((pricesForm.get('price5')?.value || 0) * stateService.bcvState().usdRate) | number: '1.2-2' }}
                     </p>
                   </div>
 

@@ -147,6 +147,32 @@ export class ApiService {
     );
   }
 
+  createPurchaseOrder(purchaseOrder: Partial<PurchaseOrder>): Observable<PurchaseOrder> {
+    return this.http.post<PurchaseOrder>(`${this.baseUrl}/purchase-orders`, purchaseOrder);
+  }
+
+  createKardexMovements(movements: KardexMovement[]): Observable<KardexMovement[]> {
+    return this.http.post<KardexMovement[]>(`${this.baseUrl}/kardex/movement`, movements);
+  }
+
+  //crear proveedores
+
+  createSupplier(supplier: Partial<Supplier>): Observable<Supplier> {
+    return this.http.post<Supplier>(`${this.baseUrl}/suppliers`, supplier);
+  }
+
+  createQuote(quote: Partial<Quote>): Observable<Quote> {
+    return this.http.post<Quote>(`${this.baseUrl}/quotes`, quote);
+  }
+
+  updateQuote(id: string, quote: Partial<Quote>): Observable<Quote> {
+    return this.http.put<Quote>(`${this.baseUrl}/quotes/${id}`, quote);
+  }
+
+  createDispatchGuide(guide: Partial<DispatchGuide>): Observable<DispatchGuide> {
+    return this.http.post<DispatchGuide>(`${this.baseUrl}/logistics/dispatch-guides`, guide);
+  }
+
   updateProduct(id: string, product: Partial<Product>): Observable<Product> {
     return this.http.put<Product>(`${this.baseUrl}/products/${id}`, this.productPayload(product)).pipe(
       map(response => this.normalizeProduct(response as Product & { stocks?: { warehouseId: string; quantity: number; warehouse?: { name: string } }[] }))
