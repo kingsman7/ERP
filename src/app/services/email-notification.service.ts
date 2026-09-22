@@ -1,4 +1,4 @@
-import { Injectable, inject, signal, computed } from '@angular/core';
+import { Injectable, inject, signal, computed, Injector } from '@angular/core';
 import { 
   Product, 
   EmailNotificationConfig, 
@@ -13,7 +13,11 @@ import { exportToCsv } from '../utils/csv-exporter';
   providedIn: 'root'
 })
 export class EmailNotificationService {
-  private stateService = inject(ErpStateService);
+  private readonly injector = inject(Injector);
+
+  private get stateService(): ErpStateService {
+    return this.injector.get(ErpStateService);
+  }
 
   private readonly CONFIG_KEY = '4-inLine_email_config_v1';
   private readonly ALERTS_KEY = '4-inLine_email_alerts_v1';

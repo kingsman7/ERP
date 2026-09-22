@@ -3,7 +3,7 @@ import { ReactiveFormsModule, FormGroup, FormControl, Validators } from '@angula
 import { Router } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { AuthService } from '../../services/auth.service';
-import { User, UserRole } from '../../models/erp.models';
+import { UserRole } from '../../models/erp.models';
 
 @Component({
   selector: 'app-login',
@@ -104,27 +104,7 @@ import { User, UserRole } from '../../models/erp.models';
             <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-6">
               <div>
                 <h2 class="text-xl font-bold text-white">Iniciar Sesión</h2>
-                <p class="text-xs text-slate-400 mt-0.5">Ingrese sus credenciales o seleccione un perfil demo</p>
-              </div>
-
-              <div class="flex items-center p-1 bg-slate-950/80 rounded-xl border border-slate-800 text-xs">
-                <button 
-                  type="button"
-                  (click)="activeTab.set('CREDENTIALS')"
-                  class="px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center space-x-1.5"
-                  [class]="activeTab() === 'CREDENTIALS' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'">
-                  <mat-icon class="text-sm">key</mat-icon>
-                  <span>Credenciales</span>
-                </button>
-
-                <button 
-                  type="button"
-                  (click)="activeTab.set('DEMO_ROLES')"
-                  class="px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center space-x-1.5"
-                  [class]="activeTab() === 'DEMO_ROLES' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'">
-                  <mat-icon class="text-sm">group</mat-icon>
-                  <span>Perfiles Demo</span>
-                </button>
+                <p class="text-xs text-slate-400 mt-0.5">Ingrese sus credenciales corporativas</p>
               </div>
             </div>
 
@@ -143,9 +123,7 @@ import { User, UserRole } from '../../models/erp.models';
               </div>
             }
 
-            <!-- TAB 1: FORMULARIO DE CREDENCIALES -->
-            @if (activeTab() === 'CREDENTIALS') {
-              <form [formGroup]="loginForm" (ngSubmit)="onSubmitCredentials()" class="space-y-4 text-xs">
+            <form [formGroup]="loginForm" (ngSubmit)="onSubmitCredentials()" class="space-y-4 text-xs">
                 
                 <div>
                   <label for="login-email" class="block font-semibold text-slate-300 mb-1.5">
@@ -170,7 +148,6 @@ import { User, UserRole } from '../../models/erp.models';
                     <label for="login-password" class="font-semibold text-slate-300">
                       Contraseña de Acceso
                     </label>
-                    <span class="text-[11px] text-slate-500 font-mono">Demo: cualquier clave</span>
                   </div>
                   <div class="relative">
                     <input 
@@ -195,9 +172,6 @@ import { User, UserRole } from '../../models/erp.models';
                     <input type="checkbox" formControlName="rememberMe" class="rounded bg-slate-950 border-slate-700 text-blue-600 focus:ring-0" />
                     <span>Recordar sesión en este equipo</span>
                   </label>
-                  <button type="button" (click)="fillAdminCredentials()" class="text-blue-400 hover:underline cursor-pointer">
-                    Cargar cuenta Admin
-                  </button>
                 </div>
 
                 <button 
@@ -214,56 +188,7 @@ import { User, UserRole } from '../../models/erp.models';
                   }
                 </button>
 
-              </form>
-            }
-
-            <!-- TAB 2: SELECTOR RÁPIDO DE USUARIOS DEMO (RBAC FAST-LOGIN) -->
-            @if (activeTab() === 'DEMO_ROLES') {
-              <div class="space-y-3">
-                <p class="text-xs text-slate-400 mb-2">
-                  Haga clic en cualquier usuario corporativo para ingresar de inmediato con su nivel de autorización correspondiente:
-                </p>
-
-                <div class="space-y-2 max-h-[320px] overflow-y-auto pr-1">
-                  @for (user of authService.availableDemoUsers; track user.id) {
-                    <button 
-                      type="button"
-                      (click)="loginWithDemoUser(user)"
-                      [disabled]="user.status === 'INACTIVO'"
-                      class="w-full p-3 rounded-2xl border transition-all text-left flex items-center justify-between space-x-3 cursor-pointer group"
-                      [class]="user.status === 'INACTIVO' 
-                        ? 'bg-slate-950/40 border-slate-800 opacity-50 cursor-not-allowed' 
-                        : 'bg-slate-950/70 border-slate-800 hover:border-blue-500/60 hover:bg-slate-800/80'">
-                      
-                      <div class="flex items-center space-x-3 min-w-0">
-                        <img 
-                          [src]="user.avatarUrl" 
-                          [alt]="user.name"
-                          referrerpolicy="no-referrer"
-                          class="w-10 h-10 rounded-full object-cover ring-1 ring-slate-700 shrink-0" />
-                        
-                        <div class="min-w-0">
-                          <div class="flex items-center space-x-2">
-                            <p class="font-bold text-white text-xs truncate group-hover:text-blue-300 transition-colors">{{ user.name }}</p>
-                            <span class="px-2 py-0.5 rounded text-[10px] font-bold border shrink-0"
-                              [class]="getRoleBadgeClass(user.role)">
-                              {{ getRoleName(user.role) }}
-                            </span>
-                          </div>
-                          <p class="text-[11px] text-slate-400 truncate">{{ user.email }} • <span class="text-slate-500">{{ user.department }}</span></p>
-                        </div>
-                      </div>
-
-                      <div class="shrink-0 flex items-center space-x-1 text-slate-400 group-hover:text-blue-400">
-                        <span class="text-xs font-semibold hidden sm:inline">Ingresar</span>
-                        <mat-icon class="text-sm">arrow_forward</mat-icon>
-                      </div>
-
-                    </button>
-                  }
-                </div>
-              </div>
-            }
+            </form>
 
             <!-- Security Footnote -->
             <div class="mt-6 pt-4 border-t border-slate-800 flex items-center justify-between text-[10px] text-slate-500">
@@ -300,15 +225,14 @@ export default class LoginComponent {
   authService = inject(AuthService);
   private router = inject(Router);
 
-  activeTab = signal<'CREDENTIALS' | 'DEMO_ROLES'>('CREDENTIALS');
   showPassword = signal<boolean>(false);
   isLoading = signal<boolean>(false);
   errorMessage = signal<string | null>(null);
   successMessage = signal<string | null>(null);
 
   loginForm = new FormGroup({
-    email: new FormControl('admin.morales@4-inLine.com', [Validators.required, Validators.email]),
-    password: new FormControl('Admin2026*', [Validators.required]),
+    email: new FormControl('', [Validators.required, Validators.email]),
+    password: new FormControl('', [Validators.required]),
     rememberMe: new FormControl(true),
     tenantId: new FormControl('796cc9d6-6c6f-4187-8abf-e57eecf4e9c0', [Validators.required])
   });
@@ -344,30 +268,6 @@ export default class LoginComponent {
         },
       });
 
-  }
-
-  loginWithDemoUser(user: User): void {
-    if (user.status === 'INACTIVO') {
-      this.errorMessage.set(`El usuario ${user.name} está INACTIVO y no puede acceder.`);
-      return;
-    }
-
-    this.isLoading.set(true);
-    this.errorMessage.set(null);
-
-    setTimeout(() => {
-      this.authService.loginAsDemoUser(user.id);
-      this.isLoading.set(false);
-      void this.router.navigate(['/app/dashboard']);
-    }, 300);
-  }
-
-  fillAdminCredentials = (): void => {
-    this.loginForm.patchValue({
-      email: '',
-      password: ''
-    });
-    this.errorMessage.set(null);
   }
 
   getRoleName(role: UserRole): string {

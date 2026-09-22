@@ -144,7 +144,7 @@ import { DecimalPipe } from '@angular/common';
                 <tr class="hover:bg-slate-50/80 transition-colors">
                   
                   <!-- Metadata -->
-                  <td class="py-2.5 px-3 whitespace-nowrap text-slate-500 font-mono">{{ m.date.substring(5, 16) }}</td>
+                  <td class="py-2.5 px-3 whitespace-nowrap text-slate-500 font-mono">{{ m.date.substring(5, 16) || '-' }}</td>
                   <td class="py-2.5 px-3">
                     <span class="font-mono font-bold text-slate-900">{{ m.docReference }}</span>
                     @if (m.supportDocument) {

@@ -1,5 +1,5 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
-import { catchError, defer, finalize, forkJoin, map, Observable, of, tap } from 'rxjs';
+import { catchError, defer, finalize, forkJoin, map, Observable, of, switchMap, tap } from 'rxjs';
 import {
   Product,
   ProductCategory,
@@ -138,12 +138,14 @@ export class ErpStateService {
     return forkJoin({ 
       suppliers: this.apiService.getSuppliers(), 
       orders: this.apiService.getPurchaseOrders(),
-      warehouses: this.apiService.getWarehouses()
+      warehouses: this.apiService.getWarehouses(),
+      products: this.apiService.getProducts(),
     }).pipe(
-      tap(({ suppliers, orders, warehouses }) => { 
+      tap(({ suppliers, orders, warehouses, products }) => { 
         this.suppliers.set(suppliers); 
         this.purchaseOrders.set(orders); 
-        this.warehouses.set(warehouses)
+        this.warehouses.set(warehouses);
+        this.products.set(products);
       }), map(() => true)
     );
   }
@@ -2091,13 +2093,13 @@ export class ErpStateService {
     warehouseId: string,
     items: { productId: string; quantity: number; unitCost: number; taxRate: number }[],
     notes?: string
-  ): { success: boolean; orderNumber?: string; message?: string } {
+  ): Observable<{ success: boolean; orderNumber?: string; message?: string }> {
     const user = this.authService.currentUser();
     const supplier = this.suppliers().find(s => s.id === supplierId);
     const warehouse = this.warehouses().find(w => w.id === warehouseId);
 
     if (!supplier || !warehouse || items.length === 0) {
-      return { success: false, message: 'Parámetros de orden de compra inválidos.' };
+      return of({ success: false, message: 'Parámetros de orden de compra inválidos.' });
     }
 
     const orderNumber = 'OC-2026-' + (this.purchaseOrders().length + 39).toString().padStart(4, '0');
@@ -2220,34 +2222,6 @@ export class ErpStateService {
       receivedBy: user.name
     };
 
-    const previousProducts = [...this.products()];
-    const previousPurchaseOrders = [...this.purchaseOrders()];
-    const previousKardex = [...this.kardexMovements()];
-    const productUpdates$ = currentProducts.map(product => this.apiService.updateProduct(product.id, product));
-
-    forkJoin({
-      purchaseOrder: this.apiService.createPurchaseOrder(newPO),
-      kardex: this.apiService.createKardexMovements(kardexToAdd),
-      products: forkJoin(productUpdates$)
-    }).pipe(
-      tap(({ purchaseOrder, kardex, products }) => {
-        this.purchaseOrders.update(orders => [purchaseOrder, ...orders]);
-        this.kardexMovements.update(kdx => [...kardex, ...kdx]);
-        this.products.set(currentProducts);
-        this.saveState();
-        this.notify('success', 'Orden de compra creada', `La orden de compra ${orderNumber} ha sido registrada exitosamente.`);
-      }),
-      catchError((error) => {
-        this.products.set(previousProducts);
-        this.purchaseOrders.set(previousPurchaseOrders);
-        this.kardexMovements.set(previousKardex);
-        this.notify('error', 'Error al crear la orden de compra', 'La operación no se confirmó en el backend y el state fue revertido.');
-        console.error('Error en registerPurchaseOrder:', error);
-        this.saveState();
-        return of({ purchaseOrder: null, kardex: [], products: [] });
-      })
-    ).subscribe();
-
     // Automatic double-entry accounting entry for purchase
     const poAccountLines: JournalEntryLine[] = [
       {
@@ -2276,21 +2250,33 @@ export class ErpStateService {
       }
     ];
 
-    this.generateAutomatedJournalEntry('COMPRA', orderNumber, `Recepción de Compra ${orderNumber} (${supplier.name})`, poAccountLines);
-
-    this.logAudit(
-      'PURCHASE_RECEIPT',
-      'PURCHASES',
-      `Recepción de Compra ${orderNumber}`,
-      `Ingreso de ${poItems.length} productos desde ${supplier.name}. Cálculo de Costo Promedio ejecutado.`,
-      { proveedor: supplier.name, itemsCount: items.length },
-      { orderNumber, total: newPO.total, productosAfectados: auditDiffItems },
-      { prismaTransaction: 'COMMITTED', isolationLevel: 'ReadCommitted' }
+    return this.apiService.createPurchaseOrder(newPO).pipe(
+      switchMap(() => forkJoin({
+        inventory: this.loadRouteData('inventory'),
+        kardex: this.loadRouteData('kardex'),
+        purchases: this.loadRouteData('purchases')
+      })),
+      tap(() => {
+        this.generateAutomatedJournalEntry('COMPRA', orderNumber, `Recepción de Compra ${orderNumber} (${supplier.name})`, poAccountLines);
+        this.logAudit(
+          'PURCHASE_RECEIPT',
+          'PURCHASES',
+          `Recepción de Compra ${orderNumber}`,
+          `Ingreso de ${poItems.length} productos desde ${supplier.name}. Cálculo de Costo Promedio ejecutado.`,
+          { proveedor: supplier.name, itemsCount: items.length },
+          { orderNumber, total: newPO.total, productosAfectados: auditDiffItems },
+          { prismaTransaction: 'COMMITTED', isolationLevel: 'ReadCommitted' }
+        );
+        this.notify('success', 'Compra Registrada con Éxito', `Orden ${orderNumber} recibida. Stock y Costo Promedio actualizados.`);
+        this.saveState();
+      }),
+      map(() => ({ success: true, orderNumber })),
+      catchError(error => {
+        console.error('Error en registerPurchaseOrder:', error);
+        this.notify('error', 'Error al crear la orden de compra', 'La operación no se confirmó en el backend.');
+        return of({ success: false, message: 'No fue posible registrar la compra.' });
+      })
     );
-
-    this.notify('success', 'Compra Registrada con Éxito', `Orden ${orderNumber} recibida. Stock y Costo Promedio actualizados.`);
-    this.saveState();
-    return { success: true, orderNumber };
   }
 
   // ==========================================
@@ -5817,7 +5803,7 @@ export class ErpStateService {
       bankAccounts: this.bankAccounts(),
       payableBills: this.payableBills(),
       treasuryTransactions: this.treasuryTransactions(),
-      users: this.authService.availableDemoUsers,
+      users: this.authService.users(),
       auditLogs: this.auditLogs(),
       emailAlertLogs: []
     };

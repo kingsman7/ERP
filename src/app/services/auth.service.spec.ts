@@ -1,5 +1,4 @@
 import { provideHttpClient } from '@angular/common/http';
-import { HttpErrorResponse } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { AuthService } from './auth.service';
@@ -38,37 +37,44 @@ describe('AuthService session restoration', () => {
     localStorage.clear();
   });
 
-  it('restores the user session from persisted user data and refreshes the access token via cookie', () => {
+  it('restores a session from a persisted valid access token without calling refresh', () => {
+    const accessToken = tokenWithExpiration(Math.floor(Date.now() / 1000) + 3600);
     localStorage.setItem(SESSION_KEY, JSON.stringify({
       user: TEST_USER,
-      demo: false
+      accessToken
     }));
 
     const service = TestBed.inject(AuthService);
-    const request = http.expectOne('/api/auth/refresh');
-
-    expect(service.authInitialized()).toBeFalsy();
-    request.flush({ accessToken: tokenWithExpiration(Math.floor(Date.now() / 1000) + 3600) });
 
     expect(service.authInitialized()).toBeTruthy();
     expect(service.isAuthenticated()).toBeTruthy();
-    expect(localStorage.getItem(SESSION_KEY)).toContain('"user"');
-    expect(localStorage.getItem(SESSION_KEY)).not.toContain('"token"');
+    expect(service.token()).toBe(accessToken);
   });
 
-  it('clears the session when refresh is rejected', () => {
+  it('clears a session with an expired access token', () => {
     localStorage.setItem(SESSION_KEY, JSON.stringify({
       user: TEST_USER,
-      demo: false
+      accessToken: tokenWithExpiration(Math.floor(Date.now() / 1000) - 1)
     }));
 
     const service = TestBed.inject(AuthService);
-    const request = http.expectOne('/api/auth/refresh');
-
-    expect(service.authInitialized()).toBeFalsy();
-    request.flush({ message: 'expired' }, new HttpErrorResponse({ status: 401 }));
 
     expect(service.authInitialized()).toBeTruthy();
     expect(service.isAuthenticated()).toBeFalsy();
+    expect(localStorage.getItem(SESSION_KEY)).toBeNull();
+  });
+
+  it('does not grant super-admin access to an authenticated auditor', () => {
+    const accessToken = tokenWithExpiration(Math.floor(Date.now() / 1000) + 3600);
+    localStorage.setItem(SESSION_KEY, JSON.stringify({
+      user: { ...TEST_USER, role: 'AUDITOR', email: 'auditor@example.com' },
+      accessToken,
+    }));
+
+    const service = TestBed.inject(AuthService);
+
+    expect(service.isAuthenticated()).toBe(true);
+    expect(service.currentRoleConfig().permissions).toContain('audit:view');
+    expect(service.isSuperAdmin()).toBe(false);
   });
 });

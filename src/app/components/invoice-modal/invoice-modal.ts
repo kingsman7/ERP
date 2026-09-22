@@ -4,6 +4,14 @@ import { Invoice } from '../../models/erp.models';
 import { ErpStateService } from '../../services/erp-state.service';
 import { DecimalPipe } from '@angular/common'
 
+type InvoiceWithWithholdings = Invoice & {
+  withholdingIvaPercent?: number;
+  withholdingIvaAmount?: number;
+  withholdingIslrPercent?: number;
+  withholdingIslrAmount?: number;
+  withholdingIslrNature?: string;
+};
+
 @Component({
   selector: 'app-invoice-modal',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -206,6 +214,20 @@ import { DecimalPipe } from '@angular/common'
                   <span class="font-mono font-medium">\${{ (inv.taxDetails.ivaAmount || (inv.taxTotal - (inv.taxDetails.igtfAmount || 0))) | number: '1.2-2' }}</span>
                 </div>
 
+                @if ((withholdingDetails(inv).withholdingIvaAmount || 0) > 0) {
+                  <div class="flex justify-between text-amber-800 font-semibold">
+                    <span>Retención IVA ({{ withholdingDetails(inv).withholdingIvaPercent }}%):</span>
+                    <span class="font-mono">-\${{ withholdingDetails(inv).withholdingIvaAmount | number: '1.2-2' }}</span>
+                  </div>
+                }
+
+                @if ((withholdingDetails(inv).withholdingIslrAmount || 0) > 0) {
+                  <div class="flex justify-between text-amber-800 font-semibold">
+                    <span>Retención ISLR ({{ withholdingDetails(inv).withholdingIslrPercent }}%{{ withholdingDetails(inv).withholdingIslrNature ? ' - ' + withholdingDetails(inv).withholdingIslrNature : '' }}):</span>
+                    <span class="font-mono">-\${{ withholdingDetails(inv).withholdingIslrAmount | number: '1.2-2' }}</span>
+                  </div>
+                }
+
                 @if (inv.taxDetails.appliesIgtf && inv.taxDetails.igtfAmount > 0) {
                   <div class="flex justify-between text-indigo-800 font-semibold">
                     <span>Percepción IGTF (3% Divisas):</span>
@@ -268,6 +290,10 @@ export class InvoiceModal {
   invoice = input<Invoice | null>(null);
   closeModal = output<void>();
   readonly stateService = inject(ErpStateService);
+
+  withholdingDetails(invoice: Invoice): InvoiceWithWithholdings {
+    return invoice as InvoiceWithWithholdings;
+  }
 
   printInvoice() {
     if (typeof window !== 'undefined') {

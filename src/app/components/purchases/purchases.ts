@@ -811,17 +811,16 @@ export default class PurchasesComponent {
   submitPurchaseOrder(notes: string) {
     if (this.itemsList().length === 0) return;
 
-    const result = this.stateService.registerPurchaseOrder(
+    this.stateService.registerPurchaseOrder(
       this.selectedSupplierId(),
       this.selectedWarehouseId(),
       this.itemsList(),
       notes
-    );
-
-    if (result.success) {
+    ).subscribe(result => {
+      if (!result.success) return;
       this.itemsList.set([]);
       this.showNewPurchaseModal.set(false);
-    }
+    });
   }
 
   submitSupplier() {

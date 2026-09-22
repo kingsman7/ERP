@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, catchError, map, of, throwError } from 'rxjs';
+import { Observable, catchError, forkJoin, map, of, throwError } from 'rxjs';
 import { Account, AuditLog, BankAccount, BcvExchangeRateState, Bom, CashRegisterSession, CompanyFiscalProfile, CrmDeal, Customer, DeliveryOrder, DispatchGuide, Invoice, JournalEntry, KardexMovement, PayableBill, Product, ProductCategory, ProductionOrder, PurchaseOrder, Quote, Supplier, TreasuryTransaction, Warehouse } from '../models/erp.models';
 
 export interface StockAdjustmentPayload {
@@ -26,6 +26,13 @@ export interface StockAdjustmentResponse {
 export class ApiService {
   private http = inject(HttpClient);
   private baseUrl = '/api';
+
+  private normalizeKardexMovement(raw: KardexMovement & { movementDate?: string }): KardexMovement {
+    return {
+      ...raw,
+      date: raw.date ?? raw.movementDate ?? ''
+    };
+  }
 
   private normalizeProduct(raw: Product & { stocks?: { warehouseId: string; quantity: number; warehouse?: { name: string } }[]; price1?: number; price2?: number; price3?: number; price4?: number; price5?: number }): Product {
     const categories = Array.isArray(raw.categories)
@@ -134,6 +141,7 @@ export class ApiService {
 
   getKardexMovements(): Observable<KardexMovement[]> {
     return this.http.get<KardexMovement[]>(`${this.baseUrl}/kardex`).pipe(
+      map(movements => movements.map(movement => this.normalizeKardexMovement(movement as KardexMovement & { movementDate?: string }))),
       catchError(() => of([]))
     );
   }
@@ -152,7 +160,30 @@ export class ApiService {
   }
 
   createKardexMovements(movements: KardexMovement[]): Observable<KardexMovement[]> {
-    return this.http.post<KardexMovement[]>(`${this.baseUrl}/kardex/movement`, movements);
+    return forkJoin(movements.map(movement => this.http.post<KardexMovement>(
+      `${this.baseUrl}/kardex/movement`,
+      {
+        productId: movement.productId,
+        warehouseId: movement.warehouseId,
+        movementDate: movement.date,
+        movementType: movement.movementType,
+        docReference: movement.docReference,
+        supportDocument: movement.supportDocument,
+        justificationReason: movement.justificationReason,
+        entryQty: Number(movement.entryQty),
+        entryUnitCost: Number(movement.entryUnitCost),
+        entryTotalCost: Number(movement.entryTotalCost),
+        exitQty: Number(movement.exitQty),
+        exitUnitCost: Number(movement.exitUnitCost),
+        exitTotalCost: Number(movement.exitTotalCost),
+        balanceQty: Number(movement.balanceQty),
+        balanceAverageCost: Number(movement.balanceAverageCost),
+        balanceTotalValuation: Number(movement.balanceTotalValuation),
+        registeredByUserId: movement.registeredByUserId
+      }
+    ).pipe(
+      map(response => this.normalizeKardexMovement(response as KardexMovement & { movementDate?: string }))
+    )));
   }
 
   //crear proveedores
