@@ -1,6 +1,6 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
 import { User, RoleConfig, UserRole, AuthUser } from '../models/erp.models';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { catchError, map, Observable, of, tap } from 'rxjs';
 import { AuditService } from './audit.servie';
 
@@ -50,6 +50,14 @@ const UNAUTHENTICATED_USER: User = {
   status: 'INACTIVO'
 };
 
+export interface PublicTenantContext {
+  slug: string;
+  name: string;
+  status: string;
+}
+
+export type AuthFailure = 'tenant-unavailable' | 'credentials' | 'admin-domain' | 'tenant-required';
+
 @Injectable({
   providedIn: 'root'
 })
@@ -64,6 +72,10 @@ export class AuthService {
   private tokenSignal = signal<string>('');
   private isAuthenticatedSignal = signal<boolean>(false);
   private authInitializedSignal = signal<boolean>(false);
+  private tenantContextSignal = signal<PublicTenantContext | null>(null);
+  private tenantResolutionPendingSignal = signal<boolean>(false);
+  private tenantResolutionFailureSignal = signal<'tenant-unavailable' | 'admin-domain' | 'tenant-required' | null>(null);
+  private lastAuthFailureSignal = signal<AuthFailure | null>(null);
 
   // Global Change Password Modal State
   readonly showChangePasswordModal = signal<boolean>(false);
@@ -74,6 +86,11 @@ export class AuthService {
   readonly token = this.tokenSignal.asReadonly();
   readonly isAuthenticated = this.isAuthenticatedSignal.asReadonly();
   readonly authInitialized = this.authInitializedSignal.asReadonly();
+  readonly tenantContext = this.tenantContextSignal.asReadonly();
+  readonly tenantResolutionPending = this.tenantResolutionPendingSignal.asReadonly();
+  readonly tenantResolutionFailure = this.tenantResolutionFailureSignal.asReadonly();
+  readonly lastAuthFailure = this.lastAuthFailureSignal.asReadonly();
+  readonly isAdminDomain = computed(() => this.tenantResolutionFailureSignal() === 'admin-domain');
 
   readonly currentRoleConfig = computed(() => {
     const role = this.currentUserSignal().role;
@@ -82,7 +99,7 @@ export class AuthService {
 
   readonly isSuperAdmin = computed(() => {
     const user = this.currentUserSignal();
-    return user.role === 'ADMIN' || user.email.toLowerCase().includes('superadmin') || user.email.toLowerCase().includes('admin.morales');
+    return user.role === 'ADMIN';
   });
 
   loadUsersFromBackend(): Observable<User[]> {
@@ -189,8 +206,67 @@ export class AuthService {
     this.targetUserForPasswordChange.set(null);
   }
 
-  login(email: string, password?: string, tenantId?: string): Observable<boolean> {
-    return this.http.post<AuthUser>(`${this.baseUrl}/auth/login`, { email, password, tenantId }, { withCredentials: true })
+  resolveTenantFromHost(): Observable<PublicTenantContext | null> {
+    const host = typeof window !== 'undefined' ? window.location.hostname.toLowerCase() : '';
+    const slug = this.slugFromHost(host);
+    this.tenantResolutionPendingSignal.set(false);
+
+    if (this.isAdminHost(host)) {
+      this.tenantContextSignal.set(null);
+      this.tenantResolutionFailureSignal.set('admin-domain');
+      return of(null);
+    }
+    if (!slug) {
+      this.tenantResolutionFailureSignal.set('tenant-required');
+      return of(null);
+    }
+
+    this.tenantResolutionPendingSignal.set(true);
+    this.tenantResolutionFailureSignal.set(null);
+    return this.http.get<{ tenantId?: string; slug: string; name: string; status: string }>(`${this.baseUrl}/auth/public/tenants/resolve/${encodeURIComponent(slug)}`).pipe(
+      map(({ slug: resolvedSlug, name, status }) => ({ slug: resolvedSlug, name, status })),
+      tap(context => {
+        this.tenantContextSignal.set(context);
+        this.tenantResolutionPendingSignal.set(false);
+      }),
+      catchError(() => {
+        this.tenantContextSignal.set(null);
+        this.tenantResolutionPendingSignal.set(false);
+        this.tenantResolutionFailureSignal.set('tenant-unavailable');
+        return of(null);
+      })
+    );
+  }
+
+  private slugFromHost(host: string): string | null {
+    if (!host || host === 'localhost' || host === 'tudominio.com' || this.isAdminHost(host)) return null;
+    if (host.endsWith('.localhost')) return host.slice(0, -'.localhost'.length).split('.')[0] || null;
+    if (host.endsWith('.tudominio.com')) return host.slice(0, -'.tudominio.com'.length).split('.')[0] || null;
+    const labels = host.split('.');
+    return labels.length >= 3 ? labels[0] : null;
+  }
+
+  private isAdminHost(host: string): boolean {
+    return host.split('.')[0] === 'admin';
+  }
+
+  login(email: string, password?: string): Observable<boolean> {
+    this.lastAuthFailureSignal.set(null);
+    const tenant = this.tenantContextSignal();
+    const isAdminLogin = this.isAdminDomain();
+    if (!tenant && !isAdminLogin) {
+      this.lastAuthFailureSignal.set(this.tenantResolutionFailureSignal() === 'admin-domain' ? 'admin-domain' : 'tenant-required');
+      return of(false);
+    }
+
+    const loginRequest = isAdminLogin
+      ? this.http.post<AuthUser>(`${this.baseUrl}/v1/master/auth/login`, { email, password }, { withCredentials: true })
+      : this.http.post<AuthUser>(`${this.baseUrl}/auth/login`, { email, password }, {
+        withCredentials: true,
+        headers: { 'x-tenant-slug': tenant!.slug }
+      });
+
+    return loginRequest
       .pipe(
       tap((user) => {
         if (user.user) {
@@ -212,7 +288,10 @@ export class AuthService {
         }
       }),
       map(() => true),
-      catchError(() => of(false))
+      catchError((error: HttpErrorResponse) => {
+        this.lastAuthFailureSignal.set(error.status === 401 ? 'credentials' : 'tenant-unavailable');
+        return of(false);
+      })
     )
   }
 

@@ -17,6 +17,13 @@ function tokenWithExpiration(expiration: number): string {
   return `header.${payload}.signature`;
 }
 
+function setHostname(hostname: string): void {
+  Object.defineProperty(window, 'location', {
+    configurable: true,
+    value: { hostname }
+  });
+}
+
 describe('AuthService session restoration', () => {
   let http: HttpTestingController;
 
@@ -34,7 +41,50 @@ describe('AuthService session restoration', () => {
 
   afterEach(() => {
     http.verify();
+    setHostname('localhost');
     localStorage.clear();
+  });
+
+  it('resolves the tenant slug from a tenant hostname and stores no tenant id', () => {
+    setHostname('repuestos-michelena.tudominio.com');
+    const service = TestBed.inject(AuthService);
+
+    service.resolveTenantFromHost().subscribe(context => {
+      expect(context).toEqual({ slug: 'repuestos-michelena', name: 'Repuestos Michelena', status: 'ACTIVE' });
+      expect(context && 'tenantId' in context).toBe(false);
+    });
+
+    const request = http.expectOne('/api/auth/public/tenants/resolve/repuestos-michelena');
+    request.flush({ tenantId: 'private-id', slug: 'repuestos-michelena', name: 'Repuestos Michelena', status: 'ACTIVE' });
+  });
+
+  it('sends only credentials in the body and the resolved slug in the header', () => {
+    setHostname('repuestos-michelena.localhost');
+    const service = TestBed.inject(AuthService);
+    service.resolveTenantFromHost().subscribe();
+    http.expectOne('/api/auth/public/tenants/resolve/repuestos-michelena').flush({
+      tenantId: 'private-id', slug: 'repuestos-michelena', name: 'Repuestos Michelena', status: 'ACTIVE'
+    });
+
+    service.login('user@example.com', 'password123').subscribe(result => expect(result).toBe(true));
+    const request = http.expectOne('/api/auth/login');
+    expect(request.request.headers.get('x-tenant-slug')).toBe('repuestos-michelena');
+    expect(request.request.body).toEqual({ email: 'user@example.com', password: 'password123' });
+    request.flush({ accessToken: tokenWithExpiration(Math.floor(Date.now() / 1000) + 3600), user: TEST_USER });
+  });
+
+  it('uses the master login on an admin host without resolving or sending a tenant', () => {
+    setHostname('admin.example.com');
+    const service = TestBed.inject(AuthService);
+
+    service.resolveTenantFromHost().subscribe(context => expect(context).toBeNull());
+    expect(service.isAdminDomain()).toBe(true);
+
+    service.login('admin@example.com', 'password123').subscribe(result => expect(result).toBe(true));
+    const request = http.expectOne('/api/v1/master/auth/login');
+    expect(request.request.headers.has('x-tenant-slug')).toBe(false);
+    expect(request.request.body).toEqual({ email: 'admin@example.com', password: 'password123' });
+    request.flush({ accessToken: tokenWithExpiration(Math.floor(Date.now() / 1000) + 3600), user: TEST_USER });
   });
 
   it('restores a session from a persisted valid access token without calling refresh', () => {

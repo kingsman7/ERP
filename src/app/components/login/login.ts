@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, OnInit, signal } from '@angular/core';
 import { ReactiveFormsModule, FormGroup, FormControl, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
@@ -108,6 +108,18 @@ import { UserRole } from '../../models/erp.models';
               </div>
             </div>
 
+            @if (authService.tenantResolutionPending()) {
+              <p class="mb-5 text-xs text-slate-400">Verificando el espacio de trabajo...</p>
+            } @else if (authService.tenantContext(); as tenant) {
+              <p class="mb-5 text-xs text-slate-400">Espacio de trabajo: <span class="font-semibold text-slate-200">{{ tenant.name }}</span></p>
+            } @else if (authService.isAdminDomain()) {
+              <p class="mb-5 text-xs text-slate-400">Acceso administrativo seguro.</p>
+            } @else if (authService.tenantResolutionFailure() === 'tenant-unavailable') {
+              <p class="mb-5 text-xs text-rose-300">El espacio de trabajo no existe o está inactivo.</p>
+            } @else {
+              <p class="mb-5 text-xs text-amber-300">No se detectó un espacio de trabajo. En desarrollo usa <span class="font-mono">&lt;slug&gt;.localhost</span>.</p>
+            }
+
             <!-- Alert / Error Message -->
             @if (errorMessage()) {
               <div class="mb-5 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center space-x-2 animate-in fade-in">
@@ -177,7 +189,7 @@ import { UserRole } from '../../models/erp.models';
                 <button 
                   id="btn-login-submit"
                   type="submit"
-                  [disabled]="isLoading()"
+                  [disabled]="isLoading() || authService.tenantResolutionPending() || (!authService.isAdminDomain() && !authService.tenantContext())"
                   class="w-full mt-2 py-3 px-4 bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-blue-600/30 transition-all flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50">
                   @if (isLoading()) {
                     <mat-icon class="animate-spin text-base">refresh</mat-icon>
@@ -221,7 +233,7 @@ import { UserRole } from '../../models/erp.models';
     </div>
   `
 })
-export default class LoginComponent {
+export default class LoginComponent implements OnInit {
   authService = inject(AuthService);
   private router = inject(Router);
 
@@ -233,9 +245,12 @@ export default class LoginComponent {
   loginForm = new FormGroup({
     email: new FormControl('', [Validators.required, Validators.email]),
     password: new FormControl('', [Validators.required]),
-    rememberMe: new FormControl(true),
-    tenantId: new FormControl('796cc9d6-6c6f-4187-8abf-e57eecf4e9c0', [Validators.required])
+    rememberMe: new FormControl(true)
   });
+
+  ngOnInit(): void {
+    this.authService.resolveTenantFromHost().subscribe();
+  }
 
   onSubmitCredentials(): void {
     if (this.loginForm.invalid) {
@@ -249,7 +264,7 @@ export default class LoginComponent {
 
     const { email, password } = this.loginForm.value;
 
-      this.authService.login(email || '', password || '')
+    this.authService.login(email || '', password || '')
       .subscribe({
         next: (result)=> {
           if (result) {
@@ -258,7 +273,14 @@ export default class LoginComponent {
             void this.router.navigate(['/app/dashboard']);
           } else {
             this.isLoading.set(false);
-            this.errorMessage.set('Error al validar credenciales.');
+            const failure = this.authService.lastAuthFailure();
+            this.errorMessage.set(failure === 'credentials'
+              ? 'Las credenciales no son válidas.'
+              : failure === 'tenant-unavailable'
+                ? 'No se pudo validar el acceso al espacio de trabajo.'
+                : failure === 'admin-domain'
+                  ? 'No se pudo validar el acceso administrativo.'
+                  : 'No se pudo validar el acceso.');
           }
         },
         error: (err) => {
