@@ -12,7 +12,7 @@ import {
   PlatformHealthMetric,
   PendingBillingCheckout,
   BillingSubscriptionStatusView,
-  DEFAULT_PLANS
+  BillingsPlans
 } from '../models/super-admin.models';
 import { AuthService } from '../../../services/auth.service';
 import { ErpStateService } from '../../../services/erp-state.service';
@@ -170,29 +170,8 @@ export class SuperAdminService {
     this.isLoading.set(true);
     return forkJoin({
       tenants: this.http.get<Tenant[]>(`${this.MASTER_API_BASE}/tenants`).pipe(catchError(() => of([]))),
-      plans: this.http.get<Array<{
-        id: string;
-        code: string;
-        name: string;
-        price: number;
-        maxUsers: number;
-        storageLimitMb: number;
-        features: Record<string, unknown>;
-      }>>(`${this.MASTER_API_BASE}/billing/plans`).pipe(
-        map(plans => plans.map(plan => {
-          const defaults = DEFAULT_PLANS.find(item => item.id === plan.code) || DEFAULT_PLANS[0];
-          return {
-            ...defaults,
-            id: plan.code as PlanTier,
-            saasPlanId: plan.id,
-            name: plan.name,
-            priceMonthlyUsd: plan.price,
-            priceAnnualUsd: plan.price * 12,
-            maxUsers: plan.maxUsers,
-            storageLimitMb: plan.storageLimitMb,
-            allowedModules: Object.keys(plan.features)
-          };
-        }) as SubscriptionPlan[]),
+      plans: this.http.get<SubscriptionPlan[]>(`${this.MASTER_API_BASE}/billing/plans`).pipe(
+        map(plans => plans.map(plan => ({ ...plan, id: plan.code as PlanTier, saasPlanId: plan.id }))),
         catchError(() => of([] as SubscriptionPlan[]))
       )
     }).pipe(
@@ -673,6 +652,16 @@ export class SuperAdminService {
       maxUsers: number;
       storageLimitMb: number;
       features: Record<string, unknown>;
+      tagline: string;
+      description: string;
+      priceMonthlyUsd: number;
+      priceAnnualUsd: number;
+      allowedModules: string[];
+      maxInvoicesMonthly: number;
+      supportTier: 'COMMUNITY' | 'STANDARD_24_7' | 'DEDICATED_VIP';
+      customDomainSupported: boolean;
+      apiAccess: boolean;
+      isPopular: boolean;
     }>(`${this.MASTER_API_BASE}/billing/plans/${current.saasPlanId}`, {
       name: current.name,
       price: updates.priceMonthlyUsd ?? current.priceMonthlyUsd,
@@ -680,7 +669,16 @@ export class SuperAdminService {
       billingCycle: 'MONTHLY',
       maxUsers: updates.maxUsers ?? current.maxUsers,
       storageLimitMb: updates.storageLimitMb ?? current.storageLimitMb,
-      features: Object.fromEntries((updates.allowedModules ?? current.allowedModules).map(module => [module, true]))
+      features: {
+        modules: updates.allowedModules ?? current.allowedModules,
+        tagline: current.tagline,
+        description: current.description,
+        maxInvoicesMonthly: updates.maxInvoicesMonthly ?? current.maxInvoicesMonthly,
+        supportTier: current.supportTier,
+        customDomainSupported: current.customDomainSupported,
+        apiAccess: current.apiAccess,
+        isPopular: current.isPopular
+      }
     }).pipe(
       map(plan => this.mapApiPlan(plan)),
       tap(updated => {
@@ -697,6 +695,7 @@ export class SuperAdminService {
     price: number;
     maxUsers: number;
     storageLimitMb: number;
+    modules: string[];
   }): Observable<SubscriptionPlan> {
     return this.http.post<{
       id: string;
@@ -708,11 +707,21 @@ export class SuperAdminService {
       maxUsers: number;
       storageLimitMb: number;
       features: Record<string, unknown>;
+      tagline: string;
+      description: string;
+      priceMonthlyUsd: number;
+      priceAnnualUsd: number;
+      allowedModules: string[];
+      maxInvoicesMonthly: number;
+      supportTier: 'COMMUNITY' | 'STANDARD_24_7' | 'DEDICATED_VIP';
+      customDomainSupported: boolean;
+      apiAccess: boolean;
+      isPopular: boolean;
     }>(`${this.MASTER_API_BASE}/billing/plans`, {
       ...input,
       currency: 'USD',
       billingCycle: 'MONTHLY',
-      features: {}
+      features: { modules: input.modules }
     }).pipe(
       map(plan => this.mapApiPlan(plan)),
       tap(plan => {
@@ -730,18 +739,34 @@ export class SuperAdminService {
     maxUsers: number;
     storageLimitMb: number;
     features: Record<string, unknown>;
+    tagline: string;
+    description: string;
+    priceMonthlyUsd: number;
+    priceAnnualUsd: number;
+    allowedModules: string[];
+    maxInvoicesMonthly: number;
+    supportTier: 'COMMUNITY' | 'STANDARD_24_7' | 'DEDICATED_VIP';
+    customDomainSupported: boolean;
+    apiAccess: boolean;
+    isPopular: boolean;
   }): SubscriptionPlan {
-    const template = DEFAULT_PLANS.find(item => item.id === plan.code) || DEFAULT_PLANS[0];
     return {
-      ...template,
       id: plan.code as PlanTier,
       saasPlanId: plan.id,
+      code: plan.code,
       name: plan.name,
-      priceMonthlyUsd: plan.price,
-      priceAnnualUsd: plan.price * 12,
+      tagline: plan.tagline,
+      description: plan.description,
+      priceMonthlyUsd: plan.priceMonthlyUsd,
+      priceAnnualUsd: plan.priceAnnualUsd,
       maxUsers: plan.maxUsers,
       storageLimitMb: plan.storageLimitMb,
-      allowedModules: Object.keys(plan.features ?? {})
+      allowedModules: plan.allowedModules,
+      maxInvoicesMonthly: plan.maxInvoicesMonthly,
+      supportTier: plan.supportTier,
+      customDomainSupported: plan.customDomainSupported,
+      apiAccess: plan.apiAccess,
+      isPopular: plan.isPopular
     };
   }
 
@@ -803,7 +828,7 @@ export class SuperAdminService {
 
   private loadInitialPlans(): SubscriptionPlan[] {
     try {
-      localStorage.removeItem(STORAGE_KEY_PLANS);
+      
     } catch {
       // Ignore storage errors; plans must come from the API.
     }

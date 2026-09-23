@@ -883,13 +883,14 @@
           <!-- Plan Selection -->
           <div class="space-y-1">
             <label class="font-bold text-slate-700" for="prov-plan">Plan Inicial de Suscripción *</label>
-            <select 
+            <select
               id="prov-plan"
               formControlName="plan"
               class="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 font-medium">
-              <option value="BASIC">Plan Comercial / PyME ($49/mes - 5 Usuarios)</option>
-              <option value="PRO">Plan Profesional / MRP ($119/mes - 20 Usuarios)</option>
-              <option value="ENTERPRISE">Plan Enterprise / NIIF ($249/mes - 100 Usuarios)</option>
+              <option value="" disabled>Selecciona un plan real</option>
+              @for (plan of plans(); track plan.id) {
+                <option [value]="plan.code">{{ plan.name }} ({{ plan.maxUsers }} usuarios)</option>
+              }
             </select>
           </div>
 
@@ -1116,9 +1117,10 @@
             id="change-plan-select"
             formControlName="plan"
             class="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-slate-800 font-medium">
-            <option value="BASIC">Plan Comercial / PyME ($49/mes - 5 Usuarios, 2GB)</option>
-            <option value="PRO">Plan Profesional / MRP ($119/mes - 20 Usuarios, 10GB)</option>
-            <option value="ENTERPRISE">Plan Enterprise / NIIF ($249/mes - 100 Usuarios, 50GB)</option>
+            <option value="" disabled>Selecciona un plan real</option>
+            @for (plan of plans(); track plan.id) {
+              <option [value]="plan.code">{{ plan.name }} ({{ plan.maxUsers }} usuarios)</option>
+            }
           </select>
         </div>
 
@@ -1517,6 +1519,18 @@
             type="number"
             formControlName="maxInvoicesMonthly"
             class="w-full px-3 py-2 rounded-xl border border-slate-300 font-mono" />
+        </div>
+
+        <div class="space-y-2">
+          <span class="font-bold text-slate-700">Módulos habilitados</span>
+          <div class="grid grid-cols-2 gap-2 max-h-36 overflow-y-auto rounded-xl border border-slate-200 p-3">
+            @for (module of availablePlanModules; track module) {
+              <label class="flex items-center gap-2 text-[11px] text-slate-700">
+                <input type="checkbox" [checked]="planEditorForm.controls.modules.value.includes(module)" (change)="planEditorForm.controls.modules.setValue($any($event.target).checked ? [...planEditorForm.controls.modules.value, module] : planEditorForm.controls.modules.value.filter(item => item !== module))" />
+                <span>{{ module }}</span>
+              </label>
+            }
+          </div>
         </div>
 
         <div class="pt-3 border-t border-slate-100 flex items-center justify-end space-x-2">

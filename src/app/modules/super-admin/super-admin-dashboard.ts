@@ -54,7 +54,7 @@ export default class SuperAdminDashboardComponent {
     companyName: new FormControl<string>('', { nonNullable: true, validators: [Validators.required, Validators.minLength(3)] }),
     slug: new FormControl<string>('', { nonNullable: true }),
     legalTaxId: new FormControl<string>('', { nonNullable: true, validators: [Validators.required] }),
-    plan: new FormControl<PlanTier>('PRO', { nonNullable: true, validators: [Validators.required] }),
+    plan: new FormControl<string>('', { nonNullable: true, validators: [Validators.required] }),
     contactEmail: new FormControl<string>('', { nonNullable: true, validators: [Validators.required, Validators.email] }),
     contactPhone: new FormControl<string>('+58 212-0000000', { nonNullable: true }),
     adminUserName: new FormControl<string>('', { nonNullable: true, validators: [Validators.required] }),
@@ -85,7 +85,7 @@ export default class SuperAdminDashboardComponent {
   });
 
   planChangeForm = new FormGroup({
-    plan: new FormControl<PlanTier>('PRO', { nonNullable: true, validators: [Validators.required] }),
+    plan: new FormControl<string>('', { nonNullable: true, validators: [Validators.required] }),
     billingCycle: new FormControl<BillingCycle>('MONTHLY', { nonNullable: true })
   });
 
@@ -99,7 +99,16 @@ export default class SuperAdminDashboardComponent {
     maxUsers: new FormControl<number>(5, { nonNullable: true, validators: [Validators.required, Validators.min(1)] }),
     storageLimitMb: new FormControl<number>(2048, { nonNullable: true, validators: [Validators.required, Validators.min(100)] }),
     maxInvoicesMonthly: new FormControl<number>(1000, { nonNullable: true, validators: [Validators.required, Validators.min(100)] })
+    ,modules: new FormControl<string[]>([], { nonNullable: true })
   });
+
+  readonly availablePlanModules = [
+    'dashboard', 'inventory', 'kardex', 'logistics', 'purchases', 'sales-pos',
+    'quotes', 'mrp', 'crm', 'treasury', 'cash-closing', 'accounting', 'users',
+    'audit-log', 'backups', 'manual', 'architecture'
+  ];
+
+  plans = this.superAdminService.plans;
 
   // Computed Auto-Slug for Provisioning Modal
   generatedSlug = computed(() => {
@@ -155,7 +164,7 @@ export default class SuperAdminDashboardComponent {
       companyName: '',
       slug: '',
       legalTaxId: '',
-      plan: 'PRO',
+      plan: '',
       contactEmail: '',
       contactPhone: '+58 212-0000000',
       adminUserName: '',
@@ -187,7 +196,7 @@ export default class SuperAdminDashboardComponent {
       companyName: val.companyName,
       slug: finalSlug,
       legalTaxId: val.legalTaxId,
-      plan: val.plan,
+      plan: val.plan as PlanTier,
       contactEmail: val.contactEmail,
       contactPhone: val.contactPhone,
       adminUserName: val.adminUserName,
@@ -270,7 +279,7 @@ export default class SuperAdminDashboardComponent {
     const tenant = this.changingPlanTenant();
     if (!tenant || this.billingLoading()) return;
 
-    const newPlan = this.planChangeForm.controls.plan.value;
+    const newPlan = this.planChangeForm.controls.plan.value as PlanTier;
     const plan = this.superAdminService.plans().find(item => item.id === newPlan);
     const planId = plan?.saasPlanId;
     this.billingError.set(null);
@@ -315,7 +324,7 @@ export default class SuperAdminDashboardComponent {
         this.billingStatus.set(status);
         this.billingLoading.set(false);
         if (status === 'ACTIVE') {
-          this.applyActivePlan(tenant.id, this.planChangeForm.controls.plan.value);
+          this.applyActivePlan(tenant.id, this.planChangeForm.controls.plan.value as PlanTier);
         }
       },
       error: error => {
@@ -448,6 +457,7 @@ export default class SuperAdminDashboardComponent {
       maxUsers: plan.maxUsers,
       storageLimitMb: plan.storageLimitMb,
       maxInvoicesMonthly: plan.maxInvoicesMonthly
+      ,modules: [...plan.allowedModules]
     });
   }
 
@@ -467,6 +477,7 @@ export default class SuperAdminDashboardComponent {
       maxUsers: 1,
       storageLimitMb: 1024,
       maxInvoicesMonthly: 1000
+      ,modules: []
     });
   }
 
@@ -479,7 +490,8 @@ export default class SuperAdminDashboardComponent {
         name: value.name,
         price: value.priceMonthlyUsd,
         maxUsers: value.maxUsers,
-        storageLimitMb: value.storageLimitMb
+        storageLimitMb: value.storageLimitMb,
+        modules: value.modules
       }).subscribe(() => this.closeEditPlanModal());
       return;
     }

@@ -37,6 +37,7 @@ export interface SubscriptionPlan {
   name: string;
   tagline: string;
   description: string;
+  code?: string;
   priceMonthlyUsd: number;
   priceAnnualUsd: number;
   maxUsers: number;
@@ -135,6 +136,18 @@ export interface TenantAuditLog {
   details: string;
   ipAddress: string;
   severity: 'INFO' | 'WARNING' | 'CRITICAL';
+}
+
+export interface BillingsPlans {
+  id: string;
+  code: string;
+  name: string;
+  price: number;
+  currency: string;
+  billingCycle: string;
+  maxUsers: number;
+  storageLimitMb: number;
+  features: Record<string, unknown>;
 }
 
 export const DEFAULT_PLANS: SubscriptionPlan[] = [
