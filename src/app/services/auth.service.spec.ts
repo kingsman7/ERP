@@ -162,13 +162,32 @@ describe('AuthService session restoration', () => {
     expect(service.token()).toBe(accessToken);
   });
 
-  it('clears a session with an expired access token', () => {
+  it('refreshes an expired access token before clearing the session', () => {
     localStorage.setItem(SESSION_KEY, JSON.stringify({
       user: TEST_USER,
       accessToken: tokenWithExpiration(Math.floor(Date.now() / 1000) - 1)
     }));
 
     const service = TestBed.inject(AuthService);
+    const request = http.expectOne('/api/auth/refresh');
+    const refreshedToken = tokenWithExpiration(Math.floor(Date.now() / 1000) + 3600);
+    request.flush({ accessToken: refreshedToken });
+
+    expect(service.authInitialized()).toBeTruthy();
+    expect(service.isAuthenticated()).toBeTruthy();
+    expect(service.token()).toBe(refreshedToken);
+    expect(localStorage.getItem(SESSION_KEY)).not.toBeNull();
+  });
+
+  it('clears the session when the refresh token is rejected', () => {
+    localStorage.setItem(SESSION_KEY, JSON.stringify({
+      user: TEST_USER,
+      accessToken: tokenWithExpiration(Math.floor(Date.now() / 1000) - 1)
+    }));
+
+    const service = TestBed.inject(AuthService);
+    const request = http.expectOne('/api/auth/refresh');
+    request.flush({ message: 'Unauthorized' }, { status: 401, statusText: 'Unauthorized' });
 
     expect(service.authInitialized()).toBeTruthy();
     expect(service.isAuthenticated()).toBeFalsy();

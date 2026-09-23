@@ -49,8 +49,8 @@ export class SuperAdminService {
   private readonly MASTER_API_BASE = '/api/v1/master';
 
   // Signals
-  readonly tenants = signal<Tenant[]>([]);
-  readonly plans = signal<SubscriptionPlan[]>([]);
+  readonly tenants = signal<Tenant[]>(this.loadInitialTenants());
+  readonly plans = signal<SubscriptionPlan[]>(this.loadInitialPlans());
   readonly auditLogs = signal<TenantAuditLog[]>([]);
   readonly activeImpersonation = signal<ImpersonationSession | null>(null);
   readonly selectedTenant = signal<Tenant | null>(null);
@@ -167,7 +167,31 @@ export class SuperAdminService {
     this.isLoading.set(true);
     return forkJoin({
       tenants: this.http.get<Tenant[]>(`${this.MASTER_API_BASE}/tenants`).pipe(catchError(() => of([]))),
-      plans: this.http.get<SubscriptionPlan[]>(`${this.MASTER_API_BASE}/plans`).pipe(catchError(() => of([])))
+      plans: this.http.get<Array<{
+        id: string;
+        code: string;
+        name: string;
+        price: number;
+        maxUsers: number;
+        storageLimitMb: number;
+        features: Record<string, unknown>;
+      }>>(`${this.MASTER_API_BASE}/billing/plans`).pipe(
+        map(plans => plans.map(plan => {
+          const defaults = DEFAULT_PLANS.find(item => item.id === plan.code) || DEFAULT_PLANS[0];
+          return {
+            ...defaults,
+            id: plan.code as PlanTier,
+            saasPlanId: plan.id,
+            name: plan.name,
+            priceMonthlyUsd: plan.price,
+            priceAnnualUsd: plan.price * 12,
+            maxUsers: plan.maxUsers,
+            storageLimitMb: plan.storageLimitMb,
+            allowedModules: Object.keys(plan.features)
+          };
+        }) as SubscriptionPlan[]),
+        catchError(() => of([] as SubscriptionPlan[]))
+      )
     }).pipe(
       tap(({ tenants, plans }) => {
         if (tenants.length > 0) { this.tenants.set(tenants); this.saveTenantsToStorage(tenants); }
@@ -288,8 +312,14 @@ export class SuperAdminService {
       severity: 'INFO'
     });
 
-    // Try sending to Master API in background
-    this.http.post<Tenant>(`${this.MASTER_API_BASE}/tenants`, newTenant).pipe(
+    // Persist the tenant using the master API contract.
+    this.http.post(`${this.MASTER_API_BASE}/tenants`, {
+      name: newTenant.companyName,
+      slug: newTenant.slug,
+      adminEmail: newTenant.adminUserEmail,
+      adminName: newTenant.adminUserName,
+      adminPassword: this.generateTemporaryPassword()
+    }).pipe(
       catchError(() => of(newTenant))
     ).subscribe();
 
@@ -300,6 +330,13 @@ export class SuperAdminService {
     );
 
     return of(newTenant);
+  }
+
+  private generateTemporaryPassword(): string {
+    const random = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID().replace(/-/g, '')
+      : `${Date.now()}${Math.random().toString(36).slice(2)}`;
+    return `Tmp-${random.slice(0, 16)}!`;
   }
 
   updateTenant(id: string, updates: Partial<Tenant>): Observable<Tenant | null> {

@@ -195,8 +195,22 @@ export class AuthService {
       return;
     }
 
-    this.handleExpiredSession();
-    this.authInitializedSignal.set(true);
+    // The refresh token is an HttpOnly cookie, so it is intentionally not
+    // stored in localStorage. Give it a chance to renew the access token
+    // before the router evaluates the protected route.
+    this.http.post<{ accessToken: string }>(`${this.baseUrl}/auth/refresh`, {}, { withCredentials: true }).pipe(
+      catchError(() => of(null))
+    ).subscribe(result => {
+      if (result?.accessToken && this.hasValidAccessToken(result.accessToken)) {
+        this.currentUserSignal.set(session.user);
+        this.tokenSignal.set(result.accessToken);
+        this.isAuthenticatedSignal.set(true);
+        this.persistSession(session.user, result.accessToken, session.impersonationContext);
+      } else {
+        this.handleExpiredSession();
+      }
+      this.authInitializedSignal.set(true);
+    });
   }
 
   private hasValidAccessToken(token: string): boolean {
