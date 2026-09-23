@@ -5,6 +5,7 @@ export type SystemHealthStatus = 'HEALTHY' | 'DEGRADED' | 'MAINTENANCE';
 
 export interface Tenant {
   id: string;
+  planId?: string;
   slug: string;
   companyName: string;
   legalTaxId: string; // RIF, RFC, NIF or CIF
@@ -32,6 +33,7 @@ export interface Tenant {
 
 export interface SubscriptionPlan {
   id: PlanTier;
+  saasPlanId?: string;
   name: string;
   tagline: string;
   description: string;
@@ -45,6 +47,24 @@ export interface SubscriptionPlan {
   customDomainSupported: boolean;
   apiAccess: boolean;
   isPopular?: boolean;
+}
+
+export type BillingSubscriptionStatus = 'NONE' | 'PENDING' | 'ACTIVE' | 'REJECTED' | 'CANCELLED' | 'EXPIRED';
+
+export interface PendingBillingCheckout {
+  id: string;
+  tenantId: string;
+  planId: string;
+  status: 'PENDING';
+  orderId: string;
+  checkoutUrl?: string | null;
+}
+
+export interface BillingSubscriptionStatusView {
+  tenantId: string;
+  planId: string | null;
+  subscriptionId: string | null;
+  status: BillingSubscriptionStatus;
 }
 
 export interface PlatformHealthMetric {

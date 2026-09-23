@@ -10,6 +10,8 @@ import {
   TenantStatus, 
   PlanTier, 
   PlatformHealthMetric,
+  PendingBillingCheckout,
+  BillingSubscriptionStatusView,
   DEFAULT_PLANS, 
   INITIAL_TENANTS_SEED, 
   INITIAL_AUDIT_LOGS_SEED 
@@ -165,6 +167,40 @@ export class SuperAdminService {
 
   getTenants(): Observable<Tenant[]> {
     return of(this.tenants());
+  }
+
+  requestBillingPlanChange(tenantId: string, request: {
+    planId: string;
+    planCode: 'BASIC' | 'FULL';
+    currency: 'USD';
+    reason?: string;
+  }): Observable<PendingBillingCheckout> {
+    return this.http.post<PendingBillingCheckout>(
+      `${this.MASTER_API_BASE}/tenants/${tenantId}/billing/plan-change`,
+      {
+        ...request,
+        idempotencyKey: this.createBillingIdempotencyKey(tenantId, request.planId)
+      }
+    );
+  }
+
+  getBillingSubscriptionStatus(tenantId: string): Observable<BillingSubscriptionStatusView> {
+    return this.http.get<BillingSubscriptionStatusView>(
+      `${this.MASTER_API_BASE}/tenants/${tenantId}/billing/subscription`
+    );
+  }
+
+  getBillingCheckout(orderId: string): Observable<PendingBillingCheckout> {
+    return this.http.get<PendingBillingCheckout>(
+      `${this.MASTER_API_BASE}/billing/checkouts/${encodeURIComponent(orderId)}`
+    );
+  }
+
+  private createBillingIdempotencyKey(tenantId: string, planId: string): string {
+    const randomPart = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+    return `plan-change:${tenantId}:${planId}:${randomPart}`;
   }
 
   createTenant(payload: {

@@ -189,8 +189,8 @@ export class AuthService {
     this.targetUserForPasswordChange.set(null);
   }
 
-  login(email: string, password?: string): Observable<boolean> {
-    return this.http.post<AuthUser>(`${this.baseUrl}/auth/login`, { email, password, tenantId: '796cc9d6-6c6f-4187-8abf-e57eecf4e9c0' }, { withCredentials: true })
+  login(email: string, password?: string, tenantId?: string): Observable<boolean> {
+    return this.http.post<AuthUser>(`${this.baseUrl}/auth/login`, { email, password, tenantId }, { withCredentials: true })
       .pipe(
       tap((user) => {
         if (user.user) {

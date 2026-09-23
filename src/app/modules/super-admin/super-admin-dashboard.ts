@@ -13,6 +13,8 @@ import {
 import { ErpStateService } from '../../services/erp-state.service';
 import { AuthService } from '../../services/auth.service';
 import { DecimalPipe } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
+import { PendingBillingCheckout, BillingSubscriptionStatus, BillingSubscriptionStatusView } from './models/super-admin.models';
 
 export type SuperAdminSubTab = 'tenants' | 'plans' | 'health' | 'audit';
 
@@ -38,6 +40,10 @@ export default class SuperAdminDashboardComponent {
   deletingTenant = signal<Tenant | null>(null);
   viewingTenantDetails = signal<Tenant | null>(null);
   editingPlan = signal<SubscriptionPlan | null>(null);
+  billingCheckout = signal<PendingBillingCheckout | null>(null);
+  billingStatus = signal<BillingSubscriptionStatus>('NONE');
+  billingError = signal<string | null>(null);
+  billingLoading = signal<boolean>(false);
 
   // Search Control
   searchControl = new FormControl<string>('');
@@ -222,6 +228,9 @@ export default class SuperAdminDashboardComponent {
 
   openChangePlanModal(tenant: Tenant): void {
     this.changingPlanTenant.set(tenant);
+    this.billingCheckout.set(null);
+    this.billingStatus.set('NONE');
+    this.billingError.set(null);
     this.planChangeForm.patchValue({
       plan: tenant.plan,
       billingCycle: tenant.billingCycle
@@ -230,16 +239,102 @@ export default class SuperAdminDashboardComponent {
 
   closeChangePlanModal(): void {
     this.changingPlanTenant.set(null);
+    this.billingCheckout.set(null);
+    this.billingError.set(null);
   }
 
   submitChangePlan(): void {
     const tenant = this.changingPlanTenant();
-    if (!tenant) return;
+    if (!tenant || this.billingLoading()) return;
 
     const newPlan = this.planChangeForm.controls.plan.value;
-    this.superAdminService.changeTenantPlan(tenant.id, newPlan).subscribe(() => {
-      this.closeChangePlanModal();
+    const plan = this.superAdminService.plans().find(item => item.id === newPlan);
+    const planId = plan?.saasPlanId;
+    this.billingError.set(null);
+
+    if (!planId) {
+      this.billingError.set('El catálogo SaaS no entregó el UUID del plan seleccionado. No se creó ningún checkout.');
+      return;
+    }
+
+    this.billingLoading.set(true);
+    this.superAdminService.requestBillingPlanChange(tenant.id, {
+      planId,
+      planCode: newPlan === 'BASIC' ? 'BASIC' : 'FULL',
+      currency: 'USD',
+      reason: `Cambio solicitado desde consola Master: ${tenant.plan} -> ${newPlan}`
+    }).subscribe({
+      next: checkout => {
+        this.billingCheckout.set(checkout);
+        this.billingStatus.set('PENDING');
+        this.billingLoading.set(false);
+        if (checkout.checkoutUrl) {
+          window.location.assign(checkout.checkoutUrl);
+        }
+      },
+      error: error => {
+        this.billingLoading.set(false);
+        this.billingError.set(this.getBillingErrorMessage(error));
+      }
     });
+  }
+
+  refreshBillingStatus(): void {
+    const tenant = this.changingPlanTenant();
+    const checkout = this.billingCheckout();
+    if (!tenant || this.billingLoading()) return;
+
+    this.billingError.set(null);
+    this.billingLoading.set(true);
+    this.superAdminService.getBillingSubscriptionStatus(tenant.id).subscribe({
+      next: result => {
+        const status = result.status as BillingSubscriptionStatus;
+        this.billingStatus.set(status);
+        this.billingLoading.set(false);
+        if (status === 'ACTIVE') {
+          this.applyActivePlan(tenant.id, this.planChangeForm.controls.plan.value);
+        }
+      },
+      error: error => {
+        this.billingLoading.set(false);
+        this.billingError.set(this.getBillingErrorMessage(error));
+      }
+    });
+  }
+
+  private applyActivePlan(tenantId: string, planId: PlanTier): void {
+    const plan = this.superAdminService.plans().find(item => item.id === planId);
+    if (!plan) return;
+    this.superAdminService.tenants.update(tenants => tenants.map(tenant => tenant.id === tenantId
+      ? {
+          ...tenant,
+          plan: planId,
+          maxUsers: plan.maxUsers,
+          storageLimitMb: plan.storageLimitMb,
+          monthlyFeeUsd: tenant.billingCycle === 'ANNUAL' ? plan.priceAnnualUsd / 12 : plan.priceMonthlyUsd,
+          features: [...plan.allowedModules],
+          updatedAt: new Date().toISOString()
+        }
+      : tenant));
+  }
+
+  private getBillingErrorMessage(error: unknown): string {
+    const response = error as HttpErrorResponse;
+    if (response?.status === 401 || response?.status === 403) return 'No estás autorizado para gestionar la facturación de este tenant.';
+    if (response?.status === 400) return response.error?.message || 'El tenant no está activo o la solicitud de pago no es válida.';
+    if (response?.status === 404) return 'No se encontró el checkout o el plan SaaS solicitado.';
+    if (response?.status === 409) return 'El pago aún no ha sido confirmado. Consulta el estado nuevamente.';
+    return response?.error?.message || 'No fue posible conectar con el servicio de facturación.';
+  }
+
+  getBillingStatusLabel(status: BillingSubscriptionStatus): string {
+    switch (status) {
+      case 'ACTIVE': return 'PAID';
+      case 'REJECTED': return 'FAILED';
+      case 'CANCELLED': return 'CANCELLED';
+      case 'PENDING': return 'PENDING';
+      default: return status;
+    }
   }
 
   // =========================================================================
