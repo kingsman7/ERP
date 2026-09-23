@@ -1419,7 +1419,7 @@ export interface DetailItemRow {
                   id="acc-holder-name"
                   formControlName="holderName" 
                   type="text" 
-                  placeholder="Corporación Industrial 4-InLine C.A."
+                  placeholder="Corporación Industrial Helameb C.A."
                   class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500" />
               </div>
 
@@ -2173,7 +2173,7 @@ export default class TreasuryComponent {
     currency: ['VES' as 'USD' | 'VES' | 'EUR', Validators.required],
     balance: [0, [Validators.required, Validators.min(0)]],
     glAccountCode: ['1.1.01.02', Validators.required],
-    holderName: ['Corporación Industrial 4-InLine C.A.'],
+    holderName: ['Corporación Industrial Helameb C.A.'],
     holderTaxId: ['J-50493821-4'],
     isDefault: [false]
   });
@@ -2387,7 +2387,7 @@ export default class TreasuryComponent {
       currency: 'VES',
       balance: 0,
       glAccountCode: '1.1.01.02',
-      holderName: 'Corporación Industrial 4-InLine C.A.',
+      holderName: 'Corporación Industrial Helameb C.A.',
       holderTaxId: 'J-50493821-4',
       isDefault: false
     });
@@ -2409,7 +2409,7 @@ export default class TreasuryComponent {
       currency: val.currency as 'USD' | 'VES' | 'EUR',
       balance: Number(val.balance),
       glAccountCode: val.glAccountCode || '1.1.01.02',
-      holderName: val.holderName || 'Corporación Industrial 4-InLine C.A.',
+      holderName: val.holderName || 'Corporación Industrial Helameb C.A.',
       holderTaxId: val.holderTaxId || 'J-50493821-4',
       status: 'ACTIVE',
       isDefault: Boolean(val.isDefault)

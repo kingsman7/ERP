@@ -1,4 +1,4 @@
-import { Injectable, inject, signal, computed } from '@angular/core';
+import { Injectable, inject, signal, computed, Injector } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of, tap, catchError, forkJoin, map } from 'rxjs';
 import { 
@@ -20,6 +20,14 @@ import { AuthService } from '../../../services/auth.service';
 import { ErpStateService } from '../../../services/erp-state.service';
 import { User } from '../../../models/erp.models';
 
+export interface AvailableTenant {
+  id: string;
+  slug: string;
+  name: string;
+  status: string;
+  plan: string;
+}
+
 const STORAGE_KEY_TENANTS = 'nexus_erp_saas_tenants_v1';
 const STORAGE_KEY_PLANS = 'nexus_erp_saas_plans_v1';
 const STORAGE_KEY_AUDIT = 'nexus_erp_saas_audit_v1';
@@ -31,7 +39,11 @@ const STORAGE_KEY_IMPERSONATION = 'nexus_erp_saas_impersonation_v1';
 export class SuperAdminService {
   private http = inject(HttpClient);
   private authService = inject(AuthService);
-  private erpState = inject(ErpStateService);
+  private injector = inject(Injector);
+
+  private get erpState(): ErpStateService {
+    return this.injector.get(ErpStateService);
+  }
 
   // Master API Base URL (outside tenant context)
   private readonly MASTER_API_BASE = '/api/v1/master';
@@ -42,6 +54,8 @@ export class SuperAdminService {
   readonly auditLogs = signal<TenantAuditLog[]>([]);
   readonly activeImpersonation = signal<ImpersonationSession | null>(null);
   readonly selectedTenant = signal<Tenant | null>(null);
+  readonly availableTenants = signal<AvailableTenant[]>([]);
+  readonly availableTenantsError = signal<string | null>(null);
 
   // Search and Filter State
   readonly searchQuery = signal<string>('');
@@ -67,7 +81,7 @@ export class SuperAdminService {
   // Cached original state prior to impersonation
   private preImpersonationUser: User | null = null;
   private preImpersonationCompany = {
-    legalName: '4-inLine Corp, C.A.',
+    legalName: 'Helameb Corp, C.A.',
     taxId: 'J-50493821-4',
     planTier: 'FULL' as 'BASE' | 'FULL'
   };
@@ -167,6 +181,19 @@ export class SuperAdminService {
 
   getTenants(): Observable<Tenant[]> {
     return of(this.tenants());
+  }
+
+  loadAvailableTenants(): Observable<AvailableTenant[]> {
+    this.availableTenantsError.set(null);
+    return this.http.get<AvailableTenant[]>(`${this.MASTER_API_BASE}/tenants/available`).pipe(
+      map(tenants => tenants.filter(tenant => tenant.status === 'ACTIVE')),
+      tap(tenants => this.availableTenants.set(tenants)),
+      catchError(() => {
+        this.availableTenants.set([]);
+        this.availableTenantsError.set('No fue posible cargar los tenants disponibles.');
+        return of([]);
+      })
+    );
   }
 
   requestBillingPlanChange(tenantId: string, request: {
@@ -269,7 +296,7 @@ export class SuperAdminService {
     this.erpState.notify(
       'success',
       'Tenant Aprovisionado con Éxito',
-      `La empresa ${newTenant.companyName} ha sido creada en la región ${newTenant.region} con el subdominio ${newTenant.slug}.4-inline.cloud`
+      `La empresa ${newTenant.companyName} ha sido creada en la región ${newTenant.region} con el subdominio ${newTenant.slug}.helameb.com`
     );
 
     return of(newTenant);
@@ -637,7 +664,7 @@ export class SuperAdminService {
       tenantId: entry.tenantId,
       tenantName: entry.tenantName,
       action: entry.action,
-      performerEmail: this.authService.currentUser()?.email || 'superadmin@4-inline.cloud',
+      performerEmail: this.authService.currentUser()?.email || 'superadmin@Helameb.cloud',
       timestamp: new Date().toISOString(),
       details: entry.details,
       ipAddress: '192.168.1.10',

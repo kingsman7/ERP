@@ -49,6 +49,47 @@
     </div>
   </div>
 
+  <section class="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs" aria-labelledby="available-tenant-title">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <p class="text-[10px] font-bold uppercase tracking-widest text-indigo-600">Contexto operativo</p>
+        <h2 id="available-tenant-title" class="text-base font-black text-slate-900">Seleccionar tenant activo</h2>
+        @if (authService.impersonationContext(); as activeTenant) {
+          <p class="text-xs text-emerald-700 mt-1">Activo: <strong>{{ activeTenant.name }}</strong> ({{ activeTenant.slug }}) · {{ activeTenant.status }} · {{ activeTenant.id }}</p>
+        } @else {
+          <p class="text-xs text-amber-700 mt-1">Los módulos tenant permanecen bloqueados hasta seleccionar un tenant activo.</p>
+        }
+      </div>
+      <div class="flex items-center gap-2">
+        <select
+          id="select-available-tenant"
+          [value]="availableTenantSelection()"
+          (change)="availableTenantSelection.set($any($event.target).value)"
+          class="min-w-56 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+          aria-label="Tenant activo">
+          <option value="">Seleccionar tenant</option>
+          @for (tenant of superAdminService.availableTenants(); track tenant.id) {
+            <option [value]="tenant.id">{{ tenant.name }} · {{ tenant.slug }} · {{ tenant.plan }}</option>
+          }
+        </select>
+        <button
+          type="button"
+          id="btn-select-available-tenant"
+          (click)="selectAvailableTenant()"
+          [disabled]="!availableTenantSelection()"
+          class="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">
+          Seleccionar
+        </button>
+        @if (authService.impersonationContext()) {
+          <button type="button" (click)="clearAvailableTenant()" class="rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700">Limpiar</button>
+        }
+      </div>
+    </div>
+    @if (availableTenantError(); as error) {
+      <p class="mt-2 text-xs font-semibold text-rose-600" role="alert">{{ error }}</p>
+    }
+  </section>
+
   <!-- ========================================================= -->
   <!-- GLOBAL SAAS METRICS CARDS (Bento Grid) -->
   <!-- ========================================================= -->
@@ -329,7 +370,7 @@
                           {{ tenant.companyName }}
                         </button>
                         <div class="flex items-center space-x-2 text-[11px] text-slate-400 font-mono">
-                          <span>{{ tenant.slug }}.4-inline.cloud</span>
+                          <span>{{ tenant.slug }}.helameb.com</span>
                           <span>•</span>
                           <span>{{ tenant.legalTaxId }}</span>
                         </div>
@@ -811,7 +852,7 @@
                 [placeholder]="generatedSlug()"
                 class="w-full px-3 py-2 text-slate-800 bg-transparent focus:outline-hidden font-mono" />
               <span class="px-2.5 py-2 text-slate-400 bg-slate-100 font-mono text-[11px] border-l border-slate-200 shrink-0">
-                .4-inline.cloud
+                .helameb.com
               </span>
             </div>
             <p class="text-[10px] text-slate-400">Subdominio único asignado en el cluster web.</p>
@@ -1308,7 +1349,7 @@
           </div>
           <div>
             <h3 class="text-base font-black text-slate-900">{{ target.companyName }}</h3>
-            <p class="text-xs text-slate-400 font-mono">{{ target.slug }}.4-inline.cloud</p>
+            <p class="text-xs text-slate-400 font-mono">{{ target.slug }}.helameb.com</p>
           </div>
         </div>
 

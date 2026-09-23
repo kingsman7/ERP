@@ -132,7 +132,7 @@ import { User, UserRole } from '../../models/erp.models';
                 type="text" 
                 [value]="searchQuery()"
                 (input)="onSearchInput($event)"
-                placeholder="Buscar por 'Alejandro', 'admin@4-inLine.com', 'Cajero', 'Almacén'..." 
+                placeholder="Buscar por 'Alejandro', 'admin@Helameb.com', 'Cajero', 'Almacén'..." 
                 class="w-full pl-9 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-xs" />
               <mat-icon class="absolute left-2.5 top-2.5 text-slate-400 text-base">search</mat-icon>
               
@@ -587,7 +587,7 @@ import { User, UserRole } from '../../models/erp.models';
                   id="modal-user-email"
                   type="email" 
                   formControlName="email"
-                  placeholder="Ej: sofia.v@4-inLine.com" 
+                  placeholder="Ej: sofia.v@Helameb.com" 
                   class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500" />
               </div>
 

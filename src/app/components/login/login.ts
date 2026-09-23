@@ -20,7 +20,7 @@ import { UserRole } from '../../models/erp.models';
           </div>
           <div>
             <div class="flex items-center space-x-2">
-              <span class="font-extrabold text-white tracking-tight text-lg">4-InLine <span class="text-blue-400">ERP</span></span>
+              <span class="font-extrabold text-white tracking-tight text-lg">Helameb <span class="text-blue-400">ERP</span></span>
               <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-blue-500/20 text-blue-300 border border-blue-400/30">v2.8 Enterprise</span>
             </div>
             <p class="text-[11px] text-slate-400">Sistema Integral de Gestión Comercial & Producción</p>
@@ -146,7 +146,7 @@ import { UserRole } from '../../models/erp.models';
                       id="login-email"
                       type="email" 
                       formControlName="email"
-                      placeholder="admin.morales@4-inLine.com" 
+                      placeholder="admin.morales@Helameb.com" 
                       class="w-full pl-10 pr-4 py-2.5 bg-slate-950/80 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors" />
                     <mat-icon class="absolute left-3 top-2.5 text-slate-400 text-base">mail</mat-icon>
                   </div>
@@ -208,7 +208,7 @@ import { UserRole } from '../../models/erp.models';
                 <mat-icon class="text-emerald-500 text-xs">lock</mat-icon>
                 <span>Sesión cifrada con JWT HS256 & HTTPS</span>
               </div>
-              <span class="font-mono">4-InLine Security Gateway</span>
+              <span class="font-mono">Helameb Security Gateway</span>
             </div>
 
           </div>
@@ -219,7 +219,7 @@ import { UserRole } from '../../models/erp.models';
       <!-- Footer -->
       <footer class="w-full max-w-7xl mx-auto py-3 border-t border-slate-800/60 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2">
         <div>
-          © 2026 4-InLine ERP Enterprise. Todos los derechos reservados.
+          © 2026 Helameb ERP Enterprise. Todos los derechos reservados.
         </div>
         <div class="flex items-center space-x-4">
           <span>Trazabilidad PostgreSQL ACID</span>
@@ -270,7 +270,10 @@ export default class LoginComponent implements OnInit {
           if (result) {
             this.successMessage.set('Autenticación exitosa. Redirigiendo al espacio de trabajo...');
             this.isLoading.set(false);
-            void this.router.navigate(['/app/dashboard']);
+            const destination = this.authService.isSuperAdmin()
+              ? (this.authService.hasTenantContext() ? ['/app/dashboard'] : ['/master/super-admin'])
+              : ['/app/dashboard'];
+            void this.router.navigate(destination);
           } else {
             this.isLoading.set(false);
             const failure = this.authService.lastAuthFailure();

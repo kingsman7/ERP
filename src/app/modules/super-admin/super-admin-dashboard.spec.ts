@@ -1,6 +1,8 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { signal } from '@angular/core';
+import { of, throwError } from 'rxjs';
 import { AuthService } from '../../services/auth.service';
 import { ErpStateService } from '../../services/erp-state.service';
 import { SuperAdminService } from './services/super-admin.service';
@@ -55,6 +57,11 @@ describe('SuperAdminDashboardComponent SaaS billing flow', () => {
   let component: SuperAdminDashboardComponent;
   let service: SuperAdminService;
   let http: HttpTestingController;
+  let authService: {
+    impersonationContext: ReturnType<typeof signal>;
+    impersonateTenant: ReturnType<typeof vi.fn>;
+    clearImpersonationContext: ReturnType<typeof vi.fn>;
+  };
 
   beforeEach(() => {
     TestBed.configureTestingModule({
@@ -63,7 +70,14 @@ describe('SuperAdminDashboardComponent SaaS billing flow', () => {
         SuperAdminService,
         provideHttpClient(),
         provideHttpClientTesting(),
-        { provide: AuthService, useValue: {} },
+        {
+          provide: AuthService,
+          useValue: authService = {
+            impersonationContext: signal(null),
+            impersonateTenant: vi.fn(),
+            clearImpersonationContext: vi.fn()
+          }
+        },
         { provide: ErpStateService, useValue: { notify: vi.fn() } },
       ],
     });
@@ -74,6 +88,10 @@ describe('SuperAdminDashboardComponent SaaS billing flow', () => {
     http = TestBed.inject(HttpTestingController);
     service.plans.set([plan]);
     service.tenants.set([tenant]);
+    http.expectOne('/api/v1/master/tenants/available').flush([
+      { id: TENANT_ID, slug: 'acme', name: 'Acme', status: 'ACTIVE', plan: 'PRO' },
+      { id: 'not-active', slug: 'paused', name: 'Paused', status: 'SUSPENDED', plan: 'BASIC' }
+    ]);
   });
 
   afterEach(() => http.verify());
@@ -112,5 +130,41 @@ describe('SuperAdminDashboardComponent SaaS billing flow', () => {
       maxUsers: 5,
       storageLimitMb: 2048,
     });
+  });
+
+  it('loads only active tenant options from the available catalog', () => {
+    expect(service.availableTenants()).toEqual([
+      { id: TENANT_ID, slug: 'acme', name: 'Acme', status: 'ACTIVE', plan: 'PRO' }
+    ]);
+  });
+
+  it('selects an active catalog tenant through AuthService impersonation', () => {
+    authService.impersonateTenant.mockReturnValue(of({}));
+    component.availableTenantSelection.set(TENANT_ID);
+
+    component.selectAvailableTenant();
+
+    expect(authService.impersonateTenant).toHaveBeenCalledWith(TENANT_ID);
+    expect(component.availableTenantError()).toBeNull();
+  });
+
+  it('rejects a tenant outside the active catalog and reports impersonation errors', () => {
+    component.availableTenantSelection.set('not-active');
+    component.selectAvailableTenant();
+    expect(authService.impersonateTenant).not.toHaveBeenCalled();
+    expect(component.availableTenantError()).toContain('tenant activo');
+
+    component.availableTenantSelection.set(TENANT_ID);
+    authService.impersonateTenant.mockReturnValue(throwError(() => new Error('Tenant rechazado')));
+    component.selectAvailableTenant();
+    expect(component.availableTenantError()).toBe('Tenant rechazado');
+  });
+
+  it('clears the tenant context and selection', () => {
+    component.availableTenantSelection.set(TENANT_ID);
+    component.clearAvailableTenant();
+
+    expect(authService.clearImpersonationContext).toHaveBeenCalled();
+    expect(component.availableTenantSelection()).toBe('');
   });
 });

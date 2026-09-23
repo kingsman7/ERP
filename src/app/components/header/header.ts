@@ -26,7 +26,7 @@ import { DecimalPipe } from '@angular/common';
           </div>
           <div>
             <div class="flex items-center space-x-2">
-              <span class="font-bold text-white tracking-tight text-base leading-none">4-InLine <span class="text-blue-400">ERP</span></span>
+              <span class="font-bold text-white tracking-tight text-base leading-none">Helameb <span class="text-blue-400">ERP</span></span>
               
               <!-- Company Plan Button / Trigger -->
               <button 
@@ -343,7 +343,7 @@ import { DecimalPipe } from '@angular/common';
                 </button>
                 <div class="px-2 text-[10px] text-slate-400 flex items-center justify-between">
                   <span>Token JWT: Cifrado HS256</span>
-                  <span class="font-mono">4-InLine Auth</span>
+                  <span class="font-mono">Helameb Auth</span>
                 </div>
               </div>
             </div>

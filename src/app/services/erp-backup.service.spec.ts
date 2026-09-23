@@ -69,7 +69,7 @@ describe('ErpBackupService', () => {
     });
     expect(firebase.saveBackupToFirestore).toHaveBeenCalledWith(
       expect.objectContaining({ checksumSha256: expect.stringMatching(/^SHA256-/) }),
-      expect.stringContaining('"system": "4-inLine Enterprise Suite"'),
+      expect.stringContaining('"system": "Helameb Enterprise Suite"'),
     );
     expect(service.cloudBackups()).toHaveLength(1);
     expect(service.lastBackup()).toEqual(result.backup);

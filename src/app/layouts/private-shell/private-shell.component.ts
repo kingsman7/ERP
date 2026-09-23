@@ -121,6 +121,10 @@ export class PrivateShellComponent {
       this.showArchModal.set(true);
       return;
     }
+    if (navId === 'super-admin') {
+      void this.router.navigate(['/master/super-admin']);
+      return;
+    }
     this.router.navigate(['/app', navId]);
   }
 

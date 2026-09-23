@@ -259,15 +259,15 @@ export class ErpStateService {
 
   // Perfil Fiscal y Nivel de Plan de la Empresa (SENIAT & SaaS Tiering)
   readonly companyProfile = signal<CompanyFiscalProfile>({
-    legalName: '4-inLine Corp, C.A.',
-    tradeName: '4-inLine Corp',
+    legalName: 'Helameb Corp, C.A.',
+    tradeName: 'Helameb Corp',
     taxId: 'J-50493821-4',
     planTier: 'FULL', // Default: 'FULL' (Enterprise) o 'BASE' (Comercial / PyME)
     isSpecialTaxpayer: true, // Sujeto Pasivo Especial (SENIAT) - Agente de Percepción del 3% IGTF
     specialTaxpayerDesignationNumber: 'SNAT/2022/000013',
     address: 'Av. Francisco de Miranda, Centro Financiero Torre Alpha, Piso 8, Caracas, Venezuela',
     phone: '+58 212 500-8800',
-    email: 'facturacion@4-inLine.com',
+    email: 'facturacion@Helameb.com',
     defaultIvaRate: 0.16,
     igtfRate: 0.03
   });
@@ -459,7 +459,7 @@ export class ErpStateService {
       id: 'cust-03',
       taxId: 'RFC-XAXX010101000',
       name: 'Cliente Mostrador / Venta Rápida',
-      email: 'ventasmostrador@4-inLine.local',
+      email: 'ventasmostrador@Helameb.local',
       phone: '000-000-0000',
       address: 'Venta Directa Local',
       customerType: 'FINAL_CONSUMIDOR'
@@ -1455,7 +1455,7 @@ export class ErpStateService {
       totalDebit: 400.57,
       totalCredit: 400.57,
       status: 'ASENTADO',
-      createdBy: 'Sistema 4-inLine (Automático)',
+      createdBy: 'Sistema Helameb (Automático)',
       createdAt: '2026-08-14 14:20:00'
     },
     {
@@ -1474,7 +1474,7 @@ export class ErpStateService {
       totalDebit: 189.00,
       totalCredit: 189.00,
       status: 'ASENTADO',
-      createdBy: 'Sistema MRP 4-inLine',
+      createdBy: 'Sistema MRP Helameb',
       createdAt: '2026-08-12 15:30:00'
     }
   ]);
@@ -1494,7 +1494,7 @@ export class ErpStateService {
       balanceUsd: 12328.76,
       balanceVes: 450000.00,
       glAccountCode: '1.1.01.02',
-      holderName: 'Corporación Industrial 4-InLine C.A.',
+      holderName: 'Corporación Industrial Helameb C.A.',
       holderTaxId: 'J-50493821-4',
       status: 'ACTIVE',
       isDefault: true,
@@ -1511,7 +1511,7 @@ export class ErpStateService {
       balanceUsd: 5068.49,
       balanceVes: 185000.00,
       glAccountCode: '1.1.01.02',
-      holderName: 'Corporación Industrial 4-InLine C.A.',
+      holderName: 'Corporación Industrial Helameb C.A.',
       holderTaxId: 'J-50493821-4',
       status: 'ACTIVE',
       isDefault: false,
@@ -1528,7 +1528,7 @@ export class ErpStateService {
       balanceUsd: 14200.00,
       balanceVes: 518300.00,
       glAccountCode: '1.1.01.02',
-      holderName: 'Corporación Industrial 4-InLine C.A.',
+      holderName: 'Corporación Industrial Helameb C.A.',
       holderTaxId: 'J-50493821-4',
       status: 'ACTIVE',
       isDefault: false,
@@ -1545,7 +1545,7 @@ export class ErpStateService {
       balanceUsd: 8500.00,
       balanceVes: 310250.00,
       glAccountCode: '1.1.01.02',
-      holderName: 'Corporación Industrial 4-InLine C.A.',
+      holderName: 'Corporación Industrial Helameb C.A.',
       holderTaxId: 'J-50493821-4',
       status: 'ACTIVE',
       isDefault: false,
@@ -4602,7 +4602,7 @@ export class ErpStateService {
       totalDebit,
       totalCredit,
       status: 'ASENTADO',
-      createdBy: user.name || 'Sistema 4-inLine Automático',
+      createdBy: user.name || 'Sistema Helameb Automático',
       createdAt: nowStr
     };
 

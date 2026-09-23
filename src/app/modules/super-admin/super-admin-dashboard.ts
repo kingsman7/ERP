@@ -10,7 +10,6 @@ import {
   BillingCycle,
   TenantAuditLog 
 } from './models/super-admin.models';
-import { ErpStateService } from '../../services/erp-state.service';
 import { AuthService } from '../../services/auth.service';
 import { DecimalPipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -26,7 +25,6 @@ export type SuperAdminSubTab = 'tenants' | 'plans' | 'health' | 'audit';
 })
 export default class SuperAdminDashboardComponent {
   superAdminService = inject(SuperAdminService);
-  erpState = inject(ErpStateService);
   authService = inject(AuthService);
 
   // Active Sub-Tab
@@ -44,6 +42,8 @@ export default class SuperAdminDashboardComponent {
   billingStatus = signal<BillingSubscriptionStatus>('NONE');
   billingError = signal<string | null>(null);
   billingLoading = signal<boolean>(false);
+  availableTenantSelection = signal<string>('');
+  availableTenantError = this.superAdminService.availableTenantsError;
 
   // Search Control
   searchControl = new FormControl<string>('');
@@ -113,6 +113,26 @@ export default class SuperAdminDashboardComponent {
     this.searchControl.valueChanges.subscribe(val => {
       this.superAdminService.searchQuery.set(val || '');
     });
+    this.superAdminService.loadAvailableTenants().subscribe();
+  }
+
+  selectAvailableTenant(): void {
+    const tenantId = this.availableTenantSelection();
+    const tenant = this.superAdminService.availableTenants().find(item => item.id === tenantId);
+    if (!tenant || tenant.status !== 'ACTIVE') {
+      this.availableTenantError.set('Selecciona un tenant activo del catálogo.');
+      return;
+    }
+
+    this.authService.impersonateTenant(tenant.id).subscribe({
+      next: () => this.availableTenantSelection.set(tenant.id),
+      error: error => this.availableTenantError.set(error?.message || 'No fue posible seleccionar el tenant.')
+    });
+  }
+
+  clearAvailableTenant(): void {
+    this.authService.clearImpersonationContext();
+    this.availableTenantSelection.set('');
   }
 
   // =========================================================================

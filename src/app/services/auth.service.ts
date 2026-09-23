@@ -6,11 +6,18 @@ import { AuditService } from './audit.servie';
 
 export const SYSTEM_ROLES: RoleConfig[] = [
   {
-    id: 'ADMIN',
+    id: 'SUPERADMIN' as UserRole,
     name: 'Super Administrador',
     badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200',
     description: 'Acceso total a configuración, auditoría, finanzas, tesorería, bancos, inventario y seguridad.',
     permissions: ['all', 'security:manage', 'audit:view', 'inventory:adjust', 'sales:manage', 'purchases:manage', 'reports:export', 'treasury:manage', 'treasury:view', 'accounting:manage']
+  },
+  {
+    id: 'ADMIN',
+    name: 'Administrador de Tenant',
+    badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+    description: 'Administración del tenant y sus operaciones autorizadas.',
+    permissions: ['security:manage', 'audit:view', 'inventory:adjust', 'sales:manage', 'purchases:manage', 'reports:export', 'treasury:manage', 'treasury:view', 'accounting:manage']
   },
   {
     id: 'OPERATIONS_MANAGER',
@@ -56,6 +63,24 @@ export interface PublicTenantContext {
   status: string;
 }
 
+export interface ImpersonationContext extends PublicTenantContext {
+  id: string;
+  expiresIn: string;
+}
+
+interface StoredSession {
+  user: User;
+  accessToken: string;
+  impersonationContext?: ImpersonationContext;
+}
+
+interface ImpersonationResponse {
+  impersonationToken: string;
+  tenant: ImpersonationContext;
+  targetUser: { id: string; email: string; name: string; role: string };
+  expiresIn: string;
+}
+
 export type AuthFailure = 'tenant-unavailable' | 'credentials' | 'admin-domain' | 'tenant-required';
 
 @Injectable({
@@ -73,6 +98,7 @@ export class AuthService {
   private isAuthenticatedSignal = signal<boolean>(false);
   private authInitializedSignal = signal<boolean>(false);
   private tenantContextSignal = signal<PublicTenantContext | null>(null);
+  private impersonationContextSignal = signal<ImpersonationContext | null>(this.loadStoredSession()?.impersonationContext ?? null);
   private tenantResolutionPendingSignal = signal<boolean>(false);
   private tenantResolutionFailureSignal = signal<'tenant-unavailable' | 'admin-domain' | 'tenant-required' | null>(null);
   private lastAuthFailureSignal = signal<AuthFailure | null>(null);
@@ -87,6 +113,7 @@ export class AuthService {
   readonly isAuthenticated = this.isAuthenticatedSignal.asReadonly();
   readonly authInitialized = this.authInitializedSignal.asReadonly();
   readonly tenantContext = this.tenantContextSignal.asReadonly();
+  readonly impersonationContext = this.impersonationContextSignal.asReadonly();
   readonly tenantResolutionPending = this.tenantResolutionPendingSignal.asReadonly();
   readonly tenantResolutionFailure = this.tenantResolutionFailureSignal.asReadonly();
   readonly lastAuthFailure = this.lastAuthFailureSignal.asReadonly();
@@ -99,7 +126,7 @@ export class AuthService {
 
   readonly isSuperAdmin = computed(() => {
     const user = this.currentUserSignal();
-    return user.role === 'ADMIN';
+    return (user.role as string) === 'SUPERADMIN';
   });
 
   loadUsersFromBackend(): Observable<User[]> {
@@ -117,13 +144,15 @@ export class AuthService {
     this.restoreSession();
   }
 
-  private loadStoredSession(): { user: User; accessToken: string } | null {
+  private loadStoredSession(): StoredSession | null {
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
         const stored = localStorage.getItem(AuthService.SESSION_KEY);
         if (stored) {
           const session = JSON.parse(stored);
-          if (session?.user && typeof session.accessToken === 'string') return { user: session.user, accessToken: session.accessToken };
+          if (session?.user && typeof session.accessToken === 'string') {
+            return { user: session.user, accessToken: session.accessToken, impersonationContext: session.impersonationContext };
+          }
         }
       }
     } catch (e) {
@@ -132,10 +161,10 @@ export class AuthService {
     return null;
   }
 
-  private persistSession(user: User, accessToken: string): void {
+  private persistSession(user: User, accessToken: string, impersonationContext = this.impersonationContextSignal()): void {
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
-        localStorage.setItem(AuthService.SESSION_KEY, JSON.stringify({ user, accessToken }));
+        localStorage.setItem(AuthService.SESSION_KEY, JSON.stringify({ user, accessToken, impersonationContext }));
       }
     } catch (e) {
       console.warn('Error persisting auth session:', e);
@@ -161,6 +190,7 @@ export class AuthService {
       this.currentUserSignal.set(session.user);
       this.isAuthenticatedSignal.set(true);
       this.tokenSignal.set(session.accessToken);
+      this.impersonationContextSignal.set(session.impersonationContext ?? null);
       this.authInitializedSignal.set(true);
       return;
     }
@@ -187,6 +217,7 @@ export class AuthService {
   handleExpiredSession(): void {
     this.clearPersistedSession();
     this.tokenSignal.set('');
+    this.clearImpersonationContext();
     this.isAuthenticatedSignal.set(false);
     this.currentUserSignal.set(UNAUTHENTICATED_USER);
     this.sessionExpired.set(true);
@@ -211,7 +242,7 @@ export class AuthService {
     const slug = this.slugFromHost(host);
     this.tenantResolutionPendingSignal.set(false);
 
-    if (this.isAdminHost(host)) {
+    if (host === 'localhost' || this.isAdminHost(host)) {
       this.tenantContextSignal.set(null);
       this.tenantResolutionFailureSignal.set('admin-domain');
       return of(null);
@@ -239,9 +270,8 @@ export class AuthService {
   }
 
   private slugFromHost(host: string): string | null {
-    if (!host || host === 'localhost' || host === 'tudominio.com' || this.isAdminHost(host)) return null;
+    if (!host || host === 'localhost' || this.isAdminHost(host)) return null;
     if (host.endsWith('.localhost')) return host.slice(0, -'.localhost'.length).split('.')[0] || null;
-    if (host.endsWith('.tudominio.com')) return host.slice(0, -'.tudominio.com'.length).split('.')[0] || null;
     const labels = host.split('.');
     return labels.length >= 3 ? labels[0] : null;
   }
@@ -253,13 +283,13 @@ export class AuthService {
   login(email: string, password?: string): Observable<boolean> {
     this.lastAuthFailureSignal.set(null);
     const tenant = this.tenantContextSignal();
-    const isAdminLogin = this.isAdminDomain();
-    if (!tenant && !isAdminLogin) {
+    const isMasterLogin = this.isAdminDomain();
+    if (!tenant && !isMasterLogin) {
       this.lastAuthFailureSignal.set(this.tenantResolutionFailureSignal() === 'admin-domain' ? 'admin-domain' : 'tenant-required');
       return of(false);
     }
 
-    const loginRequest = isAdminLogin
+    const loginRequest = isMasterLogin
       ? this.http.post<AuthUser>(`${this.baseUrl}/v1/master/auth/login`, { email, password }, { withCredentials: true })
       : this.http.post<AuthUser>(`${this.baseUrl}/auth/login`, { email, password }, {
         withCredentials: true,
@@ -270,6 +300,8 @@ export class AuthService {
       .pipe(
       tap((user) => {
         if (user.user) {
+          this.clearImpersonationContext();
+          if (isMasterLogin) this.tenantContextSignal.set(null);
           this.currentUserSignal.set(user.user);
           this.tokenSignal.set(user.accessToken);
           this.persistSession(user.user, user.accessToken);
@@ -296,27 +328,64 @@ export class AuthService {
   }
 
   logout(): void {
+    this.currentUserSignal.set(UNAUTHENTICATED_USER);
+    this.tokenSignal.set('');
+    this.clearImpersonationContext();
+    this.tenantContextSignal.set(null);
+    this.isAuthenticatedSignal.set(false);
+    this.clearPersistedSession();
+
     this.http.post(`${this.baseUrl}/auth/logout`, {}, {
       withCredentials: true
     }).subscribe({
-      next: () => {
-        this.currentUserSignal.set(UNAUTHENTICATED_USER);
-        this.tokenSignal.set('');
-        this.isAuthenticatedSignal.set(false);
-        this.clearPersistedSession();
-      },
+      next: () => undefined,
       error: (err) => {
         console.error('Error during logout:', err);
-        this.currentUserSignal.set(UNAUTHENTICATED_USER);
-        this.tokenSignal.set('');
-        this.isAuthenticatedSignal.set(false);
-        this.clearPersistedSession();
       }
     });
   }
 
   setAuthenticated(authenticated: boolean): void {
     this.isAuthenticatedSignal.set(authenticated);
+  }
+
+  impersonateTenant(tenantId: string): Observable<ImpersonationResponse> {
+    if (!this.isSuperAdmin() || !this.isUuid(tenantId)) {
+      return new Observable(subscriber => subscriber.error(new Error('Solo un SUPERADMIN puede seleccionar un tenant válido')));
+    }
+
+    return this.http.post<ImpersonationResponse>(`${this.baseUrl}/v1/master/tenants/${encodeURIComponent(tenantId)}/impersonate`, {}).pipe(
+      tap(response => {
+        if (!response?.impersonationToken || response.tenant?.id !== tenantId || response.tenant.status !== 'ACTIVE') {
+          throw new Error('Respuesta de impersonación inválida');
+        }
+        const context = { ...response.tenant, expiresIn: response.expiresIn };
+        this.tokenSignal.set(response.impersonationToken);
+        this.impersonationContextSignal.set(context);
+        this.persistSession(this.currentUserSignal(), response.impersonationToken, context);
+      })
+    );
+  }
+
+  clearImpersonationContext(): void {
+    this.impersonationContextSignal.set(null);
+  }
+
+  hasTenantContext(): boolean {
+    const context = this.impersonationContextSignal();
+    return Boolean(context && this.isUuid(context.id) && context.status === 'ACTIVE');
+  }
+
+  isTenantRequest(url: string): boolean {
+    return url.includes('/api/')
+      && !url.includes('/api/v1/master/')
+      && !url.includes('/api/auth/public/')
+      && !url.includes('/api/auth/login')
+      && !url.includes('/api/auth/logout');
+  }
+
+  private isUuid(value: string): boolean {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
   }
 
   switchUser(user: User) {

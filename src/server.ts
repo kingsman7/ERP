@@ -156,7 +156,7 @@ const MOCK_WAREHOUSES = [
 const MOCK_CUSTOMERS = [
   { id: 'cust-01', taxId: 'B-77492019-3', name: 'Constructora San Martín S.A.C.', email: 'compras@constructorasanmartin.com', customerType: 'EMPRESA' },
   { id: 'cust-02', taxId: 'B-88301922-1', name: 'Soluciones Eléctricas del Pacífico', email: 'finanzas@se-pacifico.net', customerType: 'EMPRESA' },
-  { id: 'cust-03', taxId: 'RFC-XAXX010101000', name: 'Cliente Mostrador / Venta Rápida', email: 'ventasmostrador@4-inLine.local', customerType: 'FINAL_CONSUMIDOR' }
+  { id: 'cust-03', taxId: 'RFC-XAXX010101000', name: 'Cliente Mostrador / Venta Rápida', email: 'ventasmostrador@Helameb.local', customerType: 'FINAL_CONSUMIDOR' }
 ];
 
 const MOCK_SUPPLIERS = [
@@ -444,7 +444,7 @@ let MASTER_AUDIT_LOGS = [
   {
     id: 'aud-001',
     timestamp: new Date(Date.now() - 3600000 * 24).toISOString(),
-    performerEmail: 'superadmin@4-inline.cloud',
+    performerEmail: 'superadmin@Helameb.cloud',
     action: 'PROVISION_TENANT',
     tenantId: 'tenant-tech-03',
     tenantName: 'Corporación Farmacéutica Global S.A.',
@@ -454,7 +454,7 @@ let MASTER_AUDIT_LOGS = [
   {
     id: 'aud-002',
     timestamp: new Date(Date.now() - 3600000 * 12).toISOString(),
-    performerEmail: 'superadmin@4-inline.cloud',
+    performerEmail: 'superadmin@Helameb.cloud',
     action: 'SUSPEND_TENANT',
     tenantId: 'tenant-dist-04',
     tenantName: 'Distribuidora Alimentos Mar Caribe',
@@ -464,7 +464,7 @@ let MASTER_AUDIT_LOGS = [
   {
     id: 'aud-003',
     timestamp: new Date(Date.now() - 3600000 * 2).toISOString(),
-    performerEmail: 'superadmin@4-inline.cloud',
+    performerEmail: 'superadmin@Helameb.cloud',
     action: 'PLAN_CHANGE',
     tenantId: 'tenant-agro-01',
     tenantName: 'AgroInsumos del Centro C.A.',
@@ -516,11 +516,11 @@ app.post('/api/v1/master/tenants', (req, res) => {
   MASTER_AUDIT_LOGS.unshift({
     id: `aud-${Date.now().toString(36)}`,
     timestamp: new Date().toISOString(),
-    performerEmail: 'superadmin@4-inline.cloud',
+    performerEmail: 'superadmin@Helameb.cloud',
     action: 'PROVISION_TENANT',
     tenantId: newTenant.id,
     tenantName: newTenant.companyName,
-    details: `Aprovisionamiento de nuevo tenant con subdominio ${newTenant.slug}.4-inline.cloud y Plan ${newTenant.plan}.`,
+    details: `Aprovisionamiento de nuevo tenant con subdominio ${newTenant.slug}.helameb.com y Plan ${newTenant.plan}.`,
     ipAddress: req.ip || '127.0.0.1'
   });
 
@@ -545,7 +545,7 @@ app.put('/api/v1/master/tenants/:id', (req, res) => {
   MASTER_AUDIT_LOGS.unshift({
     id: `aud-${Date.now().toString(36)}`,
     timestamp: new Date().toISOString(),
-    performerEmail: 'superadmin@4-inline.cloud',
+    performerEmail: 'superadmin@Helameb.cloud',
     action: 'UPDATE_TENANT',
     tenantId: id,
     tenantName: MASTER_TENANTS[index].companyName,
@@ -577,7 +577,7 @@ app.patch('/api/v1/master/tenants/:id/status', (req, res) => {
   MASTER_AUDIT_LOGS.unshift({
     id: `aud-${Date.now().toString(36)}`,
     timestamp: new Date().toISOString(),
-    performerEmail: 'superadmin@4-inline.cloud',
+    performerEmail: 'superadmin@Helameb.cloud',
     action: status === 'SUSPENDED' ? 'SUSPEND_TENANT' : 'ACTIVATE_TENANT',
     tenantId: id,
     tenantName: tenant.companyName,
@@ -614,7 +614,7 @@ app.patch('/api/v1/master/tenants/:id/plan', (req, res) => {
   MASTER_AUDIT_LOGS.unshift({
     id: `aud-${Date.now().toString(36)}`,
     timestamp: new Date().toISOString(),
-    performerEmail: 'superadmin@4-inline.cloud',
+    performerEmail: 'superadmin@Helameb.cloud',
     action: 'PLAN_CHANGE',
     tenantId: id,
     tenantName: tenant.companyName,
@@ -640,7 +640,7 @@ app.delete('/api/v1/master/tenants/:id', (req, res) => {
   MASTER_AUDIT_LOGS.unshift({
     id: `aud-${Date.now().toString(36)}`,
     timestamp: new Date().toISOString(),
-    performerEmail: 'superadmin@4-inline.cloud',
+    performerEmail: 'superadmin@Helameb.cloud',
     action: 'DELETE_TENANT',
     tenantId: id,
     tenantName: tenant.companyName,
@@ -667,7 +667,7 @@ app.post('/api/v1/master/impersonate', (req, res) => {
   MASTER_AUDIT_LOGS.unshift({
     id: `aud-${Date.now().toString(36)}`,
     timestamp: new Date().toISOString(),
-    performerEmail: 'superadmin@4-inline.cloud',
+    performerEmail: 'superadmin@Helameb.cloud',
     action: 'START_IMPERSONATION',
     tenantId: tenant.id,
     tenantName: tenant.companyName,
@@ -680,7 +680,7 @@ app.post('/api/v1/master/impersonate', (req, res) => {
     tenantId: tenant.id,
     tenantName: tenant.companyName,
     tenantSlug: tenant.slug,
-    supportAgentEmail: 'superadmin@4-inline.cloud',
+    supportAgentEmail: 'superadmin@Helameb.cloud',
     reason,
     startedAt: new Date().toISOString(),
     expiresAt,

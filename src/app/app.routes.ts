@@ -4,6 +4,7 @@ import { inventoryResolver } from './resolvers/inventory.resolver';
 import { routeDataResolver } from './resolvers/route-data.resolver';
 import { superAdminResolver } from './resolvers/super-admin.resolver';
 import { usersResolver } from './resolvers/users.resolver';
+import { MasterShellComponent } from './layouts/master-shell/master-shell.component';
 
 export const routes: Routes = [
 	{
@@ -33,7 +34,16 @@ export const routes: Routes = [
 			{ path: 'audit-log', resolve: { dataReady: routeDataResolver }, loadComponent: () => import('./components/audit-log/audit-log')},
 			{ path: 'backups', loadComponent: () => import('./components/backup-management/backup-management')},
 			{ path: 'manual', loadComponent: () => import('./components/user-manual/user-manual')},
-			{ path: 'super-admin', resolve: { dataReady: superAdminResolver }, loadComponent: () => import('./modules/super-admin/super-admin-dashboard')},
+		],
+	},
+	{
+		path: 'master',
+		canMatch: [authMatchGuard],
+		canActivate: [authGuard],
+		component: MasterShellComponent,
+		children: [
+			{ path: '', pathMatch: 'full', redirectTo: 'super-admin' },
+			{ path: 'super-admin', resolve: { dataReady: superAdminResolver }, loadComponent: () => import('./modules/super-admin/super-admin-dashboard') },
 		],
 	},
 	{ path: '**', redirectTo: '' },
