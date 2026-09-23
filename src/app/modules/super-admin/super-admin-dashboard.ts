@@ -38,6 +38,7 @@ export default class SuperAdminDashboardComponent {
   deletingTenant = signal<Tenant | null>(null);
   viewingTenantDetails = signal<Tenant | null>(null);
   editingPlan = signal<SubscriptionPlan | null>(null);
+  creatingPlan = signal<boolean>(false);
   billingCheckout = signal<PendingBillingCheckout | null>(null);
   billingStatus = signal<BillingSubscriptionStatus>('NONE');
   billingError = signal<string | null>(null);
@@ -91,6 +92,8 @@ export default class SuperAdminDashboardComponent {
   deleteConfirmControl = new FormControl<string>('', { nonNullable: true });
 
   planEditorForm = new FormGroup({
+    code: new FormControl<'BASIC' | 'FULL'>('BASIC', { nonNullable: true, validators: [Validators.required] }),
+    name: new FormControl<string>('', { nonNullable: true, validators: [Validators.required, Validators.minLength(2)] }),
     priceMonthlyUsd: new FormControl<number>(0, { nonNullable: true, validators: [Validators.required, Validators.min(0)] }),
     priceAnnualUsd: new FormControl<number>(0, { nonNullable: true, validators: [Validators.required, Validators.min(0)] }),
     maxUsers: new FormControl<number>(5, { nonNullable: true, validators: [Validators.required, Validators.min(1)] }),
@@ -435,8 +438,11 @@ export default class SuperAdminDashboardComponent {
   // =========================================================================
 
   openEditPlanModal(plan: SubscriptionPlan): void {
+    this.creatingPlan.set(false);
     this.editingPlan.set(plan);
     this.planEditorForm.patchValue({
+      code: (plan.id as string) === 'FULL' ? 'FULL' : 'BASIC',
+      name: plan.name,
       priceMonthlyUsd: plan.priceMonthlyUsd,
       priceAnnualUsd: plan.priceAnnualUsd,
       maxUsers: plan.maxUsers,
@@ -447,9 +453,37 @@ export default class SuperAdminDashboardComponent {
 
   closeEditPlanModal(): void {
     this.editingPlan.set(null);
+    this.creatingPlan.set(false);
+  }
+
+  openCreatePlanModal(): void {
+    this.editingPlan.set(null);
+    this.creatingPlan.set(true);
+    this.planEditorForm.reset({
+      code: 'BASIC',
+      name: '',
+      priceMonthlyUsd: 0,
+      priceAnnualUsd: 0,
+      maxUsers: 1,
+      storageLimitMb: 1024,
+      maxInvoicesMonthly: 1000
+    });
   }
 
   submitEditPlan(): void {
+    if (this.creatingPlan()) {
+      const value = this.planEditorForm.getRawValue();
+      if (this.planEditorForm.invalid) return;
+      this.superAdminService.createPlan({
+        code: value.code,
+        name: value.name,
+        price: value.priceMonthlyUsd,
+        maxUsers: value.maxUsers,
+        storageLimitMb: value.storageLimitMb
+      }).subscribe(() => this.closeEditPlanModal());
+      return;
+    }
+
     const plan = this.editingPlan();
     if (!plan || this.planEditorForm.invalid) return;
 

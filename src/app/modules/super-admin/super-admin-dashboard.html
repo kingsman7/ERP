@@ -533,6 +533,14 @@
           <h2 class="text-base font-bold text-slate-900">Catálogo de Planes & Cuotas SaaS</h2>
           <p class="text-xs text-slate-500">Configuración global de precios, límites de usuarios, cuotas de disco y módulos habilitados por plan.</p>
         </div>
+        <button
+          id="btn-create-plan"
+          type="button"
+          (click)="openCreatePlanModal()"
+          class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer">
+          <mat-icon class="text-sm">add</mat-icon>
+          <span>Crear plan</span>
+        </button>
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1429,7 +1437,8 @@
 <!-- ========================================================= -->
 <!-- MODAL: CONFIGURAR PLAN Y LÍMITES -->
 <!-- ========================================================= -->
-@if (editingPlan(); as plan) {
+@if (editingPlan() || creatingPlan()) {
+  @let plan = editingPlan();
   <div class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
     <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
       
@@ -1438,13 +1447,29 @@
           <mat-icon class="text-xl">tune</mat-icon>
         </div>
         <div>
-          <h3 class="text-base font-black text-slate-900">Configuración del Plan {{ plan.name }}</h3>
-          <p class="text-xs text-slate-500">Ajuste de cuotas y precios aplicables a nuevas suscripciones.</p>
+          <h3 class="text-base font-black text-slate-900">{{ creatingPlan() ? 'Crear plan SaaS' : 'Configuración del Plan ' + plan?.name }}</h3>
+          <p class="text-xs text-slate-500">Los valores se guardan en el catálogo real de suscripción.</p>
         </div>
       </div>
 
       <form [formGroup]="planEditorForm" (ngSubmit)="submitEditPlan()" class="space-y-3 text-xs">
         
+        <div class="grid grid-cols-2 gap-3">
+          @if (creatingPlan()) {
+            <div class="space-y-1">
+              <label class="font-bold text-slate-700" for="plan-code">Código</label>
+              <select id="plan-code" formControlName="code" class="w-full px-3 py-2 rounded-xl border border-slate-300 font-mono">
+                <option value="BASIC">BASIC</option>
+                <option value="FULL">FULL</option>
+              </select>
+            </div>
+          }
+          <div class="space-y-1" [class.col-span-2]="!creatingPlan()">
+            <label class="font-bold text-slate-700" for="plan-name">Nombre del plan</label>
+            <input id="plan-name" type="text" formControlName="name" class="w-full px-3 py-2 rounded-xl border border-slate-300" />
+          </div>
+        </div>
+
         <div class="grid grid-cols-2 gap-3">
           <div class="space-y-1">
             <label class="font-bold text-slate-700" for="plan-price-m">Precio Mensual ($ USD)</label>
@@ -1505,7 +1530,7 @@
           <button 
             type="submit"
             class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold shadow-md shadow-indigo-600/30 transition-all cursor-pointer">
-            Guardar Configuración
+            {{ creatingPlan() ? 'Crear plan' : 'Guardar Configuración' }}
           </button>
         </div>
 

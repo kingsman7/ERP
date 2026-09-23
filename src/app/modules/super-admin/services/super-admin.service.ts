@@ -1,6 +1,6 @@
 import { Injectable, inject, signal, computed, Injector } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, of, tap, catchError, forkJoin, map } from 'rxjs';
+import { Observable, of, tap, catchError, forkJoin, map, throwError } from 'rxjs';
 import { 
   Tenant, 
   SubscriptionPlan, 
@@ -12,9 +12,7 @@ import {
   PlatformHealthMetric,
   PendingBillingCheckout,
   BillingSubscriptionStatusView,
-  DEFAULT_PLANS, 
-  INITIAL_TENANTS_SEED, 
-  INITIAL_AUDIT_LOGS_SEED 
+  DEFAULT_PLANS
 } from '../models/super-admin.models';
 import { AuthService } from '../../../services/auth.service';
 import { ErpStateService } from '../../../services/erp-state.service';
@@ -157,6 +155,11 @@ export class SuperAdminService {
   });
 
   constructor() {
+    try {
+      localStorage.removeItem(STORAGE_KEY_AUDIT);
+    } catch {
+      // Ignore storage errors; audit history must come from the API.
+    }
   }
 
   // =========================================================================
@@ -270,6 +273,9 @@ export class SuperAdminService {
   }): Observable<Tenant> {
     const slug = payload.slug ? this.slugify(payload.slug) : this.slugify(payload.companyName);
     const planConfig = this.plans().find(p => p.id === payload.plan) || this.plans()[0];
+    if (!planConfig) {
+      return throwError(() => new Error('No hay planes reales disponibles. Sincroniza el catálogo antes de crear el tenant.'));
+    }
     const fee = payload.billingCycle === 'ANNUAL' ? (planConfig.priceAnnualUsd / 12) : planConfig.priceMonthlyUsd;
 
     const newTenant: Tenant = {
@@ -654,35 +660,89 @@ export class SuperAdminService {
   }
 
   updatePlan(planId: PlanTier, updates: Partial<SubscriptionPlan>): Observable<SubscriptionPlan | null> {
-    let updated: SubscriptionPlan | null = null;
+    const current = this.plans().find(plan => plan.id === planId);
+    if (!current || !current.saasPlanId) return of(null);
 
-    this.plans.update(list =>
-      list.map(p => {
-        if (p.id === planId) {
-          updated = { ...p, ...updates };
-          return updated;
-        }
-        return p;
+    return this.http.patch<{
+      id: string;
+      code: string;
+      name: string;
+      price: number;
+      currency: string;
+      billingCycle: 'MONTHLY' | 'ANNUAL';
+      maxUsers: number;
+      storageLimitMb: number;
+      features: Record<string, unknown>;
+    }>(`${this.MASTER_API_BASE}/billing/plans/${current.saasPlanId}`, {
+      name: current.name,
+      price: updates.priceMonthlyUsd ?? current.priceMonthlyUsd,
+      currency: 'USD',
+      billingCycle: 'MONTHLY',
+      maxUsers: updates.maxUsers ?? current.maxUsers,
+      storageLimitMb: updates.storageLimitMb ?? current.storageLimitMb,
+      features: Object.fromEntries((updates.allowedModules ?? current.allowedModules).map(module => [module, true]))
+    }).pipe(
+      map(plan => this.mapApiPlan(plan)),
+      tap(updated => {
+        this.plans.update(list => list.map(item => item.id === planId ? updated : item));
+        this.recordAuditLog({ action: 'UPDATE_PLAN_CONFIG', details: `Plan actualizado: ${updated.name}`, severity: 'INFO' });
+      }),
+      catchError(() => of(null))
+    );
+  }
+
+  createPlan(input: {
+    code: 'BASIC' | 'FULL';
+    name: string;
+    price: number;
+    maxUsers: number;
+    storageLimitMb: number;
+  }): Observable<SubscriptionPlan> {
+    return this.http.post<{
+      id: string;
+      code: string;
+      name: string;
+      price: number;
+      currency: string;
+      billingCycle: 'MONTHLY' | 'ANNUAL';
+      maxUsers: number;
+      storageLimitMb: number;
+      features: Record<string, unknown>;
+    }>(`${this.MASTER_API_BASE}/billing/plans`, {
+      ...input,
+      currency: 'USD',
+      billingCycle: 'MONTHLY',
+      features: {}
+    }).pipe(
+      map(plan => this.mapApiPlan(plan)),
+      tap(plan => {
+        this.plans.update(list => [...list, plan]);
+        this.recordAuditLog({ action: 'UPDATE_PLAN_CONFIG', details: `Plan creado: ${plan.name}`, severity: 'INFO' });
       })
     );
+  }
 
-    if (updated) {
-      this.savePlansToStorage(this.plans());
-
-      this.recordAuditLog({
-        action: 'UPDATE_PLAN_CONFIG',
-        details: `Actualización de configuración y límites del Plan ${planId}: ${Object.keys(updates).join(', ')}`,
-        severity: 'INFO'
-      });
-
-      this.http.put(`${this.MASTER_API_BASE}/plans/${planId}`, updates).pipe(
-        catchError(() => of(null))
-      ).subscribe();
-
-      this.erpState.notify('success', 'Plan Actualizado', `La configuración del Plan ${planId} fue guardada.`);
-    }
-
-    return of(updated);
+  private mapApiPlan(plan: {
+    id: string;
+    code: string;
+    name: string;
+    price: number;
+    maxUsers: number;
+    storageLimitMb: number;
+    features: Record<string, unknown>;
+  }): SubscriptionPlan {
+    const template = DEFAULT_PLANS.find(item => item.id === plan.code) || DEFAULT_PLANS[0];
+    return {
+      ...template,
+      id: plan.code as PlanTier,
+      saasPlanId: plan.id,
+      name: plan.name,
+      priceMonthlyUsd: plan.price,
+      priceAnnualUsd: plan.price * 12,
+      maxUsers: plan.maxUsers,
+      storageLimitMb: plan.storageLimitMb,
+      allowedModules: Object.keys(plan.features ?? {})
+    };
   }
 
   // =========================================================================
@@ -726,14 +786,11 @@ export class SuperAdminService {
 
   private loadInitialTenants(): Tenant[] {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY_TENANTS);
-      if (stored) {
-        return JSON.parse(stored);
-      }
+      localStorage.removeItem(STORAGE_KEY_TENANTS);
     } catch {
-      // Fallback
+      // Ignore storage errors; tenants must come from the API.
     }
-    return INITIAL_TENANTS_SEED;
+    return [];
   }
 
   private saveTenantsToStorage(tenants: Tenant[]): void {
@@ -746,14 +803,11 @@ export class SuperAdminService {
 
   private loadInitialPlans(): SubscriptionPlan[] {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY_PLANS);
-      if (stored) {
-        return JSON.parse(stored);
-      }
+      localStorage.removeItem(STORAGE_KEY_PLANS);
     } catch {
-      // Fallback
+      // Ignore storage errors; plans must come from the API.
     }
-    return DEFAULT_PLANS;
+    return [];
   }
 
   private savePlansToStorage(plans: SubscriptionPlan[]): void {
@@ -762,18 +816,6 @@ export class SuperAdminService {
     } catch {
       // Ignore
     }
-  }
-
-  private loadInitialAuditLogs(): TenantAuditLog[] {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY_AUDIT);
-      if (stored) {
-        return JSON.parse(stored);
-      }
-    } catch {
-      // Fallback
-    }
-    return INITIAL_AUDIT_LOGS_SEED;
   }
 
   private saveAuditLogsToStorage(logs: TenantAuditLog[]): void {

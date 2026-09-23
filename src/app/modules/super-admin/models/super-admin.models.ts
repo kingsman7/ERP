@@ -141,7 +141,7 @@ export const DEFAULT_PLANS: SubscriptionPlan[] = [
   {
     id: 'BASIC',
     name: 'Plan Comercial (PyME)',
-    tagline: 'Ideal para comercios, ferreterías y pequeñas distribuidoras',
+    tagline: 'Ideal para comercios y distribuidoras pequeñas',
     description: 'Gestión completa de ventas POS multimoneda, inventario multialmacén, compras y tesorería.',
     priceMonthlyUsd: 49.00,
     priceAnnualUsd: 470.00,
