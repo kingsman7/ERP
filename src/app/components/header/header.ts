@@ -5,11 +5,12 @@ import { AuthService } from '../../services/auth.service';
 import { ErpStateService } from '../../services/erp-state.service';
 import { KeyboardShortcutsService } from '../../services/keyboard-shortcuts.service';
 import { User, CriticalAuditNotification, CriticalAuditCategory } from '../../models/erp.models';
+import { DecimalPipe } from '@angular/common';
 
 @Component({
   selector: 'app-header',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatIconModule, ReactiveFormsModule],
+  imports: [MatIconModule, ReactiveFormsModule, DecimalPipe],
   template: `
     <header class="h-16 bg-[#0f172a] text-slate-200 border-b border-slate-800 px-4 sm:px-8 flex items-center justify-between sticky top-0 z-30 shadow-md select-none">
       
@@ -25,7 +26,7 @@ import { User, CriticalAuditNotification, CriticalAuditCategory } from '../../mo
           </div>
           <div>
             <div class="flex items-center space-x-2">
-              <span class="font-bold text-white tracking-tight text-base leading-none">4-InLine <span class="text-blue-400">ERP</span></span>
+              <span class="font-bold text-white tracking-tight text-base leading-none">Helameb <span class="text-blue-400">ERP</span></span>
               
               <!-- Company Plan Button / Trigger -->
               <button 
@@ -66,7 +67,7 @@ import { User, CriticalAuditNotification, CriticalAuditCategory } from '../../mo
           <div class="text-left leading-tight hidden xs:block">
             <span class="text-[10px] uppercase font-bold text-slate-400 block">Tasa Oficial</span>
             <span class="text-xs font-mono font-bold text-emerald-400">
-              Bs. {{ stateService.bcvState().usdRate.toFixed(2) }}
+              Bs. {{ stateService.bcvState().usdRate | number:'1.2-2' }}
             </span>
           </div>
           <span class="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold"
@@ -76,12 +77,12 @@ import { User, CriticalAuditNotification, CriticalAuditCategory } from '../../mo
         </button>
 
         <!-- Architecture Ficha Técnica Shortcut -->
-        <button 
+        <!-- <button 
           (click)="openArchitecture.emit()"
           class="hidden md:flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-800/90 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-semibold transition-all border border-slate-700 cursor-pointer">
           <mat-icon class="text-blue-400 text-base">architecture</mat-icon>
           <span>Ficha Técnica</span>
-        </button>
+        </button> -->
 
         <!-- Cash Register Status Button -->
         <button 
@@ -287,7 +288,7 @@ import { User, CriticalAuditNotification, CriticalAuditCategory } from '../../mo
             (click)="showUserDropdown.set(!showUserDropdown())"
             class="flex items-center space-x-2.5 p-1 sm:px-2.5 sm:py-1.5 rounded-xl hover:bg-slate-800 transition-colors border border-transparent hover:border-slate-700 cursor-pointer">
             <img 
-              [src]="authService.currentUser().avatarUrl" 
+              [src]="authService.currentUser().avatarUrl ?? ''" 
               [alt]="authService.currentUser().name"
               referrerpolicy="no-referrer"
               class="w-7 h-7 rounded-full object-cover ring-1 ring-slate-600" />
@@ -302,38 +303,23 @@ import { User, CriticalAuditNotification, CriticalAuditCategory } from '../../mo
             <div 
               class="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-xl border border-slate-200 py-2 z-50 animate-in fade-in zoom-in-95 duration-150 text-slate-800">
               <div class="px-4 py-2 border-b border-slate-100">
-                <p class="text-xs font-bold uppercase text-slate-400 tracking-wider">Simulador de Roles (RBAC)</p>
-                <p class="text-xs text-slate-600 mt-0.5">Cambia de usuario para probar permisos:</p>
-              </div>
-
-              <div class="max-h-60 overflow-y-auto py-1">
-                @for (user of authService.availableDemoUsers; track user.id) {
-                  <button 
-                    (click)="selectUser(user)"
-                    class="w-full px-4 py-2.5 flex items-center space-x-3 text-left hover:bg-slate-50 transition-colors cursor-pointer"
-                    [class.bg-blue-50]="user.id === authService.currentUser().id">
-                    @if (user.avatarUrl) {
-                      <img [src]="user.avatarUrl" [alt]="user.name" referrerpolicy="no-referrer" class="w-8 h-8 rounded-full object-cover" />
-                    } @else {
-                      <div class="w-8 h-8 rounded-full bg-slate-300 flex items-center justify-center">
-                        <mat-icon class="text-slate-500 text-sm">person</mat-icon>
-                      </div>
-                    }
-                    <div class="overflow-hidden flex-1">
-                      <p class="text-xs font-semibold text-slate-900 truncate">{{ user.name }}</p>
-                      <span class="inline-block px-1.5 py-0.2 rounded text-[10px] font-medium border"
-                        [class]="getRoleBadgeClass(user.role)">
-                        {{ getRoleName(user.role) }}
-                      </span>
-                    </div>
-                    @if (user.id === authService.currentUser().id) {
-                      <mat-icon class="text-blue-600 text-sm">check</mat-icon>
-                    }
-                  </button>
-                }
+                <p class="text-xs font-bold uppercase text-slate-400 tracking-wider">Sesión actual</p>
+                <p class="text-xs text-slate-600 mt-0.5">{{ authService.currentUser().email }}</p>
               </div>
 
               <div class="p-2 border-t border-slate-100 bg-slate-50 space-y-1">
+                <input #avatarInput type="file" accept="image/png,image/jpeg,image/webp" class="hidden" (change)="onAvatarSelected($event)" />
+                <button
+                  (click)="avatarInput.click()"
+                  [disabled]="isUploadingAvatar()"
+                  class="w-full px-3 py-2 rounded-xl text-slate-700 hover:bg-sky-50 hover:text-sky-700 disabled:opacity-50 font-semibold text-xs flex items-center justify-between transition-colors cursor-pointer">
+                  <div class="flex items-center space-x-2">
+                    <mat-icon class="text-base text-sky-600">add_a_photo</mat-icon>
+                    <span>{{ isUploadingAvatar() ? 'Actualizando avatar...' : 'Agregar Avatar' }}</span>
+                  </div>
+                  <mat-icon class="text-sm">upload</mat-icon>
+                </button>
+
                 <button 
                   (click)="openChangePassword()"
                   class="w-full px-3 py-2 rounded-xl text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 font-semibold text-xs flex items-center justify-between transition-colors cursor-pointer">
@@ -357,7 +343,7 @@ import { User, CriticalAuditNotification, CriticalAuditCategory } from '../../mo
                 </button>
                 <div class="px-2 text-[10px] text-slate-400 flex items-center justify-between">
                   <span>Token JWT: Cifrado HS256</span>
-                  <span class="font-mono">4-InLine Auth</span>
+                  <span class="font-mono">Helameb Auth</span>
                 </div>
               </div>
             </div>
@@ -394,13 +380,13 @@ import { User, CriticalAuditNotification, CriticalAuditCategory } from '../../mo
             <div class="grid grid-cols-2 gap-3">
               <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-200">
                 <span class="text-[10px] uppercase font-bold text-emerald-800 block mb-0.5">Dólar Oficial (USD)</span>
-                <p class="text-lg font-mono font-bold text-emerald-950">Bs. {{ stateService.bcvState().usdRate.toFixed(2) }}</p>
+                <p class="text-lg font-mono font-bold text-emerald-950">Bs. {{ stateService.bcvState().usdRate | number:'1.2-2' }}</p>
                 <span class="text-[10px] text-emerald-700">Origen: {{ stateService.bcvState().origin }}</span>
               </div>
 
               <div class="p-3 bg-indigo-50 rounded-xl border border-indigo-200">
                 <span class="text-[10px] uppercase font-bold text-indigo-800 block mb-0.5">Euro Oficial (EUR)</span>
-                <p class="text-lg font-mono font-bold text-indigo-950">Bs. {{ stateService.bcvState().eurRate.toFixed(2) }}</p>
+                <p class="text-lg font-mono font-bold text-indigo-950">Bs. {{ stateService.bcvState().eurRate | number:'1.2-2' }}</p>
                 <span class="text-[10px] text-indigo-700">Tasa Cruzada EUR/USD</span>
               </div>
             </div>
@@ -564,6 +550,7 @@ export class HeaderComponent {
   showBcvModal = signal<boolean>(false);
   showNotifDropdown = signal<boolean>(false);
   isSyncing = signal<boolean>(false);
+  isUploadingAvatar = signal<boolean>(false);
 
   selectedNotificationForDetail = signal<CriticalAuditNotification | null>(null);
   notifFilter = signal<'ALL' | 'PRICE_CHANGE' | 'STOCK_MANUAL' | 'UNREAD'>('ALL');
@@ -703,6 +690,35 @@ export class HeaderComponent {
   openChangePassword(): void {
     this.showUserDropdown.set(false);
     this.authService.openChangePasswordModal();
+  }
+
+  onAvatarSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      this.stateService.notify('warning', 'Archivo demasiado grande', 'Seleccione una imagen de hasta 2 MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result !== 'string') return;
+      this.isUploadingAvatar.set(true);
+      this.authService.updateCurrentUserAvatar(reader.result).subscribe({
+        next: () => {
+          this.isUploadingAvatar.set(false);
+          this.stateService.notify('success', 'Avatar actualizado', 'La imagen de perfil fue actualizada correctamente.');
+        },
+        error: () => {
+          this.isUploadingAvatar.set(false);
+          this.stateService.notify('error', 'No fue posible actualizar el avatar', 'Verifique la imagen e intente nuevamente.');
+        }
+      });
+    };
+    reader.readAsDataURL(file);
   }
 
   getCategoryIcon(category: CriticalAuditCategory): string {

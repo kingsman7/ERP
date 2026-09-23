@@ -5,6 +5,8 @@ import { ErpStateService } from '../../services/erp-state.service';
 import { AuthService } from '../../services/auth.service';
 import { KeyboardShortcutsService } from '../../services/keyboard-shortcuts.service';
 import { ProductPrices } from '../../models/erp.models';
+import { DatePipe } from '@angular/common';
+import { DecimalPipe } from '@angular/common';
 
 interface TempItem {
   productId: string;
@@ -15,8 +17,9 @@ interface TempItem {
 
 @Component({
   selector: 'app-purchases',
+  standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, MatIconModule],
+  imports: [ReactiveFormsModule, MatIconModule, DatePipe, DecimalPipe],
   template: `
     <div class="space-y-6 pb-12">
       
@@ -68,7 +71,7 @@ interface TempItem {
           [class]="activeTab() === 'suppliers' ? 'bg-indigo-50 text-indigo-700 font-semibold border-indigo-200' : 'hover:bg-slate-100 text-slate-600'"
           class="px-4 py-2 rounded-xl border border-transparent transition-colors flex items-center space-x-1.5 cursor-pointer">
           <mat-icon class="text-sm">contacts</mat-icon>
-          <span>Directorio de Proveedores ({{ stateService.suppliers().length }})</span>
+          <span>Directorio de Proveedores ({{ suppliers.length }})</span>
         </button>
       </div>
 
@@ -96,7 +99,7 @@ interface TempItem {
                       <span class="font-mono font-bold text-slate-900 text-sm">{{ po.orderNumber }}</span>
                     </td>
                     <td class="py-3 px-3">
-                      <p class="font-medium text-slate-800">{{ po.date }}</p>
+                      <p class="font-medium text-slate-800">{{ po.orderDate | date:'short' }}</p>
                       <p class="text-[11px] text-slate-400">Recibió: {{ po.receivedBy }}</p>
                     </td>
                     <td class="py-3 px-3">
@@ -112,10 +115,10 @@ interface TempItem {
                       </span>
                     </td>
                     <td class="py-3 px-3 text-right font-mono text-slate-600">
-                      \${{ po.subtotal.toFixed(2) }}
+                      \${{ po.subtotal  | number: '1.2-2' }}
                     </td>
                     <td class="py-3 px-3 text-right font-mono font-bold text-slate-900 text-sm">
-                      \${{ po.total.toFixed(2) }}
+                      \${{ po.total  | number: '1.2-2' }}
                     </td>
                     <td class="py-3 px-4 text-center">
                       <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 uppercase">
@@ -139,7 +142,7 @@ interface TempItem {
       <!-- Tab 2: Suppliers Directory -->
       @if (activeTab() === 'suppliers') {
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          @for (sup of stateService.suppliers(); track sup.id) {
+          @for (sup of suppliers; track sup.id) {
             <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-3 hover:border-indigo-200 transition-all">
               <div class="flex items-start justify-between">
                 <div>
@@ -209,7 +212,7 @@ interface TempItem {
                     [value]="selectedSupplierId()"
                     (change)="selectedSupplierId.set($any($event.target).value)"
                     class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800">
-                    @for (sup of stateService.suppliers(); track sup.id) {
+                    @for (sup of suppliers; track sup.id) {
                       <option [value]="sup.id">{{ sup.name }} ({{ sup.taxId }})</option>
                     }
                   </select>
@@ -221,7 +224,7 @@ interface TempItem {
                     [value]="selectedWarehouseId()"
                     (change)="selectedWarehouseId.set($any($event.target).value)"
                     class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800">
-                    @for (wh of stateService.warehouses(); track wh.id) {
+                    @for (wh of warehouses; track wh.id) {
                       <option [value]="wh.id">{{ wh.name }}</option>
                     }
                   </select>
@@ -280,7 +283,7 @@ interface TempItem {
                     <select #prodSelect class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-800">
                       @for (p of filteredProducts(); track p.id) {
                         <option [value]="p.id" [selected]="p.id === selectedProductIdForEntry()">
-                          {{ p.sku }} - {{ p.name }} (Costo Actual: \${{ p.costPrice.toFixed(2) }})
+                          {{ p.sku }} - {{ p.name }} (Costo Actual: \${{ p.costPrice  | number: '1.2-2' }})
                         </option>
                       }
                     </select>
@@ -323,10 +326,10 @@ interface TempItem {
                       <tr>
                         <td class="py-2 px-3 font-medium text-slate-900">{{ getProductName(item.productId) }}</td>
                         <td class="py-2 px-2 text-center font-mono">{{ item.quantity }}</td>
-                        <td class="py-2 px-2 text-right font-mono">\${{ item.unitCost.toFixed(2) }}</td>
-                        <td class="py-2 px-2 text-right font-mono font-medium">\${{ (item.quantity * item.unitCost).toFixed(2) }}</td>
+                        <td class="py-2 px-2 text-right font-mono">\${{ item.unitCost  | number: '1.2-2' }}</td>
+                        <td class="py-2 px-2 text-right font-mono font-medium">\${{ (item.quantity * item.unitCost)  | number: '1.2-2' }}</td>
                         <td class="py-2 px-3 text-right font-mono font-bold text-teal-800 bg-teal-50/50">
-                          \${{ calculateSimulatedCPP(item.productId, item.quantity, item.unitCost).toFixed(2) }}
+                          \${{ calculateSimulatedCPP(item.productId, item.quantity, item.unitCost)  | number: '1.2-2' }}
                         </td>
                         <td class="py-2 px-2 text-center">
                           <button (click)="removeItem($index)" class="text-rose-500 hover:text-rose-700 cursor-pointer">
@@ -357,7 +360,7 @@ interface TempItem {
             <div class="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
               <div>
                 <span class="text-xs text-slate-500">Total con IVA (16%):</span>
-                <span class="font-mono font-bold text-base text-slate-900 ml-2">\${{ (purchaseTotal() * 1.16).toFixed(2) }}</span>
+                <span class="font-mono font-bold text-base text-slate-900 ml-2">\${{ (purchaseTotal() * 1.16)  | number: '1.2-2' }}</span>
               </div>
 
               <div class="flex items-center space-x-2">
@@ -566,9 +569,9 @@ interface TempItem {
                   <span class="block font-semibold text-slate-700 mb-1">Término de Pago *</span>
                   <select formControlName="paymentTerms" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl">
                     <option value="CONTADO">Contado</option>
-                    <option value="15_DIAS">15 Días</option>
-                    <option value="30_DIAS">30 Días</option>
-                    <option value="60_DIAS">60 Días</option>
+                    <option value="DIAS_15">15 Días</option>
+                    <option value="DIAS_30">30 Días</option>
+                    <option value="DIAS_60">60 Días</option>
                   </select>
                 </div>
               </div>
@@ -599,10 +602,14 @@ interface TempItem {
     </div>
   `
 })
-export class PurchasesComponent {
+export default class PurchasesComponent {
   stateService = inject(ErpStateService);
   authService = inject(AuthService);
   shortcutService = inject(KeyboardShortcutsService);
+
+  suppliers = this.stateService.suppliers();
+  warehouses = this.stateService.warehouses();
+  products = this.stateService.products();
 
   activeTab = signal<'orders' | 'suppliers'>('orders');
   showNewPurchaseModal = signal<boolean>(false);
@@ -622,13 +629,13 @@ export class PurchasesComponent {
     });
   }
 
-  selectedSupplierId = signal<string>(this.stateService.suppliers()[0]?.id || '');
-  selectedWarehouseId = signal<string>(this.stateService.warehouses()[0]?.id || '');
+  selectedSupplierId = signal<string>(this.suppliers[0]?.id || '');
+  selectedWarehouseId = signal<string>(this.warehouses[0]?.id || '');
   itemsList = signal<TempItem[]>([]);
 
   filteredProducts = computed(() => {
     const q = this.productSearchQuery().trim().toLowerCase();
-    const prods = this.stateService.products();
+    const prods = this.products;
     if (!q) return prods;
     return prods.filter(p => 
       p.name.toLowerCase().includes(q) || 
@@ -667,8 +674,8 @@ export class PurchasesComponent {
 
   openNewPurchaseModal() {
     this.productSearchQuery.set('');
-    if (this.stateService.products().length > 0) {
-      this.selectedProductIdForEntry.set(this.stateService.products()[0].id);
+    if (this.products.length > 0) {
+      this.selectedProductIdForEntry.set(this.products[0].id);
     }
     this.showNewPurchaseModal.set(true);
   }
@@ -730,7 +737,7 @@ export class PurchasesComponent {
     const isExempt = Boolean(val.isTaxExempt);
     const cost = Number(val.costPrice);
     const buyQty = Number(val.initialBuyQty || 10);
-    const whCentral = this.stateService.warehouses()[0];
+    const whCentral = this.warehouses[0];
 
     const prices: ProductPrices = {
       price1: p1,
@@ -776,7 +783,7 @@ export class PurchasesComponent {
     if (!productId || quantity <= 0 || unitCost <= 0) return;
     
     // Check if item is tax exempt
-    const p = this.stateService.products().find(item => item.id === productId);
+    const p = this.products.find(item => item.id === productId);
     const taxRate = p?.isTaxExempt ? 0 : 0.16;
 
     this.itemsList.update(list => [...list, { productId, quantity, unitCost, taxRate }]);
@@ -787,12 +794,12 @@ export class PurchasesComponent {
   }
 
   getProductName(prodId: string): string {
-    const p = this.stateService.products().find(item => item.id === prodId);
+    const p = this.products.find(item => item.id === prodId);
     return p ? `${p.sku} - ${p.name}` : prodId;
   }
 
   calculateSimulatedCPP(prodId: string, incomingQty: number, incomingCost: number): number {
-    const prod = this.stateService.products().find(p => p.id === prodId);
+    const prod = this.products.find(p => p.id === prodId);
     if (!prod) return incomingCost;
     const currentStock = prod.totalStock;
     const currentCost = prod.costPrice;
@@ -804,17 +811,16 @@ export class PurchasesComponent {
   submitPurchaseOrder(notes: string) {
     if (this.itemsList().length === 0) return;
 
-    const result = this.stateService.registerPurchaseOrder(
+    this.stateService.registerPurchaseOrder(
       this.selectedSupplierId(),
       this.selectedWarehouseId(),
       this.itemsList(),
       notes
-    );
-
-    if (result.success) {
+    ).subscribe(result => {
+      if (!result.success) return;
       this.itemsList.set([]);
       this.showNewPurchaseModal.set(false);
-    }
+    });
   }
 
   submitSupplier() {

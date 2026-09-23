@@ -2,11 +2,11 @@ import { Component, ChangeDetectionStrategy, inject, signal, computed } from '@a
 import { MatIconModule } from '@angular/material/icon';
 import { ErpStateService } from '../../services/erp-state.service';
 import { AuthService } from '../../services/auth.service';
-
+import { DecimalPipe } from '@angular/common'
 @Component({
   selector: 'app-cash-closing',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatIconModule],
+  imports: [MatIconModule, DecimalPipe],
   template: `
     <div class="space-y-6 pb-12">
       
@@ -55,7 +55,7 @@ import { AuthService } from '../../services/auth.service';
 
           <div class="text-right">
             <span class="text-xs text-slate-400 block">Monto Inicial de Fondo:</span>
-            <span class="font-mono font-bold text-base text-slate-900">\${{ sess.initialAmount.toFixed(2) }}</span>
+            <span class="font-mono font-bold text-base text-slate-900">\${{ sess.initialAmount  | number: '1.2-2' }}</span>
           </div>
         </div>
 
@@ -68,7 +68,7 @@ import { AuthService } from '../../services/auth.service';
               <span>Efectivo en Caja</span>
               <mat-icon class="text-emerald-600 text-base">attach_money</mat-icon>
             </div>
-            <p class="font-mono font-bold text-xl text-slate-900">\${{ sess.totalCashSales.toFixed(2) }}</p>
+            <p class="font-mono font-bold text-xl text-slate-900">\${{ sess.totalCashSales  | number: '1.2-2' }}</p>
             <p class="text-[11px] text-slate-500">Ventas netas en efectivo</p>
           </div>
 
@@ -78,7 +78,7 @@ import { AuthService } from '../../services/auth.service';
               <span>Tarjetas Débito/Crédito</span>
               <mat-icon class="text-sky-600 text-base">credit_card</mat-icon>
             </div>
-            <p class="font-mono font-bold text-xl text-slate-900">\${{ sess.totalCardSales.toFixed(2) }}</p>
+            <p class="font-mono font-bold text-xl text-slate-900">\${{ sess.totalCardSales  | number: '1.2-2' }}</p>
             <p class="text-[11px] text-slate-500">Vouchers autorizados</p>
           </div>
 
@@ -88,7 +88,7 @@ import { AuthService } from '../../services/auth.service';
               <span>Transferencias Bancarias</span>
               <mat-icon class="text-indigo-600 text-base">account_balance</mat-icon>
             </div>
-            <p class="font-mono font-bold text-xl text-slate-900">\${{ sess.totalTransferSales.toFixed(2) }}</p>
+            <p class="font-mono font-bold text-xl text-slate-900">\${{ sess.totalTransferSales  | number: '1.2-2' }}</p>
             <p class="text-[11px] text-slate-500">Comprobantes SPEI/Bancarizados</p>
           </div>
 
@@ -98,7 +98,7 @@ import { AuthService } from '../../services/auth.service';
               <span>TOTAL RECAUDADO</span>
               <mat-icon class="text-emerald-400 text-base">savings</mat-icon>
             </div>
-            <p class="font-mono font-bold text-xl text-emerald-400">\${{ sess.totalSales.toFixed(2) }}</p>
+            <p class="font-mono font-bold text-xl text-emerald-400">\${{ sess.totalSales  | number: '1.2-2' }}</p>
             <p class="text-[11px] text-slate-400">Total facturado en turno</p>
           </div>
 
@@ -117,7 +117,7 @@ import { AuthService } from '../../services/auth.service';
                 <span class="text-slate-500 block">Efectivo Físico Esperado:</span>
                 <span class="text-slate-400 text-[10px]">(Fondo Inicial + Ventas Efectivo)</span>
                 <p class="font-mono font-bold text-base text-slate-900 mt-1">
-                  \${{ (sess.initialAmount + sess.totalCashSales).toFixed(2) }}
+                  \${{ (sess.initialAmount + sess.totalCashSales)  | number: '1.2-2' }}
                 </p>
               </div>
 
@@ -135,7 +135,7 @@ import { AuthService } from '../../services/auth.service';
                 <span class="text-slate-600 font-medium block">Diferencia de Caja:</span>
                 <p class="font-mono font-bold text-base mt-1"
                   [class]="calculatedDifference() >= 0 ? 'text-emerald-700' : 'text-rose-700'">
-                  {{ calculatedDifference() >= 0 ? '+' : '' }}\${{ calculatedDifference().toFixed(2) }}
+                  {{ calculatedDifference() >= 0 ? '+' : '' }}\${{ calculatedDifference()  | number: '1.2-2' }}
                   <span class="text-xs font-sans font-normal ml-1">
                     ({{ calculatedDifference() === 0 ? 'Cuadre Perfecto' : (calculatedDifference() > 0 ? 'Sobrante' : 'Faltante') }})
                   </span>
@@ -157,7 +157,7 @@ import { AuthService } from '../../services/auth.service';
           <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl text-xs flex items-center justify-between">
             <div>
               <p class="font-semibold text-slate-900">Turno Cerrado el {{ sess.closeDate }}</p>
-              <p class="text-slate-500">Diferencia registrada: \${{ (sess.cashDifference || 0).toFixed(2) }}</p>
+              <p class="text-slate-500">Diferencia registrada: \${{ (sess.cashDifference || 0)  | number: '1.2-2' }}</p>
             </div>
             <button (click)="printZReport()" class="px-3 py-1.5 bg-slate-800 text-white rounded-lg font-medium flex items-center space-x-1">
               <mat-icon class="text-xs">print</mat-icon>
@@ -180,9 +180,9 @@ import { AuthService } from '../../services/auth.service';
                   <span class="text-slate-400 ml-2">{{ h.openDate }} a {{ h.closeDate }}</span>
                 </div>
                 <div class="flex items-center space-x-4">
-                  <span class="font-mono font-semibold text-slate-900">Ventas: \${{ h.totalSales.toFixed(2) }}</span>
+                  <span class="font-mono font-semibold text-slate-900">Ventas: \${{ h.totalSales  | number: '1.2-2' }}</span>
                   <span class="font-mono font-medium" [class]="(h.cashDifference || 0) >= 0 ? 'text-emerald-700' : 'text-rose-600'">
-                    Dif: \${{ (h.cashDifference || 0).toFixed(2) }}
+                    Dif: \${{ (h.cashDifference || 0)  | number: '1.2-2' }}
                   </span>
                 </div>
               </div>
@@ -212,7 +212,7 @@ import { AuthService } from '../../services/auth.service';
     </div>
   `
 })
-export class CashClosingComponent {
+export default class CashClosingComponent {
   stateService = inject(ErpStateService);
   authService = inject(AuthService);
 

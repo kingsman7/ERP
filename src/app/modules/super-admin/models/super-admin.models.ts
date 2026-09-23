@@ -5,6 +5,7 @@ export type SystemHealthStatus = 'HEALTHY' | 'DEGRADED' | 'MAINTENANCE';
 
 export interface Tenant {
   id: string;
+  planId?: string;
   slug: string;
   companyName: string;
   legalTaxId: string; // RIF, RFC, NIF or CIF
@@ -32,9 +33,11 @@ export interface Tenant {
 
 export interface SubscriptionPlan {
   id: PlanTier;
+  saasPlanId?: string;
   name: string;
   tagline: string;
   description: string;
+  code?: string;
   priceMonthlyUsd: number;
   priceAnnualUsd: number;
   maxUsers: number;
@@ -45,6 +48,24 @@ export interface SubscriptionPlan {
   customDomainSupported: boolean;
   apiAccess: boolean;
   isPopular?: boolean;
+}
+
+export type BillingSubscriptionStatus = 'NONE' | 'PENDING' | 'ACTIVE' | 'REJECTED' | 'CANCELLED' | 'EXPIRED';
+
+export interface PendingBillingCheckout {
+  id: string;
+  tenantId: string;
+  planId: string;
+  status: 'PENDING';
+  orderId: string;
+  checkoutUrl?: string | null;
+}
+
+export interface BillingSubscriptionStatusView {
+  tenantId: string;
+  planId: string | null;
+  subscriptionId: string | null;
+  status: BillingSubscriptionStatus;
 }
 
 export interface PlatformHealthMetric {
@@ -117,11 +138,23 @@ export interface TenantAuditLog {
   severity: 'INFO' | 'WARNING' | 'CRITICAL';
 }
 
+export interface BillingsPlans {
+  id: string;
+  code: string;
+  name: string;
+  price: number;
+  currency: string;
+  billingCycle: string;
+  maxUsers: number;
+  storageLimitMb: number;
+  features: Record<string, unknown>;
+}
+
 export const DEFAULT_PLANS: SubscriptionPlan[] = [
   {
     id: 'BASIC',
     name: 'Plan Comercial (PyME)',
-    tagline: 'Ideal para comercios, ferreterías y pequeñas distribuidoras',
+    tagline: 'Ideal para comercios y distribuidoras pequeñas',
     description: 'Gestión completa de ventas POS multimoneda, inventario multialmacén, compras y tesorería.',
     priceMonthlyUsd: 49.00,
     priceAnnualUsd: 470.00,
@@ -225,7 +258,7 @@ export const INITIAL_TENANTS_SEED: Tenant[] = [
     contactEmail: 'gerencia@ferreteriacentral.com',
     contactPhone: '+58 212-9012345',
     adminUserName: 'Alejandro Morales',
-    adminUserEmail: 'admin.morales@4-inLine.com',
+    adminUserEmail: 'admin.morales@Helameb.com',
     maxUsers: 20,
     currentUsersCount: 8,
     storageLimitMb: 10240,
@@ -374,7 +407,7 @@ export const INITIAL_AUDIT_LOGS_SEED: TenantAuditLog[] = [
     tenantId: 'tnt-006',
     tenantName: 'Agropecuaria e Insumos del Valle S.A.',
     action: 'PROVISION_TENANT',
-    performerEmail: 'superadmin@4-inline.cloud',
+    performerEmail: 'superadmin@Helameb.cloud',
     timestamp: '2026-09-06T14:30:00Z',
     details: 'Aprovisionamiento inicial de tenant con slug agropecuaria-del-valle bajo Plan PRO.',
     ipAddress: '192.168.1.10',
@@ -385,7 +418,7 @@ export const INITIAL_AUDIT_LOGS_SEED: TenantAuditLog[] = [
     tenantId: 'tnt-005',
     tenantName: 'Auto Partes Express Oriente C.A.',
     action: 'SUSPEND_TENANT',
-    performerEmail: 'billing-bot@4-inline.cloud',
+    performerEmail: 'billing-bot@Helameb.cloud',
     timestamp: '2026-09-05T18:00:00Z',
     details: 'Suspensión automática de acceso por mora en ciclo de facturación mensual.',
     ipAddress: '10.0.0.1',
@@ -396,7 +429,7 @@ export const INITIAL_AUDIT_LOGS_SEED: TenantAuditLog[] = [
     tenantId: 'tnt-001',
     tenantName: 'Ferretería & Suministros Central C.A.',
     action: 'START_IMPERSONATION',
-    performerEmail: 'superadmin@4-inline.cloud',
+    performerEmail: 'superadmin@Helameb.cloud',
     timestamp: '2026-09-01T10:00:00Z',
     details: 'Sesión de soporte técnico auditada iniciada. Motivo: Asistencia en ajuste de tasas BCV.',
     ipAddress: '192.168.1.10',
@@ -407,7 +440,7 @@ export const INITIAL_AUDIT_LOGS_SEED: TenantAuditLog[] = [
     tenantId: 'tnt-002',
     tenantName: 'Distribuidora Andina de Alimentos S.A.',
     action: 'CHANGE_PLAN',
-    performerEmail: 'superadmin@4-inline.cloud',
+    performerEmail: 'superadmin@Helameb.cloud',
     timestamp: '2026-08-28T14:15:00Z',
     details: 'Upgrade de plan PRO a ENTERPRISE con habilitación de Contabilidad NIIF y custom domain.',
     ipAddress: '192.168.1.10',

@@ -239,7 +239,7 @@ export interface PurchaseOrder {
   supplierTaxId: string;
   warehouseId: string;
   warehouseName: string;
-  date: string;
+  orderDate : string;
   status: 'RECIBIDA' | 'PENDIENTE' | 'CANCELADA';
   items: PurchaseOrderItem[];
   subtotal: number;

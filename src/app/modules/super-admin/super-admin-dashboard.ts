@@ -10,20 +10,21 @@ import {
   BillingCycle,
   TenantAuditLog 
 } from './models/super-admin.models';
-import { ErpStateService } from '../../services/erp-state.service';
 import { AuthService } from '../../services/auth.service';
+import { DecimalPipe } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
+import { PendingBillingCheckout, BillingSubscriptionStatus, BillingSubscriptionStatusView } from './models/super-admin.models';
 
 export type SuperAdminSubTab = 'tenants' | 'plans' | 'health' | 'audit';
 
 @Component({
   selector: 'app-super-admin-dashboard',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatIconModule, ReactiveFormsModule],
+  imports: [MatIconModule, ReactiveFormsModule, DecimalPipe],
   templateUrl: './super-admin-dashboard.html'
 })
-export class SuperAdminDashboardComponent {
+export default class SuperAdminDashboardComponent {
   superAdminService = inject(SuperAdminService);
-  erpState = inject(ErpStateService);
   authService = inject(AuthService);
 
   // Active Sub-Tab
@@ -37,6 +38,13 @@ export class SuperAdminDashboardComponent {
   deletingTenant = signal<Tenant | null>(null);
   viewingTenantDetails = signal<Tenant | null>(null);
   editingPlan = signal<SubscriptionPlan | null>(null);
+  creatingPlan = signal<boolean>(false);
+  billingCheckout = signal<PendingBillingCheckout | null>(null);
+  billingStatus = signal<BillingSubscriptionStatus>('NONE');
+  billingError = signal<string | null>(null);
+  billingLoading = signal<boolean>(false);
+  availableTenantSelection = signal<string>('');
+  availableTenantError = this.superAdminService.availableTenantsError;
 
   // Search Control
   searchControl = new FormControl<string>('');
@@ -46,7 +54,7 @@ export class SuperAdminDashboardComponent {
     companyName: new FormControl<string>('', { nonNullable: true, validators: [Validators.required, Validators.minLength(3)] }),
     slug: new FormControl<string>('', { nonNullable: true }),
     legalTaxId: new FormControl<string>('', { nonNullable: true, validators: [Validators.required] }),
-    plan: new FormControl<PlanTier>('PRO', { nonNullable: true, validators: [Validators.required] }),
+    plan: new FormControl<string>('', { nonNullable: true, validators: [Validators.required] }),
     contactEmail: new FormControl<string>('', { nonNullable: true, validators: [Validators.required, Validators.email] }),
     contactPhone: new FormControl<string>('+58 212-0000000', { nonNullable: true }),
     adminUserName: new FormControl<string>('', { nonNullable: true, validators: [Validators.required] }),
@@ -77,19 +85,30 @@ export class SuperAdminDashboardComponent {
   });
 
   planChangeForm = new FormGroup({
-    plan: new FormControl<PlanTier>('PRO', { nonNullable: true, validators: [Validators.required] }),
+    plan: new FormControl<string>('', { nonNullable: true, validators: [Validators.required] }),
     billingCycle: new FormControl<BillingCycle>('MONTHLY', { nonNullable: true })
   });
 
   deleteConfirmControl = new FormControl<string>('', { nonNullable: true });
 
   planEditorForm = new FormGroup({
+    code: new FormControl<'BASIC' | 'FULL'>('BASIC', { nonNullable: true, validators: [Validators.required] }),
+    name: new FormControl<string>('', { nonNullable: true, validators: [Validators.required, Validators.minLength(2)] }),
     priceMonthlyUsd: new FormControl<number>(0, { nonNullable: true, validators: [Validators.required, Validators.min(0)] }),
     priceAnnualUsd: new FormControl<number>(0, { nonNullable: true, validators: [Validators.required, Validators.min(0)] }),
     maxUsers: new FormControl<number>(5, { nonNullable: true, validators: [Validators.required, Validators.min(1)] }),
     storageLimitMb: new FormControl<number>(2048, { nonNullable: true, validators: [Validators.required, Validators.min(100)] }),
     maxInvoicesMonthly: new FormControl<number>(1000, { nonNullable: true, validators: [Validators.required, Validators.min(100)] })
+    ,modules: new FormControl<string[]>([], { nonNullable: true })
   });
+
+  readonly availablePlanModules = [
+    'dashboard', 'inventory', 'kardex', 'logistics', 'purchases', 'sales-pos',
+    'quotes', 'mrp', 'crm', 'treasury', 'cash-closing', 'accounting', 'users',
+    'audit-log', 'backups', 'manual', 'architecture'
+  ];
+
+  plans = this.superAdminService.plans;
 
   // Computed Auto-Slug for Provisioning Modal
   generatedSlug = computed(() => {
@@ -106,6 +125,26 @@ export class SuperAdminDashboardComponent {
     this.searchControl.valueChanges.subscribe(val => {
       this.superAdminService.searchQuery.set(val || '');
     });
+    this.superAdminService.loadAvailableTenants().subscribe();
+  }
+
+  selectAvailableTenant(): void {
+    const tenantId = this.availableTenantSelection();
+    const tenant = this.superAdminService.availableTenants().find(item => item.id === tenantId);
+    if (!tenant || tenant.status !== 'ACTIVE') {
+      this.availableTenantError.set('Selecciona un tenant activo del catálogo.');
+      return;
+    }
+
+    this.authService.impersonateTenant(tenant.id).subscribe({
+      next: () => this.availableTenantSelection.set(tenant.id),
+      error: error => this.availableTenantError.set(error?.message || 'No fue posible seleccionar el tenant.')
+    });
+  }
+
+  clearAvailableTenant(): void {
+    this.authService.clearImpersonationContext();
+    this.availableTenantSelection.set('');
   }
 
   // =========================================================================
@@ -125,7 +164,7 @@ export class SuperAdminDashboardComponent {
       companyName: '',
       slug: '',
       legalTaxId: '',
-      plan: 'PRO',
+      plan: '',
       contactEmail: '',
       contactPhone: '+58 212-0000000',
       adminUserName: '',
@@ -157,7 +196,7 @@ export class SuperAdminDashboardComponent {
       companyName: val.companyName,
       slug: finalSlug,
       legalTaxId: val.legalTaxId,
-      plan: val.plan,
+      plan: val.plan as PlanTier,
       contactEmail: val.contactEmail,
       contactPhone: val.contactPhone,
       adminUserName: val.adminUserName,
@@ -221,6 +260,9 @@ export class SuperAdminDashboardComponent {
 
   openChangePlanModal(tenant: Tenant): void {
     this.changingPlanTenant.set(tenant);
+    this.billingCheckout.set(null);
+    this.billingStatus.set('NONE');
+    this.billingError.set(null);
     this.planChangeForm.patchValue({
       plan: tenant.plan,
       billingCycle: tenant.billingCycle
@@ -229,16 +271,102 @@ export class SuperAdminDashboardComponent {
 
   closeChangePlanModal(): void {
     this.changingPlanTenant.set(null);
+    this.billingCheckout.set(null);
+    this.billingError.set(null);
   }
 
   submitChangePlan(): void {
     const tenant = this.changingPlanTenant();
-    if (!tenant) return;
+    if (!tenant || this.billingLoading()) return;
 
-    const newPlan = this.planChangeForm.controls.plan.value;
-    this.superAdminService.changeTenantPlan(tenant.id, newPlan).subscribe(() => {
-      this.closeChangePlanModal();
+    const newPlan = this.planChangeForm.controls.plan.value as PlanTier;
+    const plan = this.superAdminService.plans().find(item => item.id === newPlan);
+    const planId = plan?.saasPlanId;
+    this.billingError.set(null);
+
+    if (!planId) {
+      this.billingError.set('El catálogo SaaS no entregó el UUID del plan seleccionado. No se creó ningún checkout.');
+      return;
+    }
+
+    this.billingLoading.set(true);
+    this.superAdminService.requestBillingPlanChange(tenant.id, {
+      planId,
+      planCode: newPlan === 'BASIC' ? 'BASIC' : 'FULL',
+      currency: 'USD',
+      reason: `Cambio solicitado desde consola Master: ${tenant.plan} -> ${newPlan}`
+    }).subscribe({
+      next: checkout => {
+        this.billingCheckout.set(checkout);
+        this.billingStatus.set('PENDING');
+        this.billingLoading.set(false);
+        if (checkout.checkoutUrl) {
+          window.location.assign(checkout.checkoutUrl);
+        }
+      },
+      error: error => {
+        this.billingLoading.set(false);
+        this.billingError.set(this.getBillingErrorMessage(error));
+      }
     });
+  }
+
+  refreshBillingStatus(): void {
+    const tenant = this.changingPlanTenant();
+    const checkout = this.billingCheckout();
+    if (!tenant || this.billingLoading()) return;
+
+    this.billingError.set(null);
+    this.billingLoading.set(true);
+    this.superAdminService.getBillingSubscriptionStatus(tenant.id).subscribe({
+      next: result => {
+        const status = result.status as BillingSubscriptionStatus;
+        this.billingStatus.set(status);
+        this.billingLoading.set(false);
+        if (status === 'ACTIVE') {
+          this.applyActivePlan(tenant.id, this.planChangeForm.controls.plan.value as PlanTier);
+        }
+      },
+      error: error => {
+        this.billingLoading.set(false);
+        this.billingError.set(this.getBillingErrorMessage(error));
+      }
+    });
+  }
+
+  private applyActivePlan(tenantId: string, planId: PlanTier): void {
+    const plan = this.superAdminService.plans().find(item => item.id === planId);
+    if (!plan) return;
+    this.superAdminService.tenants.update(tenants => tenants.map(tenant => tenant.id === tenantId
+      ? {
+          ...tenant,
+          plan: planId,
+          maxUsers: plan.maxUsers,
+          storageLimitMb: plan.storageLimitMb,
+          monthlyFeeUsd: tenant.billingCycle === 'ANNUAL' ? plan.priceAnnualUsd / 12 : plan.priceMonthlyUsd,
+          features: [...plan.allowedModules],
+          updatedAt: new Date().toISOString()
+        }
+      : tenant));
+  }
+
+  private getBillingErrorMessage(error: unknown): string {
+    const response = error as HttpErrorResponse;
+    if (response?.status === 401 || response?.status === 403) return 'No estás autorizado para gestionar la facturación de este tenant.';
+    if (response?.status === 400) return response.error?.message || 'El tenant no está activo o la solicitud de pago no es válida.';
+    if (response?.status === 404) return 'No se encontró el checkout o el plan SaaS solicitado.';
+    if (response?.status === 409) return 'El pago aún no ha sido confirmado. Consulta el estado nuevamente.';
+    return response?.error?.message || 'No fue posible conectar con el servicio de facturación.';
+  }
+
+  getBillingStatusLabel(status: BillingSubscriptionStatus): string {
+    switch (status) {
+      case 'ACTIVE': return 'PAID';
+      case 'REJECTED': return 'FAILED';
+      case 'CANCELLED': return 'CANCELLED';
+      case 'PENDING': return 'PENDING';
+      default: return status;
+    }
   }
 
   // =========================================================================
@@ -319,21 +447,55 @@ export class SuperAdminDashboardComponent {
   // =========================================================================
 
   openEditPlanModal(plan: SubscriptionPlan): void {
+    this.creatingPlan.set(false);
     this.editingPlan.set(plan);
     this.planEditorForm.patchValue({
+      code: (plan.id as string) === 'FULL' ? 'FULL' : 'BASIC',
+      name: plan.name,
       priceMonthlyUsd: plan.priceMonthlyUsd,
       priceAnnualUsd: plan.priceAnnualUsd,
       maxUsers: plan.maxUsers,
       storageLimitMb: plan.storageLimitMb,
       maxInvoicesMonthly: plan.maxInvoicesMonthly
+      ,modules: [...plan.allowedModules]
     });
   }
 
   closeEditPlanModal(): void {
     this.editingPlan.set(null);
+    this.creatingPlan.set(false);
+  }
+
+  openCreatePlanModal(): void {
+    this.editingPlan.set(null);
+    this.creatingPlan.set(true);
+    this.planEditorForm.reset({
+      code: 'BASIC',
+      name: '',
+      priceMonthlyUsd: 0,
+      priceAnnualUsd: 0,
+      maxUsers: 1,
+      storageLimitMb: 1024,
+      maxInvoicesMonthly: 1000
+      ,modules: []
+    });
   }
 
   submitEditPlan(): void {
+    if (this.creatingPlan()) {
+      const value = this.planEditorForm.getRawValue();
+      if (this.planEditorForm.invalid) return;
+      this.superAdminService.createPlan({
+        code: value.code,
+        name: value.name,
+        price: value.priceMonthlyUsd,
+        maxUsers: value.maxUsers,
+        storageLimitMb: value.storageLimitMb,
+        modules: value.modules
+      }).subscribe(() => this.closeEditPlanModal());
+      return;
+    }
+
     const plan = this.editingPlan();
     if (!plan || this.planEditorForm.invalid) return;
 

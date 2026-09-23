@@ -1,6 +1,6 @@
-import { Injectable, inject, signal, computed } from '@angular/core';
+import { Injectable, inject, signal, computed, Injector } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, of, tap, catchError } from 'rxjs';
+import { Observable, of, tap, catchError, forkJoin, map, throwError } from 'rxjs';
 import { 
   Tenant, 
   SubscriptionPlan, 
@@ -10,13 +10,21 @@ import {
   TenantStatus, 
   PlanTier, 
   PlatformHealthMetric,
-  DEFAULT_PLANS, 
-  INITIAL_TENANTS_SEED, 
-  INITIAL_AUDIT_LOGS_SEED 
+  PendingBillingCheckout,
+  BillingSubscriptionStatusView,
+  BillingsPlans
 } from '../models/super-admin.models';
 import { AuthService } from '../../../services/auth.service';
 import { ErpStateService } from '../../../services/erp-state.service';
 import { User } from '../../../models/erp.models';
+
+export interface AvailableTenant {
+  id: string;
+  slug: string;
+  name: string;
+  status: string;
+  plan: string;
+}
 
 const STORAGE_KEY_TENANTS = 'nexus_erp_saas_tenants_v1';
 const STORAGE_KEY_PLANS = 'nexus_erp_saas_plans_v1';
@@ -29,7 +37,11 @@ const STORAGE_KEY_IMPERSONATION = 'nexus_erp_saas_impersonation_v1';
 export class SuperAdminService {
   private http = inject(HttpClient);
   private authService = inject(AuthService);
-  private erpState = inject(ErpStateService);
+  private injector = inject(Injector);
+
+  private get erpState(): ErpStateService {
+    return this.injector.get(ErpStateService);
+  }
 
   // Master API Base URL (outside tenant context)
   private readonly MASTER_API_BASE = '/api/v1/master';
@@ -37,9 +49,11 @@ export class SuperAdminService {
   // Signals
   readonly tenants = signal<Tenant[]>(this.loadInitialTenants());
   readonly plans = signal<SubscriptionPlan[]>(this.loadInitialPlans());
-  readonly auditLogs = signal<TenantAuditLog[]>(this.loadInitialAuditLogs());
-  readonly activeImpersonation = signal<ImpersonationSession | null>(this.loadInitialImpersonation());
+  readonly auditLogs = signal<TenantAuditLog[]>([]);
+  readonly activeImpersonation = signal<ImpersonationSession | null>(null);
   readonly selectedTenant = signal<Tenant | null>(null);
+  readonly availableTenants = signal<AvailableTenant[]>([]);
+  readonly availableTenantsError = signal<string | null>(null);
 
   // Search and Filter State
   readonly searchQuery = signal<string>('');
@@ -65,7 +79,7 @@ export class SuperAdminService {
   // Cached original state prior to impersonation
   private preImpersonationUser: User | null = null;
   private preImpersonationCompany = {
-    legalName: '4-inLine Corp, C.A.',
+    legalName: 'Helameb Corp, C.A.',
     taxId: 'J-50493821-4',
     planTier: 'FULL' as 'BASE' | 'FULL'
   };
@@ -141,44 +155,85 @@ export class SuperAdminService {
   });
 
   constructor() {
-    this.fetchMasterData();
+    try {
+      localStorage.removeItem(STORAGE_KEY_AUDIT);
+    } catch {
+      // Ignore storage errors; audit history must come from the API.
+    }
   }
 
   // =========================================================================
   // Master API Methods
   // =========================================================================
 
-  fetchMasterData(): void {
+  fetchMasterData(): Observable<boolean> {
     this.isLoading.set(true);
-    this.http.get<Tenant[]>(`${this.MASTER_API_BASE}/tenants`).pipe(
-      tap(data => {
-        if (Array.isArray(data) && data.length > 0) {
-          this.tenants.set(data);
-          this.saveTenantsToStorage(data);
-        }
+    return forkJoin({
+      tenants: this.http.get<Tenant[]>(`${this.MASTER_API_BASE}/tenants`).pipe(catchError(() => of([]))),
+      plans: this.http.get<SubscriptionPlan[]>(`${this.MASTER_API_BASE}/billing/plans`).pipe(
+        map(plans => plans.map(plan => ({ ...plan, id: plan.code as PlanTier, saasPlanId: plan.id }))),
+        catchError(() => of([] as SubscriptionPlan[]))
+      )
+    }).pipe(
+      tap(({ tenants, plans }) => {
+        if (tenants.length > 0) { this.tenants.set(tenants); this.saveTenantsToStorage(tenants); }
+        if (plans.length > 0) { this.plans.set(plans); this.savePlansToStorage(plans); }
         this.isLoading.set(false);
         this.lastSyncTime.set(new Date().toISOString());
       }),
-      catchError(() => {
-        // Fallback gracefully to signal data
-        this.isLoading.set(false);
-        return of(this.tenants());
-      })
-    ).subscribe();
-
-    this.http.get<SubscriptionPlan[]>(`${this.MASTER_API_BASE}/plans`).pipe(
-      tap(data => {
-        if (Array.isArray(data) && data.length > 0) {
-          this.plans.set(data);
-          this.savePlansToStorage(data);
-        }
-      }),
-      catchError(() => of(this.plans()))
-    ).subscribe();
+      map(() => true)
+    );
   }
 
   getTenants(): Observable<Tenant[]> {
     return of(this.tenants());
+  }
+
+  loadAvailableTenants(): Observable<AvailableTenant[]> {
+    this.availableTenantsError.set(null);
+    return this.http.get<AvailableTenant[]>(`${this.MASTER_API_BASE}/tenants/available`).pipe(
+      map(tenants => tenants.filter(tenant => tenant.status === 'ACTIVE')),
+      tap(tenants => this.availableTenants.set(tenants)),
+      catchError(() => {
+        this.availableTenants.set([]);
+        this.availableTenantsError.set('No fue posible cargar los tenants disponibles.');
+        return of([]);
+      })
+    );
+  }
+
+  requestBillingPlanChange(tenantId: string, request: {
+    planId: string;
+    planCode: 'BASIC' | 'FULL';
+    currency: 'USD';
+    reason?: string;
+  }): Observable<PendingBillingCheckout> {
+    return this.http.post<PendingBillingCheckout>(
+      `${this.MASTER_API_BASE}/tenants/${tenantId}/billing/plan-change`,
+      {
+        ...request,
+        idempotencyKey: this.createBillingIdempotencyKey(tenantId, request.planId)
+      }
+    );
+  }
+
+  getBillingSubscriptionStatus(tenantId: string): Observable<BillingSubscriptionStatusView> {
+    return this.http.get<BillingSubscriptionStatusView>(
+      `${this.MASTER_API_BASE}/tenants/${tenantId}/billing/subscription`
+    );
+  }
+
+  getBillingCheckout(orderId: string): Observable<PendingBillingCheckout> {
+    return this.http.get<PendingBillingCheckout>(
+      `${this.MASTER_API_BASE}/billing/checkouts/${encodeURIComponent(orderId)}`
+    );
+  }
+
+  private createBillingIdempotencyKey(tenantId: string, planId: string): string {
+    const randomPart = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+    return `plan-change:${tenantId}:${planId}:${randomPart}`;
   }
 
   createTenant(payload: {
@@ -197,6 +252,9 @@ export class SuperAdminService {
   }): Observable<Tenant> {
     const slug = payload.slug ? this.slugify(payload.slug) : this.slugify(payload.companyName);
     const planConfig = this.plans().find(p => p.id === payload.plan) || this.plans()[0];
+    if (!planConfig) {
+      return throwError(() => new Error('No hay planes reales disponibles. Sincroniza el catálogo antes de crear el tenant.'));
+    }
     const fee = payload.billingCycle === 'ANNUAL' ? (planConfig.priceAnnualUsd / 12) : planConfig.priceMonthlyUsd;
 
     const newTenant: Tenant = {
@@ -239,18 +297,31 @@ export class SuperAdminService {
       severity: 'INFO'
     });
 
-    // Try sending to Master API in background
-    this.http.post<Tenant>(`${this.MASTER_API_BASE}/tenants`, newTenant).pipe(
+    // Persist the tenant using the master API contract.
+    this.http.post(`${this.MASTER_API_BASE}/tenants`, {
+      name: newTenant.companyName,
+      slug: newTenant.slug,
+      adminEmail: newTenant.adminUserEmail,
+      adminName: newTenant.adminUserName,
+      adminPassword: this.generateTemporaryPassword()
+    }).pipe(
       catchError(() => of(newTenant))
     ).subscribe();
 
     this.erpState.notify(
       'success',
       'Tenant Aprovisionado con Éxito',
-      `La empresa ${newTenant.companyName} ha sido creada en la región ${newTenant.region} con el subdominio ${newTenant.slug}.4-inline.cloud`
+      `La empresa ${newTenant.companyName} ha sido creada en la región ${newTenant.region} con el subdominio ${newTenant.slug}.helameb.com`
     );
 
     return of(newTenant);
+  }
+
+  private generateTemporaryPassword(): string {
+    const random = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID().replace(/-/g, '')
+      : `${Date.now()}${Math.random().toString(36).slice(2)}`;
+    return `Tmp-${random.slice(0, 16)}!`;
   }
 
   updateTenant(id: string, updates: Partial<Tenant>): Observable<Tenant | null> {
@@ -568,35 +639,135 @@ export class SuperAdminService {
   }
 
   updatePlan(planId: PlanTier, updates: Partial<SubscriptionPlan>): Observable<SubscriptionPlan | null> {
-    let updated: SubscriptionPlan | null = null;
+    const current = this.plans().find(plan => plan.id === planId);
+    if (!current || !current.saasPlanId) return of(null);
 
-    this.plans.update(list =>
-      list.map(p => {
-        if (p.id === planId) {
-          updated = { ...p, ...updates };
-          return updated;
-        }
-        return p;
+    return this.http.patch<{
+      id: string;
+      code: string;
+      name: string;
+      price: number;
+      currency: string;
+      billingCycle: 'MONTHLY' | 'ANNUAL';
+      maxUsers: number;
+      storageLimitMb: number;
+      features: Record<string, unknown>;
+      tagline: string;
+      description: string;
+      priceMonthlyUsd: number;
+      priceAnnualUsd: number;
+      allowedModules: string[];
+      maxInvoicesMonthly: number;
+      supportTier: 'COMMUNITY' | 'STANDARD_24_7' | 'DEDICATED_VIP';
+      customDomainSupported: boolean;
+      apiAccess: boolean;
+      isPopular: boolean;
+    }>(`${this.MASTER_API_BASE}/billing/plans/${current.saasPlanId}`, {
+      name: current.name,
+      price: updates.priceMonthlyUsd ?? current.priceMonthlyUsd,
+      currency: 'USD',
+      billingCycle: 'MONTHLY',
+      maxUsers: updates.maxUsers ?? current.maxUsers,
+      storageLimitMb: updates.storageLimitMb ?? current.storageLimitMb,
+      features: {
+        modules: updates.allowedModules ?? current.allowedModules,
+        tagline: current.tagline,
+        description: current.description,
+        maxInvoicesMonthly: updates.maxInvoicesMonthly ?? current.maxInvoicesMonthly,
+        supportTier: current.supportTier,
+        customDomainSupported: current.customDomainSupported,
+        apiAccess: current.apiAccess,
+        isPopular: current.isPopular
+      }
+    }).pipe(
+      map(plan => this.mapApiPlan(plan)),
+      tap(updated => {
+        this.plans.update(list => list.map(item => item.id === planId ? updated : item));
+        this.recordAuditLog({ action: 'UPDATE_PLAN_CONFIG', details: `Plan actualizado: ${updated.name}`, severity: 'INFO' });
+      }),
+      catchError(() => of(null))
+    );
+  }
+
+  createPlan(input: {
+    code: 'BASIC' | 'FULL';
+    name: string;
+    price: number;
+    maxUsers: number;
+    storageLimitMb: number;
+    modules: string[];
+  }): Observable<SubscriptionPlan> {
+    return this.http.post<{
+      id: string;
+      code: string;
+      name: string;
+      price: number;
+      currency: string;
+      billingCycle: 'MONTHLY' | 'ANNUAL';
+      maxUsers: number;
+      storageLimitMb: number;
+      features: Record<string, unknown>;
+      tagline: string;
+      description: string;
+      priceMonthlyUsd: number;
+      priceAnnualUsd: number;
+      allowedModules: string[];
+      maxInvoicesMonthly: number;
+      supportTier: 'COMMUNITY' | 'STANDARD_24_7' | 'DEDICATED_VIP';
+      customDomainSupported: boolean;
+      apiAccess: boolean;
+      isPopular: boolean;
+    }>(`${this.MASTER_API_BASE}/billing/plans`, {
+      ...input,
+      currency: 'USD',
+      billingCycle: 'MONTHLY',
+      features: { modules: input.modules }
+    }).pipe(
+      map(plan => this.mapApiPlan(plan)),
+      tap(plan => {
+        this.plans.update(list => [...list, plan]);
+        this.recordAuditLog({ action: 'UPDATE_PLAN_CONFIG', details: `Plan creado: ${plan.name}`, severity: 'INFO' });
       })
     );
+  }
 
-    if (updated) {
-      this.savePlansToStorage(this.plans());
-
-      this.recordAuditLog({
-        action: 'UPDATE_PLAN_CONFIG',
-        details: `Actualización de configuración y límites del Plan ${planId}: ${Object.keys(updates).join(', ')}`,
-        severity: 'INFO'
-      });
-
-      this.http.put(`${this.MASTER_API_BASE}/plans/${planId}`, updates).pipe(
-        catchError(() => of(null))
-      ).subscribe();
-
-      this.erpState.notify('success', 'Plan Actualizado', `La configuración del Plan ${planId} fue guardada.`);
-    }
-
-    return of(updated);
+  private mapApiPlan(plan: {
+    id: string;
+    code: string;
+    name: string;
+    price: number;
+    maxUsers: number;
+    storageLimitMb: number;
+    features: Record<string, unknown>;
+    tagline: string;
+    description: string;
+    priceMonthlyUsd: number;
+    priceAnnualUsd: number;
+    allowedModules: string[];
+    maxInvoicesMonthly: number;
+    supportTier: 'COMMUNITY' | 'STANDARD_24_7' | 'DEDICATED_VIP';
+    customDomainSupported: boolean;
+    apiAccess: boolean;
+    isPopular: boolean;
+  }): SubscriptionPlan {
+    return {
+      id: plan.code as PlanTier,
+      saasPlanId: plan.id,
+      code: plan.code,
+      name: plan.name,
+      tagline: plan.tagline,
+      description: plan.description,
+      priceMonthlyUsd: plan.priceMonthlyUsd,
+      priceAnnualUsd: plan.priceAnnualUsd,
+      maxUsers: plan.maxUsers,
+      storageLimitMb: plan.storageLimitMb,
+      allowedModules: plan.allowedModules,
+      maxInvoicesMonthly: plan.maxInvoicesMonthly,
+      supportTier: plan.supportTier,
+      customDomainSupported: plan.customDomainSupported,
+      apiAccess: plan.apiAccess,
+      isPopular: plan.isPopular
+    };
   }
 
   // =========================================================================
@@ -615,7 +786,7 @@ export class SuperAdminService {
       tenantId: entry.tenantId,
       tenantName: entry.tenantName,
       action: entry.action,
-      performerEmail: this.authService.currentUser()?.email || 'superadmin@4-inline.cloud',
+      performerEmail: this.authService.currentUser()?.email || 'superadmin@Helameb.cloud',
       timestamp: new Date().toISOString(),
       details: entry.details,
       ipAddress: '192.168.1.10',
@@ -640,14 +811,11 @@ export class SuperAdminService {
 
   private loadInitialTenants(): Tenant[] {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY_TENANTS);
-      if (stored) {
-        return JSON.parse(stored);
-      }
+      localStorage.removeItem(STORAGE_KEY_TENANTS);
     } catch {
-      // Fallback
+      // Ignore storage errors; tenants must come from the API.
     }
-    return INITIAL_TENANTS_SEED;
+    return [];
   }
 
   private saveTenantsToStorage(tenants: Tenant[]): void {
@@ -660,14 +828,11 @@ export class SuperAdminService {
 
   private loadInitialPlans(): SubscriptionPlan[] {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY_PLANS);
-      if (stored) {
-        return JSON.parse(stored);
-      }
+      
     } catch {
-      // Fallback
+      // Ignore storage errors; plans must come from the API.
     }
-    return DEFAULT_PLANS;
+    return [];
   }
 
   private savePlansToStorage(plans: SubscriptionPlan[]): void {
@@ -676,18 +841,6 @@ export class SuperAdminService {
     } catch {
       // Ignore
     }
-  }
-
-  private loadInitialAuditLogs(): TenantAuditLog[] {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY_AUDIT);
-      if (stored) {
-        return JSON.parse(stored);
-      }
-    } catch {
-      // Fallback
-    }
-    return INITIAL_AUDIT_LOGS_SEED;
   }
 
   private saveAuditLogsToStorage(logs: TenantAuditLog[]): void {

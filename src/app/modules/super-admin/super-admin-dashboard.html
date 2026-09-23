@@ -3,7 +3,7 @@
   <!-- ========================================================= -->
   <!-- SUPERADMIN HEADER & MASTER CONTROLS -->
   <!-- ========================================================= -->
-  <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-indigo-900/50 rounded-2xl p-5 sm:p-6 shadow-xl text-white">
+  <div class="bg-linear-to-r from-slate-900 via-indigo-950 to-slate-900 border border-indigo-900/50 rounded-2xl p-5 sm:p-6 shadow-xl text-white">
     <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
       
       <div class="flex items-start sm:items-center space-x-3.5">
@@ -48,6 +48,47 @@
 
     </div>
   </div>
+
+  <section class="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs" aria-labelledby="available-tenant-title">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <p class="text-[10px] font-bold uppercase tracking-widest text-indigo-600">Contexto operativo</p>
+        <h2 id="available-tenant-title" class="text-base font-black text-slate-900">Seleccionar tenant activo</h2>
+        @if (authService.impersonationContext(); as activeTenant) {
+          <p class="text-xs text-emerald-700 mt-1">Activo: <strong>{{ activeTenant.name }}</strong> ({{ activeTenant.slug }}) · {{ activeTenant.status }} · {{ activeTenant.id }}</p>
+        } @else {
+          <p class="text-xs text-amber-700 mt-1">Los módulos tenant permanecen bloqueados hasta seleccionar un tenant activo.</p>
+        }
+      </div>
+      <div class="flex items-center gap-2">
+        <select
+          id="select-available-tenant"
+          [value]="availableTenantSelection()"
+          (change)="availableTenantSelection.set($any($event.target).value)"
+          class="min-w-56 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+          aria-label="Tenant activo">
+          <option value="">Seleccionar tenant</option>
+          @for (tenant of superAdminService.availableTenants(); track tenant.id) {
+            <option [value]="tenant.id">{{ tenant.name }} · {{ tenant.slug }} · {{ tenant.plan }}</option>
+          }
+        </select>
+        <button
+          type="button"
+          id="btn-select-available-tenant"
+          (click)="selectAvailableTenant()"
+          [disabled]="!availableTenantSelection()"
+          class="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">
+          Seleccionar
+        </button>
+        @if (authService.impersonationContext()) {
+          <button type="button" (click)="clearAvailableTenant()" class="rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700">Limpiar</button>
+        }
+      </div>
+    </div>
+    @if (availableTenantError(); as error) {
+      <p class="mt-2 text-xs font-semibold text-rose-600" role="alert">{{ error }}</p>
+    }
+  </section>
 
   <!-- ========================================================= -->
   <!-- GLOBAL SAAS METRICS CARDS (Bento Grid) -->
@@ -107,12 +148,12 @@
       </div>
       <div class="mt-3">
         <div class="flex items-baseline space-x-2">
-          <span class="text-3xl font-black text-slate-900">${{ m.mrrUsd.toFixed(2) }}</span>
+          <span class="text-3xl font-black text-slate-900">${{ m.mrrUsd  | number: '1.2-2' }}</span>
           <span class="text-xs font-bold text-purple-600">USD/mes</span>
         </div>
         <div class="flex items-center justify-between mt-2 text-[11px] text-slate-500">
           <span>ARR Proyectado:</span>
-          <span class="font-bold text-slate-800 font-mono">${{ m.arrUsd.toFixed(2) }}</span>
+          <span class="font-bold text-slate-800 font-mono">${{ m.arrUsd  | number: '1.2-2' }}</span>
         </div>
       </div>
     </div>
@@ -329,7 +370,7 @@
                           {{ tenant.companyName }}
                         </button>
                         <div class="flex items-center space-x-2 text-[11px] text-slate-400 font-mono">
-                          <span>{{ tenant.slug }}.4-inline.cloud</span>
+                          <span>{{ tenant.slug }}.helameb.com</span>
                           <span>•</span>
                           <span>{{ tenant.legalTaxId }}</span>
                         </div>
@@ -352,7 +393,7 @@
                         </span>
                       </div>
                       <span class="text-xs font-bold text-slate-900 mt-0.5 font-mono">
-                        ${{ tenant.monthlyFeeUsd.toFixed(2) }} <span class="text-[10px] font-normal text-slate-400">/mes</span>
+                        ${{ tenant.monthlyFeeUsd  | number: '1.2-2' }} <span class="text-[10px] font-normal text-slate-400">/mes</span>
                       </span>
                     </div>
                   </td>
@@ -492,6 +533,14 @@
           <h2 class="text-base font-bold text-slate-900">Catálogo de Planes & Cuotas SaaS</h2>
           <p class="text-xs text-slate-500">Configuración global de precios, límites de usuarios, cuotas de disco y módulos habilitados por plan.</p>
         </div>
+        <button
+          id="btn-create-plan"
+          type="button"
+          (click)="openCreatePlanModal()"
+          class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer">
+          <mat-icon class="text-sm">add</mat-icon>
+          <span>Crear plan</span>
+        </button>
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -811,7 +860,7 @@
                 [placeholder]="generatedSlug()"
                 class="w-full px-3 py-2 text-slate-800 bg-transparent focus:outline-hidden font-mono" />
               <span class="px-2.5 py-2 text-slate-400 bg-slate-100 font-mono text-[11px] border-l border-slate-200 shrink-0">
-                .4-inline.cloud
+                .helameb.com
               </span>
             </div>
             <p class="text-[10px] text-slate-400">Subdominio único asignado en el cluster web.</p>
@@ -834,13 +883,14 @@
           <!-- Plan Selection -->
           <div class="space-y-1">
             <label class="font-bold text-slate-700" for="prov-plan">Plan Inicial de Suscripción *</label>
-            <select 
+            <select
               id="prov-plan"
               formControlName="plan"
               class="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 font-medium">
-              <option value="BASIC">Plan Comercial / PyME ($49/mes - 5 Usuarios)</option>
-              <option value="PRO">Plan Profesional / MRP ($119/mes - 20 Usuarios)</option>
-              <option value="ENTERPRISE">Plan Enterprise / NIIF ($249/mes - 100 Usuarios)</option>
+              <option value="" disabled>Selecciona un plan real</option>
+              @for (plan of plans(); track plan.id) {
+                <option [value]="plan.code">{{ plan.name }} ({{ plan.maxUsers }} usuarios)</option>
+              }
             </select>
           </div>
 
@@ -1067,16 +1117,35 @@
             id="change-plan-select"
             formControlName="plan"
             class="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-slate-800 font-medium">
-            <option value="BASIC">Plan Comercial / PyME ($49/mes - 5 Usuarios, 2GB)</option>
-            <option value="PRO">Plan Profesional / MRP ($119/mes - 20 Usuarios, 10GB)</option>
-            <option value="ENTERPRISE">Plan Enterprise / NIIF ($249/mes - 100 Usuarios, 50GB)</option>
+            <option value="" disabled>Selecciona un plan real</option>
+            @for (plan of plans(); track plan.id) {
+              <option [value]="plan.code">{{ plan.name }} ({{ plan.maxUsers }} usuarios)</option>
+            }
           </select>
         </div>
 
         <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 text-[11px] space-y-1 text-slate-600">
-          <p class="font-bold text-slate-800">Impacto en la cuota:</p>
-          <p>Al guardar, los límites de almacenamiento y el número máximo de usuarios permitidos se ajustarán en caliente sin interrumpir el servicio.</p>
+          <p class="font-bold text-slate-800">Confirmación de cambio:</p>
+          <p>Se creará un checkout pendiente. El plan actual seguirá activo hasta que el backend confirme el pago.</p>
         </div>
+
+        @if (billingCheckout(); as checkout) {
+          <div class="p-3 rounded-xl border border-sky-200 bg-sky-50 text-sky-900 text-[11px] space-y-2">
+            <p class="font-bold">Estado de facturación: {{ getBillingStatusLabel(billingStatus()) }}</p>
+            <p class="font-mono">Orden: {{ checkout.orderId }}</p>
+            <button type="button" (click)="refreshBillingStatus()" [disabled]="billingLoading()" class="px-3 py-2 rounded-lg bg-sky-700 text-white font-bold disabled:opacity-50">
+              Consultar estado
+            </button>
+          </div>
+        } @else if (billingStatus() !== 'NONE') {
+          <div class="p-3 rounded-xl border border-amber-200 bg-amber-50 text-amber-900 text-[11px]">
+            Estado de facturación: <strong>{{ getBillingStatusLabel(billingStatus()) }}</strong>
+          </div>
+        }
+
+        @if (billingError(); as error) {
+          <div role="alert" class="p-3 rounded-xl border border-rose-200 bg-rose-50 text-rose-800 text-[11px]">{{ error }}</div>
+        }
 
         <div class="pt-4 border-t border-slate-100 flex items-center justify-end space-x-3">
           <button 
@@ -1090,9 +1159,10 @@
           <button 
             id="btn-submit-change-plan"
             type="submit"
+            [disabled]="billingLoading() || billingStatus() === 'PENDING'"
             class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold shadow-md shadow-indigo-600/30 flex items-center space-x-2 transition-all cursor-pointer">
-            <mat-icon class="text-sm">save</mat-icon>
-            <span>Aplicar Cambio de Plan</span>
+            <mat-icon class="text-sm">payment</mat-icon>
+            <span>{{ billingLoading() ? 'Creando checkout...' : 'Confirmar y continuar al pago' }}</span>
           </button>
         </div>
 
@@ -1289,7 +1359,7 @@
           </div>
           <div>
             <h3 class="text-base font-black text-slate-900">{{ target.companyName }}</h3>
-            <p class="text-xs text-slate-400 font-mono">{{ target.slug }}.4-inline.cloud</p>
+            <p class="text-xs text-slate-400 font-mono">{{ target.slug }}.helameb.com</p>
           </div>
         </div>
 
@@ -1305,7 +1375,7 @@
         <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
           <span class="text-slate-400 block text-[10px] uppercase font-bold">Plan y Facturación</span>
           <span class="font-bold text-slate-900 block mt-1">Plan {{ target.plan }} ({{ target.billingCycle }})</span>
-          <span class="text-slate-500 font-mono">${{ target.monthlyFeeUsd.toFixed(2) }} USD/mes</span>
+          <span class="text-slate-500 font-mono">${{ target.monthlyFeeUsd  | number: '1.2-2' }} USD/mes</span>
         </div>
 
         <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
@@ -1369,7 +1439,8 @@
 <!-- ========================================================= -->
 <!-- MODAL: CONFIGURAR PLAN Y LÍMITES -->
 <!-- ========================================================= -->
-@if (editingPlan(); as plan) {
+@if (editingPlan() || creatingPlan()) {
+  @let plan = editingPlan();
   <div class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
     <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
       
@@ -1378,13 +1449,29 @@
           <mat-icon class="text-xl">tune</mat-icon>
         </div>
         <div>
-          <h3 class="text-base font-black text-slate-900">Configuración del Plan {{ plan.name }}</h3>
-          <p class="text-xs text-slate-500">Ajuste de cuotas y precios aplicables a nuevas suscripciones.</p>
+          <h3 class="text-base font-black text-slate-900">{{ creatingPlan() ? 'Crear plan SaaS' : 'Configuración del Plan ' + plan?.name }}</h3>
+          <p class="text-xs text-slate-500">Los valores se guardan en el catálogo real de suscripción.</p>
         </div>
       </div>
 
       <form [formGroup]="planEditorForm" (ngSubmit)="submitEditPlan()" class="space-y-3 text-xs">
         
+        <div class="grid grid-cols-2 gap-3">
+          @if (creatingPlan()) {
+            <div class="space-y-1">
+              <label class="font-bold text-slate-700" for="plan-code">Código</label>
+              <select id="plan-code" formControlName="code" class="w-full px-3 py-2 rounded-xl border border-slate-300 font-mono">
+                <option value="BASIC">BASIC</option>
+                <option value="FULL">FULL</option>
+              </select>
+            </div>
+          }
+          <div class="space-y-1" [class.col-span-2]="!creatingPlan()">
+            <label class="font-bold text-slate-700" for="plan-name">Nombre del plan</label>
+            <input id="plan-name" type="text" formControlName="name" class="w-full px-3 py-2 rounded-xl border border-slate-300" />
+          </div>
+        </div>
+
         <div class="grid grid-cols-2 gap-3">
           <div class="space-y-1">
             <label class="font-bold text-slate-700" for="plan-price-m">Precio Mensual ($ USD)</label>
@@ -1434,6 +1521,18 @@
             class="w-full px-3 py-2 rounded-xl border border-slate-300 font-mono" />
         </div>
 
+        <div class="space-y-2">
+          <span class="font-bold text-slate-700">Módulos habilitados</span>
+          <div class="grid grid-cols-2 gap-2 max-h-36 overflow-y-auto rounded-xl border border-slate-200 p-3">
+            @for (module of availablePlanModules; track module) {
+              <label class="flex items-center gap-2 text-[11px] text-slate-700">
+                <input type="checkbox" [checked]="planEditorForm.controls.modules.value.includes(module)" (change)="planEditorForm.controls.modules.setValue($any($event.target).checked ? [...planEditorForm.controls.modules.value, module] : planEditorForm.controls.modules.value.filter(item => item !== module))" />
+                <span>{{ module }}</span>
+              </label>
+            }
+          </div>
+        </div>
+
         <div class="pt-3 border-t border-slate-100 flex items-center justify-end space-x-2">
           <button 
             type="button"
@@ -1445,7 +1544,7 @@
           <button 
             type="submit"
             class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold shadow-md shadow-indigo-600/30 transition-all cursor-pointer">
-            Guardar Configuración
+            {{ creatingPlan() ? 'Crear plan' : 'Guardar Configuración' }}
           </button>
         </div>
 

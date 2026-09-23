@@ -1,16 +1,23 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
 import { User, RoleConfig, UserRole, AuthUser } from '../models/erp.models';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { catchError, map, Observable, of, tap } from 'rxjs';
 import { AuditService } from './audit.servie';
 
 export const SYSTEM_ROLES: RoleConfig[] = [
   {
-    id: 'ADMIN',
+    id: 'SUPERADMIN' as UserRole,
     name: 'Super Administrador',
     badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200',
     description: 'Acceso total a configuración, auditoría, finanzas, tesorería, bancos, inventario y seguridad.',
     permissions: ['all', 'security:manage', 'audit:view', 'inventory:adjust', 'sales:manage', 'purchases:manage', 'reports:export', 'treasury:manage', 'treasury:view', 'accounting:manage']
+  },
+  {
+    id: 'ADMIN',
+    name: 'Administrador de Tenant',
+    badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+    description: 'Administración del tenant y sus operaciones autorizadas.',
+    permissions: ['security:manage', 'audit:view', 'inventory:adjust', 'sales:manage', 'purchases:manage', 'reports:export', 'treasury:manage', 'treasury:view', 'accounting:manage']
   },
   {
     id: 'OPERATIONS_MANAGER',
@@ -42,186 +49,59 @@ export const SYSTEM_ROLES: RoleConfig[] = [
   }
 ];
 
-export const DEMO_USERS: User[] = [
-  {
-    id: 'usr-master-00',
-    name: 'SuperAdmin SaaS Master',
-    email: 'superadmin@4-inline.cloud',
-    role: 'ADMIN',
-    avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
-    lastLogin: '2026-09-07 15:00:00',
-    status: 'ACTIVO',
-    department: 'Plataforma SaaS Global & DevOps',
-    phone: '+1 800-555-0199',
-    createdAt: '2025-01-01',
-    password: 'SuperAdmin2026*',
-    mustChangePassword: false,
-    passwordChangedAt: '2026-01-01 10:00:00'
-  },
-  {
-    id: 'usr-admin-01',
-    name: 'Alejandro Morales (Admin)',
-    email: 'admin.morales@4-inLine.com',
-    role: 'ADMIN',
-    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
-    lastLogin: '2026-08-26 21:10:15',
-    status: 'ACTIVO',
-    department: 'Dirección General & TI',
-    phone: '+58 414-1234567',
-    createdAt: '2026-01-10',
-    password: 'Admin2026*',
-    mustChangePassword: false,
-    passwordChangedAt: '2026-01-10 12:00:00'
-  },
-  {
-    id: 'usr-ops-02',
-    name: 'Beatriz Herrera (Operaciones)',
-    email: 'b.herrera@4-inLine.com',
-    role: 'OPERATIONS_MANAGER',
-    avatarUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=100&auto=format&fit=crop&q=80',
-    lastLogin: '2026-08-26 19:45:00',
-    status: 'ACTIVO',
-    department: 'Gerencia de Operaciones',
-    phone: '+58 412-9876543',
-    createdAt: '2026-01-15',
-    password: 'Operaciones2026*',
-    mustChangePassword: false,
-    passwordChangedAt: '2026-01-15 08:30:00'
-  },
-  {
-    id: 'usr-cash-03',
-    name: 'Carlos Mendoza (Caja/POS)',
-    email: 'carlos.m@4-inLine.com',
-    role: 'CASHIER_SELLER',
-    avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80',
-    lastLogin: '2026-08-26 20:00:10',
-    status: 'ACTIVO',
-    department: 'Caja & Ventas Mostrador',
-    phone: '+58 424-5551234',
-    createdAt: '2026-02-01',
-    password: 'Cajero2026*',
-    mustChangePassword: false,
-    passwordChangedAt: '2026-02-01 09:15:00'
-  },
-  {
-    id: 'usr-wh-04',
-    name: 'David Silva (Almacén)',
-    email: 'david.silva@4-inLine.com',
-    role: 'WAREHOUSE_KEEPER',
-    avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80',
-    lastLogin: '2026-08-26 16:50:22',
-    status: 'ACTIVO',
-    department: 'Almacén Principal & Despacho',
-    phone: '+58 416-3338899',
-    createdAt: '2026-02-10',
-    password: 'Almacen2026*',
-    mustChangePassword: false,
-    passwordChangedAt: '2026-02-10 14:00:00'
-  },
-  {
-    id: 'usr-aud-05',
-    name: 'Elena Ramos (Auditoría)',
-    email: 'elena.auditor@4-inLine.com',
-    role: 'AUDITOR',
-    avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&auto=format&fit=crop&q=80',
-    lastLogin: '2026-08-26 18:12:04',
-    status: 'ACTIVO',
-    department: 'Auditoría Interna & Cumplimiento',
-    phone: '+58 412-4447788',
-    createdAt: '2026-01-20',
-    password: 'Auditor2026*',
-    mustChangePassword: false,
-    passwordChangedAt: '2026-01-20 11:20:00'
-  },
-  {
-    id: 'usr-cash-06',
-    name: 'Gabriel Fuentes (Ventas 2)',
-    email: 'gabriel.fuentes@4-inLine.com',
-    role: 'CASHIER_SELLER',
-    avatarUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=100&auto=format&fit=crop&q=80',
-    lastLogin: '2026-08-25 14:20:00',
-    status: 'ACTIVO',
-    department: 'Fuerza de Ventas / Preventa',
-    phone: '+58 414-7772211',
-    createdAt: '2026-03-05',
-    password: 'Ventas2026*',
-    mustChangePassword: false,
-    passwordChangedAt: '2026-03-05 10:00:00'
-  },
-  {
-    id: 'usr-wh-07',
-    name: 'Lucía Benítez (Almacén 2)',
-    email: 'lucia.benitez@4-inLine.com',
-    role: 'WAREHOUSE_KEEPER',
-    avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&auto=format&fit=crop&q=80',
-    lastLogin: '2026-08-24 11:30:45',
-    status: 'ACTIVO',
-    department: 'Almacén Secundario / Materia Prima',
-    phone: '+58 424-6663344',
-    createdAt: '2026-03-12',
-    password: 'Almacen2026*',
-    mustChangePassword: false,
-    passwordChangedAt: '2026-03-12 16:30:00'
-  },
-  {
-    id: 'usr-inact-08',
-    name: 'Marcos Rivas (Ex-Cajero)',
-    email: 'marcos.rivas@4-inLine.com',
-    role: 'CASHIER_SELLER',
-    avatarUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&auto=format&fit=crop&q=80',
-    lastLogin: '2026-07-15 17:00:00',
-    status: 'INACTIVO',
-    department: 'Caja & Ventas Mostrador',
-    phone: '+58 416-8889900',
-    createdAt: '2026-02-15',
-    password: 'Cajero2026*',
-    mustChangePassword: false,
-    passwordChangedAt: '2026-02-15 12:00:00'
-  }
-];
+const UNAUTHENTICATED_USER: User = {
+  id: '',
+  name: '',
+  email: '',
+  role: 'AUDITOR',
+  status: 'INACTIVO'
+};
+
+export interface PublicTenantContext {
+  slug: string;
+  name: string;
+  status: string;
+}
+
+export interface ImpersonationContext extends PublicTenantContext {
+  id: string;
+  expiresIn: string;
+}
+
+interface StoredSession {
+  user: User;
+  accessToken: string;
+  impersonationContext?: ImpersonationContext;
+}
+
+interface ImpersonationResponse {
+  impersonationToken: string;
+  tenant: ImpersonationContext;
+  targetUser: { id: string; email: string; name: string; role: string };
+  expiresIn: string;
+}
+
+export type AuthFailure = 'tenant-unavailable' | 'credentials' | 'admin-domain' | 'tenant-required';
 
 @Injectable({
   providedIn: 'root'
 })
 export class AuthService {
-  private static readonly STORAGE_KEY = '4inline_erp_users_v2';
   private static readonly SESSION_KEY = '4inline_erp_session_v1';
   private http = inject(HttpClient);
   private baseUrl = '/api';
   auditService = inject(AuditService);
 
-  private loadStoredUsers(): User[] {
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const stored = localStorage.getItem(AuthService.STORAGE_KEY);
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            return parsed;
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('Error loading users from localStorage:', e);
-    }
-    return DEMO_USERS;
-  }
-
-  private persistUsers(users: User[]): void {
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        localStorage.setItem(AuthService.STORAGE_KEY, JSON.stringify(users));
-      }
-    } catch (e) {
-      console.warn('Error persisting users to localStorage:', e);
-    }
-  }
-
-  private usersSignal = signal<User[]>(this.loadStoredUsers());
-  private currentUserSignal = signal<User>(this.loadStoredSession()?.user || this.usersSignal()[0] || DEMO_USERS[0]);
-  private tokenSignal = signal<string>('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.nexus_erp_mock_token_2026');
-  private isAuthenticatedSignal = signal<boolean>(this.loadStoredSession() !== null);
+  private usersSignal = signal<User[]>([]);
+  private currentUserSignal = signal<User>(this.loadStoredSession()?.user ?? UNAUTHENTICATED_USER);
+  private tokenSignal = signal<string>('');
+  private isAuthenticatedSignal = signal<boolean>(false);
   private authInitializedSignal = signal<boolean>(false);
+  private tenantContextSignal = signal<PublicTenantContext | null>(null);
+  private impersonationContextSignal = signal<ImpersonationContext | null>(this.loadStoredSession()?.impersonationContext ?? null);
+  private tenantResolutionPendingSignal = signal<boolean>(false);
+  private tenantResolutionFailureSignal = signal<'tenant-unavailable' | 'admin-domain' | 'tenant-required' | null>(null);
+  private lastAuthFailureSignal = signal<AuthFailure | null>(null);
 
   // Global Change Password Modal State
   readonly showChangePasswordModal = signal<boolean>(false);
@@ -232,20 +112,30 @@ export class AuthService {
   readonly token = this.tokenSignal.asReadonly();
   readonly isAuthenticated = this.isAuthenticatedSignal.asReadonly();
   readonly authInitialized = this.authInitializedSignal.asReadonly();
+  readonly tenantContext = this.tenantContextSignal.asReadonly();
+  readonly impersonationContext = this.impersonationContextSignal.asReadonly();
+  readonly tenantResolutionPending = this.tenantResolutionPendingSignal.asReadonly();
+  readonly tenantResolutionFailure = this.tenantResolutionFailureSignal.asReadonly();
+  readonly lastAuthFailure = this.lastAuthFailureSignal.asReadonly();
+  readonly isAdminDomain = computed(() => this.tenantResolutionFailureSignal() === 'admin-domain');
 
   readonly currentRoleConfig = computed(() => {
-    const role = this.currentUserSignal()?.role;
+    const role = this.currentUserSignal().role;
     return SYSTEM_ROLES.find(r => r.id === role) || SYSTEM_ROLES[0];
   });
 
   readonly isSuperAdmin = computed(() => {
     const user = this.currentUserSignal();
-    return user?.role === 'ADMIN' || user?.email.toLowerCase().includes('superadmin') || user?.email.toLowerCase().includes('admin.morales');
+    return (user.role as string) === 'SUPERADMIN';
   });
 
-  // Backward-compatible getter for availableDemoUsers
-  get availableDemoUsers(): User[] {
-    return this.usersSignal();
+  loadUsersFromBackend(): Observable<User[]> {
+    return this.http.get<User[]>(`${this.baseUrl}/users`).pipe(
+      tap(users => {
+        if (Array.isArray(users)) this.usersSignal.set(users);
+      }),
+      catchError(() => of([]))
+    );
   }
 
   readonly roles = SYSTEM_ROLES;
@@ -254,13 +144,15 @@ export class AuthService {
     this.restoreSession();
   }
 
-  private loadStoredSession(): { user: User; token: string; demo: boolean } | null {
+  private loadStoredSession(): StoredSession | null {
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
         const stored = localStorage.getItem(AuthService.SESSION_KEY);
         if (stored) {
           const session = JSON.parse(stored);
-          if (session?.user && session?.token) return session;
+          if (session?.user && typeof session.accessToken === 'string') {
+            return { user: session.user, accessToken: session.accessToken, impersonationContext: session.impersonationContext };
+          }
         }
       }
     } catch (e) {
@@ -269,10 +161,10 @@ export class AuthService {
     return null;
   }
 
-  private persistSession(user: User, token: string, demo = false): void {
+  private persistSession(user: User, accessToken: string, impersonationContext = this.impersonationContextSignal()): void {
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
-        localStorage.setItem(AuthService.SESSION_KEY, JSON.stringify({ user, token, demo }));
+        localStorage.setItem(AuthService.SESSION_KEY, JSON.stringify({ user, accessToken, impersonationContext }));
       }
     } catch (e) {
       console.warn('Error persisting auth session:', e);
@@ -289,47 +181,68 @@ export class AuthService {
     const session = this.loadStoredSession();
     if (!session) {
       this.isAuthenticatedSignal.set(false);
+      this.tokenSignal.set('');
       this.authInitializedSignal.set(true);
       return;
     }
 
-    this.tokenSignal.set(session.token);
-    this.currentUserSignal.set(session.user);
-
-    if (session.demo) {
+    if (this.hasValidAccessToken(session.accessToken)) {
+      this.currentUserSignal.set(session.user);
       this.isAuthenticatedSignal.set(true);
+      this.tokenSignal.set(session.accessToken);
+      this.impersonationContextSignal.set(session.impersonationContext ?? null);
       this.authInitializedSignal.set(true);
       return;
     }
 
-    this.http.post<{ accessToken: string }>(`${this.baseUrl}/auth/refresh`, {}, { withCredentials: true })
-      .subscribe({
-        next: response => {
-          this.tokenSignal.set(response.accessToken);
-          this.persistentToken(response.accessToken);
-          this.persistSession(session.user, response.accessToken);
-          this.isAuthenticatedSignal.set(true);
-          this.authInitializedSignal.set(true);
-        },
-        error: () => {
-          this.clearPersistentToken();
-          this.clearPersistedSession();
-          this.isAuthenticatedSignal.set(false);
-          this.authInitializedSignal.set(true);
-        }
-      });
+    // The refresh token is an HttpOnly cookie, so it is intentionally not
+    // stored in localStorage. Give it a chance to renew the access token
+    // before the router evaluates the protected route.
+    this.http.post<{ accessToken: string }>(`${this.baseUrl}/auth/refresh`, {}, { withCredentials: true }).pipe(
+      catchError(() => of(null))
+    ).subscribe(result => {
+      if (result?.accessToken && this.hasValidAccessToken(result.accessToken)) {
+        this.currentUserSignal.set(session.user);
+        this.tokenSignal.set(result.accessToken);
+        this.isAuthenticatedSignal.set(true);
+        this.persistSession(session.user, result.accessToken, session.impersonationContext);
+      } else {
+        this.handleExpiredSession();
+      }
+      this.authInitializedSignal.set(true);
+    });
   }
 
-  private persistentToken(token: string): void {
-    window.localStorage.setItem('authToken', token);
+  private hasValidAccessToken(token: string): boolean {
+    try {
+      const encodedPayload = token.split('.')[1]
+        .replace(/-/g, '+')
+        .replace(/_/g, '/');
+      const paddedPayload = encodedPayload.padEnd(Math.ceil(encodedPayload.length / 4) * 4, '=');
+      const payload = JSON.parse(atob(paddedPayload)) as { exp?: number };
+      return typeof payload.exp === 'number' && payload.exp * 1000 > Date.now();
+    } catch {
+      return false;
+    }
   }
 
-  private clearPersistentToken(): void {
-    window.localStorage.removeItem('authToken');
+  readonly sessionExpired = signal(false);
+
+  handleExpiredSession(): void {
+    this.clearPersistedSession();
+    this.tokenSignal.set('');
+    this.clearImpersonationContext();
+    this.isAuthenticatedSignal.set(false);
+    this.currentUserSignal.set(UNAUTHENTICATED_USER);
+    this.sessionExpired.set(true);
+  }
+
+  acknowledgeSessionExpired(): void {
+    this.sessionExpired.set(false);
   }
 
   openChangePasswordModal(user?: User): void {
-    this.targetUserForPasswordChange.set(user || this.currentUserSignal());
+    this.targetUserForPasswordChange.set(user || (this.isAuthenticatedSignal() ? this.currentUserSignal() : null));
     this.showChangePasswordModal.set(true);
   }
 
@@ -338,19 +251,78 @@ export class AuthService {
     this.targetUserForPasswordChange.set(null);
   }
 
+  resolveTenantFromHost(): Observable<PublicTenantContext | null> {
+    const host = typeof window !== 'undefined' ? window.location.hostname.toLowerCase() : '';
+    const slug = this.slugFromHost(host);
+    this.tenantResolutionPendingSignal.set(false);
+
+    if (host === 'localhost' || this.isAdminHost(host)) {
+      this.tenantContextSignal.set(null);
+      this.tenantResolutionFailureSignal.set('admin-domain');
+      return of(null);
+    }
+    if (!slug) {
+      this.tenantResolutionFailureSignal.set('tenant-required');
+      return of(null);
+    }
+
+    this.tenantResolutionPendingSignal.set(true);
+    this.tenantResolutionFailureSignal.set(null);
+    return this.http.get<{ tenantId?: string; slug: string; name: string; status: string }>(`${this.baseUrl}/auth/public/tenants/resolve/${encodeURIComponent(slug)}`).pipe(
+      map(({ slug: resolvedSlug, name, status }) => ({ slug: resolvedSlug, name, status })),
+      tap(context => {
+        this.tenantContextSignal.set(context);
+        this.tenantResolutionPendingSignal.set(false);
+      }),
+      catchError(() => {
+        this.tenantContextSignal.set(null);
+        this.tenantResolutionPendingSignal.set(false);
+        this.tenantResolutionFailureSignal.set('tenant-unavailable');
+        return of(null);
+      })
+    );
+  }
+
+  private slugFromHost(host: string): string | null {
+    if (!host || host === 'localhost' || this.isAdminHost(host)) return null;
+    if (host.endsWith('.localhost')) return host.slice(0, -'.localhost'.length).split('.')[0] || null;
+    const labels = host.split('.');
+    return labels.length >= 3 ? labels[0] : null;
+  }
+
+  private isAdminHost(host: string): boolean {
+    return host.split('.')[0] === 'admin';
+  }
+
   login(email: string, password?: string): Observable<boolean> {
-    return this.http.post<AuthUser>(`${this.baseUrl}/auth/login`, { email, password, tenantId: '796cc9d6-6c6f-4187-8abf-e57eecf4e9c0' }, { withCredentials: true })
+    this.lastAuthFailureSignal.set(null);
+    const tenant = this.tenantContextSignal();
+    const isMasterLogin = this.isAdminDomain();
+    if (!tenant && !isMasterLogin) {
+      this.lastAuthFailureSignal.set(this.tenantResolutionFailureSignal() === 'admin-domain' ? 'admin-domain' : 'tenant-required');
+      return of(false);
+    }
+
+    const loginRequest = isMasterLogin
+      ? this.http.post<AuthUser>(`${this.baseUrl}/v1/master/auth/login`, { email, password }, { withCredentials: true })
+      : this.http.post<AuthUser>(`${this.baseUrl}/auth/login`, { email, password }, {
+        withCredentials: true,
+        headers: { 'x-tenant-slug': tenant!.slug }
+      });
+
+    return loginRequest
       .pipe(
       tap((user) => {
         if (user.user) {
+          this.clearImpersonationContext();
+          if (isMasterLogin) this.tenantContextSignal.set(null);
           this.currentUserSignal.set(user.user);
           this.tokenSignal.set(user.accessToken);
-          this.persistentToken(user.accessToken);
           this.persistSession(user.user, user.accessToken);
           this.isAuthenticatedSignal.set(true);
           this.auditService.createLog({
             userId: user.user.id,
-            userName: user.user.name, 
+            userName: user.user.name,
             userRole: user.user.role,
             action: 'LOGIN',
             module: 'AUTH',
@@ -362,100 +334,72 @@ export class AuthService {
         }
       }),
       map(() => true),
-      catchError(() => of(false))
+      catchError((error: HttpErrorResponse) => {
+        this.lastAuthFailureSignal.set(error.status === 401 ? 'credentials' : 'tenant-unavailable');
+        return of(false);
+      })
     )
   }
 
-  //setLogin(user?: User): { success: boolean; message?: string; mustChangePassword?: boolean;} {
-    //hacer login con el api this.http.post<User>(`${this.baseUrl}/auth/login`, { email, password, tenantId: '796cc9d6-6c6f-4187-8abf-e57eecf4e9c0' }) y guardar la respuesta e currentUser signal
-
-    /* if (!loginResult) {
-      return { success: false, message: 'Error de autenticación. Verifique sus credenciales.' };
-    } */
-    
-  /*   if (!user) {
-      return { success: false, message: 'Usuario no encontrado en la base de datos empresarial.' };
-    }
-
-      if (user.status === 'INACTIVO') {
-        return { success: false, message: 'La cuenta de usuario se encuentra INACTIVA. Contacte a Dirección/TI.' };
-      } */
-
-      /* if (password !== undefined && password.trim().length === 0) {
-        return { success: false, message: 'La contraseña no puede estar vacía.' };
-      } */
-
-      // Verify password if the user has one defined
-      /* if (user.password && password && user.password !== password.trim()) {
-        return { success: false, message: 'Contraseña incorrecta. Verifique sus credenciales con el Administrador.' };
-      } */
-
-      // Check if user has a temporary password that must be changed
-      /* if (user.mustChangePassword) {
-        return {
-          success: true,
-          mustChangePassword: true,
-          user,
-          message: 'Debe cambiar su clave temporal antes de acceder al sistema.'
-        };
-      } */
-
-   /*    this.switchUser(user);
-      this.isAuthenticatedSignal.set(true);
-    
-      return { success: true, mustChangePassword: false };
-      
-  } */
-
-  loginAsDemoUser(userId: string): { success: boolean; mustChangePassword?: boolean; user?: User } {
-    const user = this.usersSignal().find(u => u.id === userId);
-    if (!user) return { success: false };
-
-    if (user.status === 'INACTIVO') {
-      return { success: false };
-    }
-
-    if (user.mustChangePassword) {
-      return { success: true, mustChangePassword: true, user };
-    }
-
-    this.switchUser(user);
-    const token = 'demo-session-' + user.id;
-    this.tokenSignal.set(token);
-    this.persistSession(user, token, true);
-    this.isAuthenticatedSignal.set(true);
-    return { success: true, mustChangePassword: false, user };
-  }
-
-  //hacer logout con el api con Authorization header this.http.post(`${this.baseUrl}/auth/logout`, { token: this.tokenSignal() }) y limpiar la currentUser signal y token signal
   logout(): void {
-    this.http.post(`${this.baseUrl}/auth/logout`, { 
-      token: this.tokenSignal() }, {
-      headers: {
-        Authorization: `Bearer ${this.tokenSignal()}`
-      },
+    this.currentUserSignal.set(UNAUTHENTICATED_USER);
+    this.tokenSignal.set('');
+    this.clearImpersonationContext();
+    this.tenantContextSignal.set(null);
+    this.isAuthenticatedSignal.set(false);
+    this.clearPersistedSession();
+
+    this.http.post(`${this.baseUrl}/auth/logout`, {}, {
       withCredentials: true
     }).subscribe({
-      next: () => {
-        this.currentUserSignal.set(null as any);
-        this.tokenSignal.set('');
-        this.isAuthenticatedSignal.set(false);
-        this.clearPersistentToken();
-        this.clearPersistedSession();
-      },
+      next: () => undefined,
       error: (err) => {
         console.error('Error during logout:', err);
-        this.currentUserSignal.set(null as any);
-        this.tokenSignal.set('');
-        this.isAuthenticatedSignal.set(false);
-        this.clearPersistentToken();
-        this.clearPersistedSession();
       }
     });
   }
 
   setAuthenticated(authenticated: boolean): void {
     this.isAuthenticatedSignal.set(authenticated);
+  }
+
+  impersonateTenant(tenantId: string): Observable<ImpersonationResponse> {
+    if (!this.isSuperAdmin() || !this.isUuid(tenantId)) {
+      return new Observable(subscriber => subscriber.error(new Error('Solo un SUPERADMIN puede seleccionar un tenant válido')));
+    }
+
+    return this.http.post<ImpersonationResponse>(`${this.baseUrl}/v1/master/tenants/${encodeURIComponent(tenantId)}/impersonate`, {}).pipe(
+      tap(response => {
+        if (!response?.impersonationToken || response.tenant?.id !== tenantId || response.tenant.status !== 'ACTIVE') {
+          throw new Error('Respuesta de impersonación inválida');
+        }
+        const context = { ...response.tenant, expiresIn: response.expiresIn };
+        this.tokenSignal.set(response.impersonationToken);
+        this.impersonationContextSignal.set(context);
+        this.persistSession(this.currentUserSignal(), response.impersonationToken, context);
+      })
+    );
+  }
+
+  clearImpersonationContext(): void {
+    this.impersonationContextSignal.set(null);
+  }
+
+  hasTenantContext(): boolean {
+    const context = this.impersonationContextSignal();
+    return Boolean(context && this.isUuid(context.id) && context.status === 'ACTIVE');
+  }
+
+  isTenantRequest(url: string): boolean {
+    return url.includes('/api/')
+      && !url.includes('/api/v1/master/')
+      && !url.includes('/api/auth/public/')
+      && !url.includes('/api/auth/login')
+      && !url.includes('/api/auth/logout');
+  }
+
+  private isUuid(value: string): boolean {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
   }
 
   switchUser(user: User) {
@@ -468,7 +412,6 @@ export class AuthService {
     // Update lastLogin in the users list too
     this.usersSignal.update(users => {
       const updatedList = users.map(u => u.id === user.id ? { ...u, lastLogin: updated.lastLogin } : u);
-      this.persistUsers(updatedList);
       return updatedList;
     });
   }
@@ -492,7 +435,6 @@ export class AuthService {
 
     this.usersSignal.update(list => {
       const updatedList = [user, ...list];
-      this.persistUsers(updatedList);
       return updatedList;
     });
     return user;
@@ -510,9 +452,25 @@ export class AuthService {
         }
         return u;
       });
-      this.persistUsers(updatedList);
       return updatedList;
     });
+  }
+
+  updateCurrentUserAvatar(avatarUrl: string): Observable<void> {
+    const user = this.currentUserSignal();
+    if (!this.isAuthenticatedSignal() || !user.id) {
+      return new Observable(subscriber => subscriber.error(new Error('No hay una sesión activa')));
+    }
+
+    return this.http.put<User>(`${this.baseUrl}/users/${user.id}`, { avatarUrl }).pipe(
+      tap(updatedUser => {
+        const updated = { ...user, ...updatedUser, avatarUrl };
+        this.currentUserSignal.set(updated);
+        this.persistSession(updated, this.tokenSignal());
+        this.usersSignal.update(users => users.map(item => item.id === updated.id ? updated : item));
+      }),
+      map(() => undefined)
+    );
   }
 
   adminSetUserPassword(
@@ -543,7 +501,6 @@ export class AuthService {
         }
         return u;
       });
-      this.persistUsers(updatedList);
       return updatedList;
     });
 
@@ -591,7 +548,6 @@ export class AuthService {
         }
         return u;
       });
-      this.persistUsers(updatedList);
       return updatedList;
     });
 

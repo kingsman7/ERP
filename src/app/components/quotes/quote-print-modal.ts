@@ -2,11 +2,12 @@ import { Component, ChangeDetectionStrategy, input, output, inject, computed } f
 import { MatIconModule } from '@angular/material/icon';
 import { Quote } from '../../models/erp.models';
 import { ErpStateService } from '../../services/erp-state.service';
+import { DecimalPipe } from '@angular/common';
 
 @Component({
   selector: 'app-quote-print-modal',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatIconModule],
+  imports: [MatIconModule, DecimalPipe],
   template: `
     <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
       <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
@@ -89,7 +90,7 @@ import { ErpStateService } from '../../services/erp-state.service';
             <div class="sm:text-right space-y-1 sm:border-l sm:border-slate-200 sm:pl-4">
               <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Condiciones Comerciales</span>
               <p class="text-slate-700">Moneda Base: <strong class="text-slate-900 font-bold">Dólares Americanos (USD)</strong></p>
-              <p class="text-slate-700">Tasa Oficial BCV: <strong class="font-mono font-bold text-slate-900">Bs. {{ (quote().bcvRate || stateService.bcvState().usdRate).toFixed(2) }}</strong></p>
+              <p class="text-slate-700">Tasa Oficial BCV: <strong class="font-mono font-bold text-slate-900">Bs. {{ (quote().bcvRate || stateService.bcvState().usdRate)  | number: '1.2-2' }}</strong></p>
               <p class="text-slate-700">Nivel de Precio: <strong class="font-mono uppercase text-violet-700">{{ quote().priceLevelApplied || 'price1' }}</strong></p>
               @if (quote().notes) {
                 <p class="text-slate-500 italic pt-1 text-[11px]">Notas: "{{ quote().notes }}"</p>
@@ -116,11 +117,11 @@ import { ErpStateService } from '../../services/erp-state.service';
                     <td class="py-2 px-3 font-mono font-semibold text-slate-600">{{ item.sku || 'SKU' }}</td>
                     <td class="py-2 px-3 font-medium text-slate-900">{{ item.productName }}</td>
                     <td class="py-2 px-3 text-right font-mono font-bold text-slate-800">{{ item.quantity }} {{ item.unit || 'UND' }}</td>
-                    <td class="py-2 px-3 text-right font-mono text-slate-700">\${{ (item.unitPrice || 0).toFixed(2) }}</td>
+                    <td class="py-2 px-3 text-right font-mono text-slate-700">\${{ (item.unitPrice || 0)  | number: '1.2-2' }}</td>
                     <td class="py-2 px-3 text-right font-mono text-slate-500">
                       {{ item.isTaxExempt ? 'E (0%)' : '16%' }}
                     </td>
-                    <td class="py-2 px-3 text-right font-mono font-bold text-slate-900">\${{ (item.total || 0).toFixed(2) }}</td>
+                    <td class="py-2 px-3 text-right font-mono font-bold text-slate-900">\${{ (item.total || 0)  | number: '1.2-2' }}</td>
                   </tr>
                 }
               </tbody>
@@ -145,16 +146,16 @@ import { ErpStateService } from '../../services/erp-state.service';
             <div class="w-full sm:w-72 p-4 bg-slate-900 text-white rounded-2xl space-y-2">
               <div class="flex justify-between text-slate-300">
                 <span>Subtotal Neto:</span>
-                <span class="font-mono">\${{ (quote().subtotal || 0).toFixed(2) }}</span>
+                <span class="font-mono">\${{ (quote().subtotal || 0)  | number: '1.2-2' }}</span>
               </div>
               <div class="flex justify-between text-slate-300">
                 <span>IVA Estimado (16%):</span>
-                <span class="font-mono">\${{ (quote().taxTotal || 0).toFixed(2) }}</span>
+                <span class="font-mono">\${{ (quote().taxTotal || 0)  | number: '1.2-2' }}</span>
               </div>
               <div class="pt-2 border-t border-slate-700 space-y-1">
                 <div class="flex justify-between items-baseline">
                   <span class="font-bold text-slate-200">TOTAL (USD):</span>
-                  <span class="font-mono font-black text-lg text-emerald-400">\${{ quote().total.toFixed(2) }}</span>
+                  <span class="font-mono font-black text-lg text-emerald-400">\${{ quote().total  | number: '1.2-2' }}</span>
                 </div>
                 <div class="flex justify-between items-baseline text-[11px]">
                   <span class="text-slate-400">TOTAL ESTIMADO BS:</span>

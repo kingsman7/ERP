@@ -6,11 +6,12 @@ import { KeyboardShortcutsService } from '../../services/keyboard-shortcuts.serv
 import { Quote, PriceLevelKey, Invoice, PaymentMethod, PaymentRecord, CurrencyCode, InvoiceType } from '../../models/erp.models';
 import { InvoiceModal } from '../invoice-modal/invoice-modal';
 import { QuotePrintModal } from './quote-print-modal';
+import { DecimalPipe } from '@angular/common';
 
 @Component({
   selector: 'app-quotes',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatIconModule, InvoiceModal, QuotePrintModal],
+  imports: [MatIconModule, InvoiceModal, QuotePrintModal, DecimalPipe],
   template: `
     <div class="space-y-6 pb-12">
       
@@ -96,7 +97,7 @@ import { QuotePrintModal } from './quote-print-modal';
                   @for (item of q.items; track item.productId) {
                     <div class="py-1 flex items-center justify-between">
                       <span class="text-slate-700 truncate max-w-[200px]">{{ item.quantity }}x {{ item.productName }}</span>
-                      <span class="font-mono font-medium text-slate-900">\${{ item.total.toFixed(2) }}</span>
+                      <span class="font-mono font-medium text-slate-900">\${{ item.total  | number: '1.2-2' }}</span>
                     </div>
                   }
                 </div>
@@ -108,7 +109,7 @@ import { QuotePrintModal } from './quote-print-modal';
               <div>
                 <span class="text-[10px] text-slate-400 block uppercase font-semibold">Total Cotizado</span>
                 <div class="flex items-baseline space-x-1.5">
-                  <span class="font-mono font-bold text-lg text-slate-900">\${{ q.total.toFixed(2) }}</span>
+                  <span class="font-mono font-bold text-lg text-slate-900">\${{ q.total  | number: '1.2-2' }}</span>
                   <span class="font-mono text-xs text-slate-500">
                     (Bs. {{ (q.totalVes || (q.total * bcvRate)).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }})
                   </span>
@@ -258,7 +259,7 @@ import { QuotePrintModal } from './quote-print-modal';
                       {{ calc.isSpecialTaxpayer ? 'Sujeto Pasivo Especial (Agente IGTF)' : 'Contribuyente Ordinario' }}
                     </span>
                     <span class="font-mono text-indigo-700 font-bold">
-                      Tasa BCV: Bs. {{ calc.bcvRate.toFixed(2) }}
+                      Tasa BCV: Bs. {{ calc.bcvRate  | number: '1.2-2' }}
                     </span>
                   </div>
                 </div>
@@ -347,7 +348,7 @@ import { QuotePrintModal } from './quote-print-modal';
                             }
                           </td>
                           <td class="px-3 py-2 text-right font-mono text-slate-700">
-                            \${{ it.unitPrice.toFixed(2) }}
+                            \${{ it.unitPrice  | number: '1.2-2' }}
                           </td>
                           <td class="px-2 py-2 text-center font-mono text-slate-500">
                             {{ it.discountPercent ? it.discountPercent + '%' : '-' }}
@@ -362,10 +363,10 @@ import { QuotePrintModal } from './quote-print-modal';
                             </span>
                           </td>
                           <td class="px-3 py-2 text-right font-mono font-bold text-slate-900">
-                            \${{ it.lineNet.toFixed(2) }}
+                            \${{ it.lineNet  | number: '1.2-2' }}
                           </td>
                           <td class="px-3 py-2 text-right font-mono text-slate-600 text-[11px]">
-                            Bs. {{ (it.lineNet * calc.bcvRate).toFixed(2) }}
+                            Bs. {{ (it.lineNet * calc.bcvRate)  | number: '1.2-2' }}
                           </td>
                         </tr>
                       }
@@ -436,7 +437,7 @@ import { QuotePrintModal } from './quote-print-modal';
                         <span>Percepción IGTF 3.00% (SENIAT)</span>
                       </div>
                       <p class="text-[10px] text-indigo-700">
-                        Aplica 3% por cobro en divisas/moneda extranjera emitido por Sujeto Pasivo Especial. Base: \${{ calc.igtfBase.toFixed(2) }} (Bs. {{ (calc.igtfBase * calc.bcvRate).toFixed(2) }}).
+                        Aplica 3% por cobro en divisas/moneda extranjera emitido por Sujeto Pasivo Especial. Base: \${{ calc.igtfBase | number:'1.2-2' }} (Bs. {{ (calc.igtfBase * calc.bcvRate) | number:'1.2-2' }}).
                       </p>
                     </div>
                   } @else {
@@ -465,37 +466,37 @@ import { QuotePrintModal } from './quote-print-modal';
                     <div class="space-y-1.5 text-xs">
                       <div class="flex justify-between text-slate-400">
                         <span>Subtotal Bruto:</span>
-                        <span class="font-mono font-medium text-white">\${{ calc.grossSubtotal.toFixed(2) }}</span>
+                        <span class="font-mono font-medium text-white">\${{ calc.grossSubtotal  | number: '1.2-2' }}</span>
                       </div>
 
                       @if (calc.discountTotal > 0) {
                         <div class="flex justify-between text-emerald-400">
                           <span>Descuentos Otorgados:</span>
-                          <span class="font-mono font-medium">-\${{ calc.discountTotal.toFixed(2) }}</span>
+                          <span class="font-mono font-medium">-\${{ calc.discountTotal  | number: '1.2-2' }}</span>
                         </div>
                       }
 
                       <div class="flex justify-between text-slate-400">
                         <span>Base Imponible Gravable (16%):</span>
-                        <span class="font-mono font-medium text-white">\${{ calc.taxableBase.toFixed(2) }}</span>
+                        <span class="font-mono font-medium text-white">\${{ calc.taxableBase  | number: '1.2-2' }}</span>
                       </div>
 
                       @if (calc.exemptBase > 0) {
                         <div class="flex justify-between text-slate-400">
                           <span>Base Exenta (0%):</span>
-                          <span class="font-mono font-medium text-white">\${{ calc.exemptBase.toFixed(2) }}</span>
+                          <span class="font-mono font-medium text-white">\${{ calc.exemptBase  | number: '1.2-2' }}</span>
                         </div>
                       }
 
                       <div class="flex justify-between text-slate-300">
                         <span>Débito Fiscal IVA (16.00%):</span>
-                        <span class="font-mono font-bold text-white">\${{ calc.ivaAmount.toFixed(2) }}</span>
+                        <span class="font-mono font-bold text-white">\${{ calc.ivaAmount  | number: '1.2-2' }}</span>
                       </div>
 
                       @if (calc.appliesIgtf && calc.igtfAmount > 0) {
                         <div class="flex justify-between text-indigo-300 font-semibold">
                           <span>Percepción IGTF (3.00% Divisas):</span>
-                          <span class="font-mono">+\${{ calc.igtfAmount.toFixed(2) }}</span>
+                          <span class="font-mono">+\${{ calc.igtfAmount  | number: '1.2-2' }}</span>
                         </div>
                       }
                     </div>
@@ -506,7 +507,7 @@ import { QuotePrintModal } from './quote-print-modal';
                     <div class="flex justify-between items-baseline">
                       <span class="text-xs font-bold text-slate-300">TOTAL FACTURA (USD):</span>
                       <span class="font-mono font-black text-xl text-emerald-400">
-                        \${{ calc.grandTotalUsd.toFixed(2) }}
+                        \${{ calc.grandTotalUsd  | number: '1.2-2' }}
                       </span>
                     </div>
 
@@ -518,7 +519,7 @@ import { QuotePrintModal } from './quote-print-modal';
                     </div>
 
                     <div class="text-[10px] text-slate-400 text-right pt-0.5">
-                      Cobro a registrar: <strong class="text-emerald-300 font-mono">{{ calc.paymentTargetAmount.toFixed(2) }} {{ conversionPaymentCurrency() }}</strong>
+                      Cobro a registrar: <strong class="text-emerald-300 font-mono">{{ calc.paymentTargetAmount  | number: '1.2-2' }} {{ conversionPaymentCurrency() }}</strong>
                     </div>
                   </div>
 
@@ -643,7 +644,7 @@ import { QuotePrintModal } from './quote-print-modal';
                     <select #prodSel class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg">
                       @for (p of stateService.products(); track p.id) {
                         @let pVal = stateService.getProductPriceByLevel(p, selectedPriceLevel());
-                        <option [value]="p.id">{{ p.name }} - \${{ pVal.toFixed(2) }}</option>
+                        <option [value]="p.id">{{ p.name }} - \${{ pVal  | number: '1.2-2' }}</option>
                       }
                     </select>
                   </div>
@@ -833,7 +834,7 @@ import { QuotePrintModal } from './quote-print-modal';
     </div>
   `
 })
-export class QuotesComponent {
+export default class QuotesComponent {
   stateService = inject(ErpStateService);
   authService = inject(AuthService);
   shortcutService = inject(KeyboardShortcutsService);

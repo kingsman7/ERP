@@ -1,9 +1,9 @@
-import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, OnInit, signal } from '@angular/core';
 import { ReactiveFormsModule, FormGroup, FormControl, Validators } from '@angular/forms';
+import { Router } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { AuthService } from '../../services/auth.service';
-import { ErpStateService } from '../../services/erp-state.service';
-import { User, UserRole } from '../../models/erp.models';
+import { UserRole } from '../../models/erp.models';
 
 @Component({
   selector: 'app-login',
@@ -20,7 +20,7 @@ import { User, UserRole } from '../../models/erp.models';
           </div>
           <div>
             <div class="flex items-center space-x-2">
-              <span class="font-extrabold text-white tracking-tight text-lg">4-InLine <span class="text-blue-400">ERP</span></span>
+              <span class="font-extrabold text-white tracking-tight text-lg">Helameb <span class="text-blue-400">ERP</span></span>
               <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-blue-500/20 text-blue-300 border border-blue-400/30">v2.8 Enterprise</span>
             </div>
             <p class="text-[11px] text-slate-400">Sistema Integral de Gestión Comercial & Producción</p>
@@ -35,8 +35,7 @@ import { User, UserRole } from '../../models/erp.models';
 
           <div class="flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-300">
             <mat-icon class="text-emerald-400 text-sm">currency_exchange</mat-icon>
-            <span class="font-mono font-bold text-emerald-400">Bs. {{ stateService.bcvState().usdRate.toFixed(2) }}</span>
-            <span class="text-[10px] text-slate-400 uppercase font-bold">BCV</span>
+            <span class="text-[10px] text-slate-400 uppercase font-bold">Tasa BCV disponible al ingresar</span>
           </div>
         </div>
       </header>
@@ -105,29 +104,21 @@ import { User, UserRole } from '../../models/erp.models';
             <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-6">
               <div>
                 <h2 class="text-xl font-bold text-white">Iniciar Sesión</h2>
-                <p class="text-xs text-slate-400 mt-0.5">Ingrese sus credenciales o seleccione un perfil demo</p>
-              </div>
-
-              <div class="flex items-center p-1 bg-slate-950/80 rounded-xl border border-slate-800 text-xs">
-                <button 
-                  type="button"
-                  (click)="activeTab.set('CREDENTIALS')"
-                  class="px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center space-x-1.5"
-                  [class]="activeTab() === 'CREDENTIALS' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'">
-                  <mat-icon class="text-sm">key</mat-icon>
-                  <span>Credenciales</span>
-                </button>
-
-                <button 
-                  type="button"
-                  (click)="activeTab.set('DEMO_ROLES')"
-                  class="px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center space-x-1.5"
-                  [class]="activeTab() === 'DEMO_ROLES' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'">
-                  <mat-icon class="text-sm">group</mat-icon>
-                  <span>Perfiles Demo</span>
-                </button>
+                <p class="text-xs text-slate-400 mt-0.5">Ingrese sus credenciales corporativas</p>
               </div>
             </div>
+
+            @if (authService.tenantResolutionPending()) {
+              <p class="mb-5 text-xs text-slate-400">Verificando el espacio de trabajo...</p>
+            } @else if (authService.tenantContext(); as tenant) {
+              <p class="mb-5 text-xs text-slate-400">Espacio de trabajo: <span class="font-semibold text-slate-200">{{ tenant.name }}</span></p>
+            } @else if (authService.isAdminDomain()) {
+              <p class="mb-5 text-xs text-slate-400">Acceso administrativo seguro.</p>
+            } @else if (authService.tenantResolutionFailure() === 'tenant-unavailable') {
+              <p class="mb-5 text-xs text-rose-300">El espacio de trabajo no existe o está inactivo.</p>
+            } @else {
+              <p class="mb-5 text-xs text-amber-300">No se detectó un espacio de trabajo. En desarrollo usa <span class="font-mono">&lt;slug&gt;.localhost</span>.</p>
+            }
 
             <!-- Alert / Error Message -->
             @if (errorMessage()) {
@@ -144,9 +135,7 @@ import { User, UserRole } from '../../models/erp.models';
               </div>
             }
 
-            <!-- TAB 1: FORMULARIO DE CREDENCIALES -->
-            @if (activeTab() === 'CREDENTIALS') {
-              <form [formGroup]="loginForm" (ngSubmit)="onSubmitCredentials()" class="space-y-4 text-xs">
+            <form [formGroup]="loginForm" (ngSubmit)="onSubmitCredentials()" class="space-y-4 text-xs">
                 
                 <div>
                   <label for="login-email" class="block font-semibold text-slate-300 mb-1.5">
@@ -157,7 +146,7 @@ import { User, UserRole } from '../../models/erp.models';
                       id="login-email"
                       type="email" 
                       formControlName="email"
-                      placeholder="admin.morales@4-inLine.com" 
+                      placeholder="admin.morales@Helameb.com" 
                       class="w-full pl-10 pr-4 py-2.5 bg-slate-950/80 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors" />
                     <mat-icon class="absolute left-3 top-2.5 text-slate-400 text-base">mail</mat-icon>
                   </div>
@@ -171,7 +160,6 @@ import { User, UserRole } from '../../models/erp.models';
                     <label for="login-password" class="font-semibold text-slate-300">
                       Contraseña de Acceso
                     </label>
-                    <span class="text-[11px] text-slate-500 font-mono">Demo: cualquier clave</span>
                   </div>
                   <div class="relative">
                     <input 
@@ -196,15 +184,12 @@ import { User, UserRole } from '../../models/erp.models';
                     <input type="checkbox" formControlName="rememberMe" class="rounded bg-slate-950 border-slate-700 text-blue-600 focus:ring-0" />
                     <span>Recordar sesión en este equipo</span>
                   </label>
-                  <button type="button" (click)="fillAdminCredentials()" class="text-blue-400 hover:underline cursor-pointer">
-                    Cargar cuenta Admin
-                  </button>
                 </div>
 
                 <button 
                   id="btn-login-submit"
                   type="submit"
-                  [disabled]="isLoading()"
+                  [disabled]="isLoading() || authService.tenantResolutionPending() || (!authService.isAdminDomain() && !authService.tenantContext())"
                   class="w-full mt-2 py-3 px-4 bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-blue-600/30 transition-all flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50">
                   @if (isLoading()) {
                     <mat-icon class="animate-spin text-base">refresh</mat-icon>
@@ -215,56 +200,7 @@ import { User, UserRole } from '../../models/erp.models';
                   }
                 </button>
 
-              </form>
-            }
-
-            <!-- TAB 2: SELECTOR RÁPIDO DE USUARIOS DEMO (RBAC FAST-LOGIN) -->
-            @if (activeTab() === 'DEMO_ROLES') {
-              <div class="space-y-3">
-                <p class="text-xs text-slate-400 mb-2">
-                  Haga clic en cualquier usuario corporativo para ingresar de inmediato con su nivel de autorización correspondiente:
-                </p>
-
-                <div class="space-y-2 max-h-[320px] overflow-y-auto pr-1">
-                  @for (user of authService.availableDemoUsers; track user.id) {
-                    <button 
-                      type="button"
-                      (click)="loginWithDemoUser(user)"
-                      [disabled]="user.status === 'INACTIVO'"
-                      class="w-full p-3 rounded-2xl border transition-all text-left flex items-center justify-between space-x-3 cursor-pointer group"
-                      [class]="user.status === 'INACTIVO' 
-                        ? 'bg-slate-950/40 border-slate-800 opacity-50 cursor-not-allowed' 
-                        : 'bg-slate-950/70 border-slate-800 hover:border-blue-500/60 hover:bg-slate-800/80'">
-                      
-                      <div class="flex items-center space-x-3 min-w-0">
-                        <img 
-                          [src]="user.avatarUrl" 
-                          [alt]="user.name"
-                          referrerpolicy="no-referrer"
-                          class="w-10 h-10 rounded-full object-cover ring-1 ring-slate-700 shrink-0" />
-                        
-                        <div class="min-w-0">
-                          <div class="flex items-center space-x-2">
-                            <p class="font-bold text-white text-xs truncate group-hover:text-blue-300 transition-colors">{{ user.name }}</p>
-                            <span class="px-2 py-0.5 rounded text-[10px] font-bold border shrink-0"
-                              [class]="getRoleBadgeClass(user.role)">
-                              {{ getRoleName(user.role) }}
-                            </span>
-                          </div>
-                          <p class="text-[11px] text-slate-400 truncate">{{ user.email }} • <span class="text-slate-500">{{ user.department }}</span></p>
-                        </div>
-                      </div>
-
-                      <div class="shrink-0 flex items-center space-x-1 text-slate-400 group-hover:text-blue-400">
-                        <span class="text-xs font-semibold hidden sm:inline">Ingresar</span>
-                        <mat-icon class="text-sm">arrow_forward</mat-icon>
-                      </div>
-
-                    </button>
-                  }
-                </div>
-              </div>
-            }
+            </form>
 
             <!-- Security Footnote -->
             <div class="mt-6 pt-4 border-t border-slate-800 flex items-center justify-between text-[10px] text-slate-500">
@@ -272,7 +208,7 @@ import { User, UserRole } from '../../models/erp.models';
                 <mat-icon class="text-emerald-500 text-xs">lock</mat-icon>
                 <span>Sesión cifrada con JWT HS256 & HTTPS</span>
               </div>
-              <span class="font-mono">4-InLine Security Gateway</span>
+              <span class="font-mono">Helameb Security Gateway</span>
             </div>
 
           </div>
@@ -283,7 +219,7 @@ import { User, UserRole } from '../../models/erp.models';
       <!-- Footer -->
       <footer class="w-full max-w-7xl mx-auto py-3 border-t border-slate-800/60 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2">
         <div>
-          © 2026 4-InLine ERP Enterprise. Todos los derechos reservados.
+          © 2026 Helameb ERP Enterprise. Todos los derechos reservados.
         </div>
         <div class="flex items-center space-x-4">
           <span>Trazabilidad PostgreSQL ACID</span>
@@ -297,22 +233,24 @@ import { User, UserRole } from '../../models/erp.models';
     </div>
   `
 })
-export class LoginComponent {
+export default class LoginComponent implements OnInit {
   authService = inject(AuthService);
-  stateService = inject(ErpStateService);
+  private router = inject(Router);
 
-  activeTab = signal<'CREDENTIALS' | 'DEMO_ROLES'>('CREDENTIALS');
   showPassword = signal<boolean>(false);
   isLoading = signal<boolean>(false);
   errorMessage = signal<string | null>(null);
   successMessage = signal<string | null>(null);
 
   loginForm = new FormGroup({
-    email: new FormControl('admin.morales@4-inLine.com', [Validators.required, Validators.email]),
-    password: new FormControl('Admin2026*', [Validators.required]),
-    rememberMe: new FormControl(true),
-    tenantId: new FormControl('796cc9d6-6c6f-4187-8abf-e57eecf4e9c0', [Validators.required])
+    email: new FormControl('', [Validators.required, Validators.email]),
+    password: new FormControl('', [Validators.required]),
+    rememberMe: new FormControl(true)
   });
+
+  ngOnInit(): void {
+    this.authService.resolveTenantFromHost().subscribe();
+  }
 
   onSubmitCredentials(): void {
     if (this.loginForm.invalid) {
@@ -326,24 +264,26 @@ export class LoginComponent {
 
     const { email, password } = this.loginForm.value;
 
-      this.authService.login(email || '', password || '')
+    this.authService.login(email || '', password || '')
       .subscribe({
         next: (result)=> {
           if (result) {
             this.successMessage.set('Autenticación exitosa. Redirigiendo al espacio de trabajo...');
-            this.stateService.logAudit(
-              'USER_LOGIN',
-              'AUTH',
-              'Inicio de sesión exitoso',
-              `El usuario ${email} inició sesión satisfactoriamente en el ERP.`,
-              undefined,
-              undefined,
-              { email }
-            );
             this.isLoading.set(false);
+            const destination = this.authService.isSuperAdmin()
+              ? (this.authService.hasTenantContext() ? ['/app/dashboard'] : ['/master/super-admin'])
+              : ['/app/dashboard'];
+            void this.router.navigate(destination);
           } else {
             this.isLoading.set(false);
-            this.errorMessage.set('Error al validar credenciales.');
+            const failure = this.authService.lastAuthFailure();
+            this.errorMessage.set(failure === 'credentials'
+              ? 'Las credenciales no son válidas.'
+              : failure === 'tenant-unavailable'
+                ? 'No se pudo validar el acceso al espacio de trabajo.'
+                : failure === 'admin-domain'
+                  ? 'No se pudo validar el acceso administrativo.'
+                  : 'No se pudo validar el acceso.');
           }
         },
         error: (err) => {
@@ -353,38 +293,6 @@ export class LoginComponent {
         },
       });
 
-  }
-
-  loginWithDemoUser(user: User): void {
-    if (user.status === 'INACTIVO') {
-      this.errorMessage.set(`El usuario ${user.name} está INACTIVO y no puede acceder.`);
-      return;
-    }
-
-    this.isLoading.set(true);
-    this.errorMessage.set(null);
-
-    setTimeout(() => {
-      this.authService.loginAsDemoUser(user.id);
-      this.isLoading.set(false);
-      this.stateService.logAudit(
-        'USER_LOGIN',
-        'AUTH',
-        `Inicio de sesión rápido: ${user.name}`,
-        `El usuario ${user.name} ingresó mediante el selector de roles demo (${user.role}).`,
-        undefined,
-        undefined,
-        { userId: user.id, role: user.role }
-      );
-    }, 300);
-  }
-
-  fillAdminCredentials = (): void => {
-    this.loginForm.patchValue({
-      email: 'admin.morales@4-inLine.com',
-      password: 'Admin2026*'
-    });
-    this.errorMessage.set(null);
   }
 
   getRoleName(role: UserRole): string {

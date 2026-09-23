@@ -13,11 +13,12 @@ import {
   Invoice
 } from '../../models/erp.models';
 import { InvoiceModal } from '../invoice-modal/invoice-modal';
+import { DecimalPipe } from '@angular/common';
 
 @Component({
   selector: 'app-logistics',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, MatIconModule, InvoiceModal],
+  imports: [CommonModule, MatIconModule, InvoiceModal, DecimalPipe],
   template: `
     <div class="space-y-6 pb-16">
       
@@ -914,7 +915,7 @@ import { InvoiceModal } from '../invoice-modal/invoice-modal';
 
                           <!-- Valor Total Estimado -->
                           <td class="p-2 text-right font-mono font-bold text-slate-800">
-                            \${{ (prod ? (row.quantity * prod.salePrice) : 0).toFixed(2) }}
+                            \${{ (prod ? (row.quantity * prod.salePrice) : 0) | number: '1.2-2' }}
                           </td>
 
                           <!-- Eliminar fila -->
@@ -935,7 +936,7 @@ import { InvoiceModal } from '../invoice-modal/invoice-modal';
                 <div class="flex items-center justify-between text-xs font-mono pt-2 text-slate-600">
                   <span>Total Bultos: <strong>{{ calculatedNewGuideTotalPackages() }}</strong></span>
                   <span>Peso Total: <strong>{{ calculatedNewGuideTotalWeight() }} kg</strong></span>
-                  <span class="text-sm font-bold text-slate-900">Valor Declarado: \${{ calculatedNewGuideTotalValue().toFixed(2) }}</span>
+                  <span class="text-sm font-bold text-slate-900">Valor Declarado: \${{ calculatedNewGuideTotalValue() | number: '1.2-2' }}</span>
                 </div>
               </div>
 
@@ -1265,7 +1266,7 @@ import { InvoiceModal } from '../invoice-modal/invoice-modal';
     </div>
   `
 })
-export class LogisticsComponent {
+export default class LogisticsComponent {
   stateService = inject(ErpStateService);
   authService = inject(AuthService);
 

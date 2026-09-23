@@ -2,11 +2,20 @@ import { Component, ChangeDetectionStrategy, input, output, inject } from '@angu
 import { MatIconModule } from '@angular/material/icon';
 import { Invoice } from '../../models/erp.models';
 import { ErpStateService } from '../../services/erp-state.service';
+import { DecimalPipe } from '@angular/common'
+
+type InvoiceWithWithholdings = Invoice & {
+  withholdingIvaPercent?: number;
+  withholdingIvaAmount?: number;
+  withholdingIslrPercent?: number;
+  withholdingIslrAmount?: number;
+  withholdingIslrNature?: string;
+};
 
 @Component({
   selector: 'app-invoice-modal',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatIconModule],
+  imports: [MatIconModule, DecimalPipe],
   template: `
     @if (invoice(); as inv) {
       <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
@@ -89,7 +98,7 @@ import { ErpStateService } from '../../services/erp-state.service';
               <div class="border-l-0 sm:border-l sm:border-slate-200 sm:pl-3">
                 <span class="font-bold text-slate-400 uppercase tracking-wider block text-[10px] mb-0.5">Tipo de Cambio Oficial</span>
                 <p class="font-mono font-bold text-slate-800">
-                  Tasa BCV: Bs. {{ (inv.bcvRate || 36.50).toFixed(2) }} / USD
+                  Tasa BCV: Bs. {{ (inv.bcvRate || 36.50) | number: '1.2-2' }} / USD
                 </p>
                 <p class="text-[10px] text-slate-500">
                   Origen: {{ inv.rateOrigin === 'API_BCV' ? 'Oficial BCV' : 'Manual' }} • Base: {{ inv.paymentCurrency || 'USD' }}
@@ -120,7 +129,7 @@ import { ErpStateService } from '../../services/erp-state.service';
                       }
                     </td>
                     <td class="py-2 text-center">{{ item.quantity }} {{ item.unit }}</td>
-                    <td class="py-2 text-right font-mono">\${{ item.unitPrice.toFixed(2) }}</td>
+                    <td class="py-2 text-right font-mono">\${{ item.unitPrice | number: '1.2-2' }}</td>
                     <td class="py-2 text-center">
                       @if (item.isTaxExempt || item.taxRate === 0) {
                         <span class="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold text-[10px]">
@@ -132,7 +141,7 @@ import { ErpStateService } from '../../services/erp-state.service';
                         </span>
                       }
                     </td>
-                    <td class="py-2 text-right font-mono font-medium text-slate-900">\${{ item.subtotal.toFixed(2) }}</td>
+                    <td class="py-2 text-right font-mono font-medium text-slate-900">\${{ item.subtotal | number: '1.2-2' }}</td>
                   </tr>
                 }
               </tbody>
@@ -152,7 +161,7 @@ import { ErpStateService } from '../../services/erp-state.service';
                       <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                       <span class="font-medium text-slate-800">{{ pay.method.replace('_', ' ') }}:</span>
                       <span class="font-mono font-bold text-slate-900">
-                        {{ pay.currency === 'VES' ? 'Bs. ' : '$' }}{{ pay.amount.toFixed(2) }}
+                        {{ pay.currency === 'VES' ? 'Bs. ' : '$' }}{{ pay.amount | number: '1.2-2' }}
                       </span>
                       @if (pay.reference) {
                         <span class="text-slate-400 text-[10px]">({{ pay.reference }})</span>
@@ -168,7 +177,7 @@ import { ErpStateService } from '../../services/erp-state.service';
                       <span>Percepción IGTF 3.00% (SENIAT - Pago en Moneda Extranjera)</span>
                     </p>
                     <p class="text-[10px] text-indigo-700">
-                      Base Imponible IGTF: \${{ inv.taxDetails.igtfBase.toFixed(2) }} (Bs. {{ (inv.taxDetails.igtfBase * (inv.bcvRate || 36.50)).toFixed(2) }}) • Impuesto Percibido: \${{ inv.taxDetails.igtfAmount.toFixed(2) }}
+                      Base Imponible IGTF: \${{ inv.taxDetails.igtfBase | number: '1.2-2' }} (Bs. {{ (inv.taxDetails.igtfBase * (inv.bcvRate || 36.50)) | number: '1.2-2' }}) • Impuesto Percibido: \${{ inv.taxDetails.igtfAmount | number: '1.2-2' }}
                     </p>
                   </div>
                 } @else {
@@ -183,39 +192,53 @@ import { ErpStateService } from '../../services/erp-state.service';
               <div class="space-y-1.5 text-xs text-right bg-slate-50 p-3 rounded-xl border border-slate-200">
                 <div class="flex justify-between text-slate-600">
                   <span>Base Imponible Gravada:</span>
-                  <span class="font-mono font-medium">\${{ (inv.taxDetails.taxableBase || inv.subtotal).toFixed(2) }}</span>
+                  <span class="font-mono font-medium">\${{ (inv.taxDetails.taxableBase || inv.subtotal) | number: '1.2-2' }}</span>
                 </div>
                 
                 @if (inv.taxDetails.exemptBase > 0) {
                   <div class="flex justify-between text-emerald-700 font-medium">
                     <span>Base Exenta (0% IVA):</span>
-                    <span class="font-mono">\${{ inv.taxDetails.exemptBase.toFixed(2) }}</span>
+                    <span class="font-mono">\${{ inv.taxDetails.exemptBase | number: '1.2-2' }}</span>
                   </div>
                 }
 
                 @if (inv.discountTotal > 0) {
                   <div class="flex justify-between text-indigo-600 font-medium">
                     <span>Descuento Total:</span>
-                    <span class="font-mono">-\${{ inv.discountTotal.toFixed(2) }}</span>
+                    <span class="font-mono">-\${{ inv.discountTotal | number: '1.2-2' }}</span>
                   </div>
                 }
 
                 <div class="flex justify-between text-slate-600">
                   <span>IVA ({{ inv.taxDetails.ivaPercent || 16 }}%):</span>
-                  <span class="font-mono font-medium">\${{ (inv.taxDetails.ivaAmount || (inv.taxTotal - (inv.taxDetails.igtfAmount || 0))).toFixed(2) }}</span>
+                  <span class="font-mono font-medium">\${{ (inv.taxDetails.ivaAmount || (inv.taxTotal - (inv.taxDetails.igtfAmount || 0))) | number: '1.2-2' }}</span>
                 </div>
+
+                @if ((withholdingDetails(inv).withholdingIvaAmount || 0) > 0) {
+                  <div class="flex justify-between text-amber-800 font-semibold">
+                    <span>Retención IVA ({{ withholdingDetails(inv).withholdingIvaPercent }}%):</span>
+                    <span class="font-mono">-\${{ withholdingDetails(inv).withholdingIvaAmount | number: '1.2-2' }}</span>
+                  </div>
+                }
+
+                @if ((withholdingDetails(inv).withholdingIslrAmount || 0) > 0) {
+                  <div class="flex justify-between text-amber-800 font-semibold">
+                    <span>Retención ISLR ({{ withholdingDetails(inv).withholdingIslrPercent }}%{{ withholdingDetails(inv).withholdingIslrNature ? ' - ' + withholdingDetails(inv).withholdingIslrNature : '' }}):</span>
+                    <span class="font-mono">-\${{ withholdingDetails(inv).withholdingIslrAmount | number: '1.2-2' }}</span>
+                  </div>
+                }
 
                 @if (inv.taxDetails.appliesIgtf && inv.taxDetails.igtfAmount > 0) {
                   <div class="flex justify-between text-indigo-800 font-semibold">
                     <span>Percepción IGTF (3% Divisas):</span>
-                    <span class="font-mono">+\${{ inv.taxDetails.igtfAmount.toFixed(2) }}</span>
+                    <span class="font-mono">+\${{ inv.taxDetails.igtfAmount | number: '1.2-2' }}</span>
                   </div>
                 }
 
                 <!-- Grand Total USD -->
                 <div class="flex justify-between text-sm font-bold text-slate-900 border-t border-slate-200 pt-1.5">
                   <span>TOTAL FACTURA ($ USD):</span>
-                  <span class="font-mono text-base text-emerald-700">\${{ inv.total.toFixed(2) }}</span>
+                  <span class="font-mono text-base text-emerald-700">\${{ inv.total | number: '1.2-2' }}</span>
                 </div>
 
                 <!-- Grand Total Bolívares -->
@@ -230,7 +253,7 @@ import { ErpStateService } from '../../services/erp-state.service';
                 @if (inv.totalEur) {
                   <div class="flex justify-between text-[11px] text-slate-500">
                     <span>Equivalente Euros (EUR):</span>
-                    <span class="font-mono">€ {{ inv.totalEur.toFixed(2) }}</span>
+                    <span class="font-mono">€ {{ inv.totalEur | number: '1.2-2' }}</span>
                   </div>
                 }
               </div>
@@ -267,6 +290,10 @@ export class InvoiceModal {
   invoice = input<Invoice | null>(null);
   closeModal = output<void>();
   readonly stateService = inject(ErpStateService);
+
+  withholdingDetails(invoice: Invoice): InvoiceWithWithholdings {
+    return invoice as InvoiceWithWithholdings;
+  }
 
   printInvoice() {
     if (typeof window !== 'undefined') {

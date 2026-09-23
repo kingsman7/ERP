@@ -3,7 +3,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { ErpStateService } from '../../services/erp-state.service';
 import { AuthService } from '../../services/auth.service';
 import { AuditLog } from '../../models/erp.models';
-import { UserManagementComponent } from '../user-management/user-management';
+import UserManagementComponent from '../user-management/user-management';
+
 
 @Component({
   selector: 'app-audit-log',
@@ -375,7 +376,7 @@ import { UserManagementComponent } from '../user-management/user-management';
     </div>
   `
 })
-export class AuditLogComponent {
+export default class AuditLogComponent {
   stateService = inject(ErpStateService);
   authService = inject(AuthService);
 

@@ -3,16 +3,31 @@ import { ReactiveFormsModule, FormGroup, FormControl, Validators } from '@angula
 import { MatIconModule } from '@angular/material/icon';
 import { ErpStateService } from '../../services/erp-state.service';
 import { AuthService } from '../../services/auth.service';
+import { ApiService } from '../../services/api.service';
 import { KeyboardShortcutsService } from '../../services/keyboard-shortcuts.service';
 import { Product, ProductPrices, ProductCategory, Warehouse } from '../../models/erp.models';
 import { exportInventoryToCsv } from '../../utils/csv-exporter';
+import { DecimalPipe } from '@angular/common';
+import { forkJoin, switchMap } from 'rxjs';
 
 @Component({
   selector: 'app-inventory',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, MatIconModule],
+  imports: [ReactiveFormsModule, MatIconModule, DecimalPipe],
   template: `
     <div class="space-y-6 pb-12">
+      @if (stateService.inventoryLoading()) {
+        <div role="status" class="flex items-center gap-2 px-4 py-3 rounded-xl border border-sky-200 bg-sky-50 text-sky-800 text-xs">
+          <mat-icon class="animate-spin text-base">sync</mat-icon>
+          <span>Cargando inventario y categorías desde el backend...</span>
+        </div>
+      }
+      @if (stateService.inventoryError(); as inventoryError) {
+        <div role="alert" class="flex items-center gap-2 px-4 py-3 rounded-xl border border-amber-200 bg-amber-50 text-amber-900 text-xs">
+          <mat-icon class="text-base">cloud_off</mat-icon>
+          <span>{{ inventoryError }}</span>
+        </div>
+      }
       
       <!-- Top Section: Header & Action Bar -->
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -27,7 +42,7 @@ import { exportInventoryToCsv } from '../../utils/csv-exporter';
                   Inventario, Esquema de 5 Precios e Impuestos
                 </h1>
                 <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-50 text-indigo-700">
-                  Tasa BCV: Bs. {{ stateService.bcvState().usdRate.toFixed(2) }}
+                  Tasa BCV: Bs. {{ stateService.bcvState().usdRate | number:'1.2-2' }}
                 </span>
               </div>
               <p class="text-xs text-slate-500">
@@ -209,17 +224,17 @@ import { exportInventoryToCsv } from '../../utils/csv-exporter';
 
                   <!-- Cost Price (Weighted Average) -->
                   <td class="py-3 px-3 text-right font-mono font-medium text-slate-900">
-                    \${{ prod.costPrice.toFixed(2) }}
+                    \${{ prod.costPrice | number: '1.2-2' }}
                   </td>
 
                   <!-- 5 Price Tiers Snapshot -->
                   <td class="py-3 px-3 text-center">
                     <div class="inline-flex flex-col items-center space-y-0.5">
                       <div class="flex items-center space-x-1 font-mono font-bold text-slate-900">
-                        <span>P1 Detal: \${{ p1.toFixed(2) }}</span>
+                        <span>P1 Detal: \${{ p1 | number: '1.2-2' }}</span>
                       </div>
                       <div class="flex items-center space-x-1 text-[10px] font-mono text-slate-500">
-                        <span>Bs. {{ (p1 * bcv.usdRate).toFixed(2) }}</span>
+                        <span>Bs. {{ (p1 * bcv.usdRate) | number: '1.2-2' }}</span>
                         <span class="text-slate-300">•</span>
                         <button 
                           (click)="openPricesModal(prod)"
@@ -318,7 +333,7 @@ import { exportInventoryToCsv } from '../../utils/csv-exporter';
               <span>Exportar filtrados a CSV</span>
             </button>
           </div>
-          <span>Valor total de catálogo actual: <strong class="font-mono text-slate-900">\${{ stateService.totalInventoryValuation().toFixed(2) }}</strong> (Bs. {{ (stateService.totalInventoryValuation() * stateService.bcvState().usdRate).toLocaleString('es-VE') }})</span>
+          <span>Valor total de catálogo actual: <strong class="font-mono text-slate-900">\${{ stateService.totalInventoryValuation() | number: '1.2-2' }}</strong> (Bs. {{ (stateService.totalInventoryValuation() * stateService.bcvState().usdRate).toLocaleString('es-VE') }})</span>
         </div>
       </div>
 
@@ -393,7 +408,7 @@ import { exportInventoryToCsv } from '../../utils/csv-exporter';
                       formControlName="price1" 
                       class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg font-mono font-bold text-slate-900" />
                     <p class="text-[10px] text-slate-400 font-mono">
-                      Bs. {{ ((pricesForm.get('price1')?.value || 0) * stateService.bcvState().usdRate).toFixed(2) }}
+                      Bs. {{ ((pricesForm.get('price1')?.value || 0) * stateService.bcvState().usdRate) | number: '1.2-2' }}
                     </p>
                   </div>
 
@@ -409,7 +424,7 @@ import { exportInventoryToCsv } from '../../utils/csv-exporter';
                       formControlName="price2" 
                       class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg font-mono font-bold text-slate-900" />
                     <p class="text-[10px] text-slate-400 font-mono">
-                      Bs. {{ ((pricesForm.get('price2')?.value || 0) * stateService.bcvState().usdRate).toFixed(2) }}
+                      Bs. {{ ((pricesForm.get('price2')?.value || 0) * stateService.bcvState().usdRate) | number: '1.2-2' }}
                     </p>
                   </div>
 
@@ -425,7 +440,7 @@ import { exportInventoryToCsv } from '../../utils/csv-exporter';
                       formControlName="price3" 
                       class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg font-mono font-bold text-slate-900" />
                     <p class="text-[10px] text-slate-400 font-mono">
-                      Bs. {{ ((pricesForm.get('price3')?.value || 0) * stateService.bcvState().usdRate).toFixed(2) }}
+                      Bs. {{ ((pricesForm.get('price3')?.value || 0) * stateService.bcvState().usdRate) | number: '1.2-2' }}
                     </p>
                   </div>
 
@@ -441,7 +456,7 @@ import { exportInventoryToCsv } from '../../utils/csv-exporter';
                       formControlName="price4" 
                       class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg font-mono font-bold text-slate-900" />
                     <p class="text-[10px] text-slate-400 font-mono">
-                      Bs. {{ ((pricesForm.get('price4')?.value || 0) * stateService.bcvState().usdRate).toFixed(2) }}
+                      Bs. {{ ((pricesForm.get('price4')?.value || 0) * stateService.bcvState().usdRate) | number: '1.2-2' }}
                     </p>
                   </div>
 
@@ -457,7 +472,7 @@ import { exportInventoryToCsv } from '../../utils/csv-exporter';
                       formControlName="price5" 
                       class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg font-mono font-bold text-slate-900" />
                     <p class="text-[10px] text-slate-400 font-mono">
-                      Bs. {{ ((pricesForm.get('price5')?.value || 0) * stateService.bcvState().usdRate).toFixed(2) }}
+                      Bs. {{ ((pricesForm.get('price5')?.value || 0) * stateService.bcvState().usdRate) | number: '1.2-2' }}
                     </p>
                   </div>
 
@@ -520,7 +535,7 @@ import { exportInventoryToCsv } from '../../utils/csv-exporter';
               <!-- Product Select -->
               <div>
                 <span class="block font-semibold text-slate-700 mb-1">Producto a Ajustar *</span>
-                <select formControlName="productId" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-amber-500/20">
+                <select formControlName="productId" (change)="onAdjustmentProductChange()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-amber-500/20">
                   @for (prod of stateService.products(); track prod.id) {
                     <option [value]="prod.id">{{ prod.sku }} - {{ prod.name }} (Stock: {{ prod.totalStock }})</option>
                   }
@@ -532,9 +547,12 @@ import { exportInventoryToCsv } from '../../utils/csv-exporter';
                 <span class="block font-semibold text-slate-700 mb-1">Almacén Afectado *</span>
                 <select formControlName="warehouseId" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-amber-500/20">
                   @for (wh of stateService.warehouses(); track wh.id) {
-                    <option [value]="wh.id">{{ wh.name }}</option>
+                    <option [value]="wh.id">{{ wh.name }} (Disponible: {{ getAdjustmentWarehouseStock(wh.id) }})</option>
                   }
                 </select>
+                <p class="mt-1 text-[11px] text-slate-500">
+                  Disponible en el almacén seleccionado: <span class="font-mono font-bold text-slate-700">{{ getAdjustmentWarehouseStock(adjustForm.controls.warehouseId.value) }}</span>
+                </p>
               </div>
 
               <!-- Adjustment Type & Quantity -->
@@ -1230,10 +1248,11 @@ import { exportInventoryToCsv } from '../../utils/csv-exporter';
     </div>
   `
 })
-export class InventoryComponent {
+export default class InventoryComponent {
   stateService = inject(ErpStateService);
   authService = inject(AuthService);
   shortcutService = inject(KeyboardShortcutsService);
+  apiService = inject(ApiService);
 
   searchTerm = signal<string>('');
   selectedCategory = signal<string>('ALL');
@@ -1515,7 +1534,6 @@ export class InventoryComponent {
         name: val.name!.trim(),
         location: val.location!.trim(),
         isMain: Boolean(val.isMain),
-        status: val.status || 'ACTIVE',
         capacity: Number(val.capacity) || 10000,
         managerName: (val.managerName || '').trim(),
         phone: (val.phone || '').trim(),
@@ -1530,7 +1548,6 @@ export class InventoryComponent {
         name: val.name!.trim(),
         location: val.location!.trim(),
         isMain: Boolean(val.isMain),
-        status: val.status || 'ACTIVE',
         capacity: Number(val.capacity) || 10000,
         managerName: (val.managerName || '').trim(),
         phone: (val.phone || '').trim(),
@@ -1622,9 +1639,9 @@ export class InventoryComponent {
     if (firstProd) {
       this.adjustForm.patchValue({
         productId: firstProd.id,
-        warehouseId: this.stateService.warehouses()[0].id,
+        warehouseId: this.getAdjustmentWarehouseId(firstProd),
         quantity: 1,
-        supportDocument: 'FOLIO-ADJ-' + Math.floor(Math.random() * 9000 + 1000),
+        supportDocument: '',
         justificationReason: ''
       });
     }
@@ -1634,9 +1651,9 @@ export class InventoryComponent {
   openAdjustModalForProduct(prod: Product) {
     this.adjustForm.patchValue({
       productId: prod.id,
-      warehouseId: this.stateService.warehouses()[0].id,
+      warehouseId: this.getAdjustmentWarehouseId(prod),
       quantity: 1,
-      supportDocument: 'FOLIO-MERMA-' + Math.floor(Math.random() * 9000 + 1000),
+      supportDocument: '',
       justificationReason: ''
     });
     this.showAdjustModal.set(true);
@@ -1678,20 +1695,64 @@ export class InventoryComponent {
 
     const val = this.adjustForm.value;
     const qty = Number(val.quantity || 1);
-    const qtyDelta = val.adjustmentType === 'MERMA' ? -qty : qty;
-
-    const result = this.stateService.adjustStock(
-      val.productId!,
-      val.warehouseId!,
-      val.adjustmentType!,
-      qtyDelta,
-      val.supportDocument!,
-      val.justificationReason!
-    );
-
-    if (result.success) {
-      this.showAdjustModal.set(false);
+    const availableStock = this.getAdjustmentWarehouseStock(val.warehouseId);
+    if (val.adjustmentType === 'MERMA' && qty > availableStock) {
+      this.stateService.notify('warning', 'Stock insuficiente en el almacén', `La merma solicitada (${qty}) supera el saldo disponible (${availableStock}) en el almacén seleccionado.`);
+      return;
     }
+    const qtyDelta = val.adjustmentType === 'MERMA' ? -qty : qty;
+    const type = val.adjustmentType === 'MERMA'
+      ? 'SHRINKAGE'
+      : val.adjustmentType === 'SOBRANTE'
+        ? 'PHYSICAL_COUNT'
+        : 'PHYSICAL_COUNT';
+
+    this.apiService.createStockAdjustment({
+      productId: val.productId!,
+      warehouseId: val.warehouseId!,
+      quantityDelta: qtyDelta,
+      type,
+      reason: val.justificationReason!.trim(),
+      supportDocType: 'OTHER',
+      supportDocNum: val.supportDocument!.trim()
+    }).pipe(
+      switchMap(() => forkJoin({
+        inventory: this.stateService.loadInventory(),
+        kardex: this.stateService.loadRouteData('kardex')
+      }))
+    ).subscribe({
+      next: () => {
+        this.showAdjustModal.set(false);
+        this.stateService.notify('success', 'Ajuste registrado', 'El ajuste se registró y el inventario fue actualizado desde el backend.');
+      },
+      error: (error) => {
+        const message = typeof error?.error?.message === 'string'
+          ? error.error.message
+          : 'No fue posible registrar el ajuste de stock. Verifique los datos e intente nuevamente.';
+        this.stateService.notify('error', 'Error al registrar ajuste', message);
+      }
+    });
+
+  }
+
+  getAdjustmentWarehouseStock(warehouseId: string | null | undefined): number {
+    const productId = this.adjustForm.controls.productId.value;
+    const product = this.stateService.products().find(item => item.id === productId);
+    const stock = product?.stockByWarehouse.find(item => item.warehouseId === warehouseId)?.quantity;
+    return Number(stock ?? 0);
+  }
+
+  onAdjustmentProductChange(): void {
+    const productId = this.adjustForm.controls.productId.value;
+    const product = this.stateService.products().find(item => item.id === productId);
+    if (product) this.adjustForm.patchValue({ warehouseId: this.getAdjustmentWarehouseId(product) });
+  }
+
+  private getAdjustmentWarehouseId(product: Product): string {
+    return product.stockByWarehouse.find(stock => Number(stock.quantity) > 0)?.warehouseId
+      ?? product.primaryWarehouseId
+      ?? this.stateService.warehouses()[0]?.id
+      ?? '';
   }
 
   submitNewProduct() {

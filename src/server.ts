@@ -12,7 +12,64 @@ const browserDistFolder = join(import.meta.dirname, '../browser');
 const app = express();
 app.use('/api', express.json());
 
-// In-Memory initial seed data for API routes
+const backendUrl = (process.env['BACKEND_URL'] || 'http://localhost:3000').replace(/\/$/, '');
+
+function isExpiredJwt(authorization: string | undefined): boolean {
+  const token = authorization?.replace(/^Bearer\s+/i, '');
+  if (!token) return false;
+
+  try {
+    const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8')) as { exp?: number };
+    return typeof payload.exp === 'number' && payload.exp <= Math.floor(Date.now() / 1000);
+  } catch {
+    return false;
+  }
+}
+
+async function authBackendMiddleware(req: express.Request, res: express.Response): Promise<void> {
+  const isAuthEndpoint = req.path === '/auth/login' || req.path === '/auth/refresh';
+  const authorization = req.header('authorization');
+
+  if (!isAuthEndpoint && !authorization) {
+    res.status(401).json({ code: 'AUTH_REQUIRED', message: 'Authentication token is required' });
+    return;
+  }
+
+  if (!isAuthEndpoint && isExpiredJwt(authorization)) {
+    res.status(401).json({ code: 'SESSION_EXPIRED', message: 'The access token has expired' });
+    return;
+  }
+
+  const headers: Record<string, string> = {
+    accept: req.header('accept') || 'application/json',
+  };
+  if (authorization) headers['authorization'] = authorization;
+  if (req.header('cookie')) headers['cookie'] = req.header('cookie')!;
+  if (req.header('content-type')) headers['content-type'] = req.header('content-type')!;
+
+  try {
+    const response = await fetch(`${backendUrl}${req.originalUrl}`, {
+      method: req.method,
+      headers,
+      body: ['GET', 'HEAD'].includes(req.method) ? undefined : JSON.stringify(req.body ?? {}),
+    });
+
+    const contentType = response.headers.get('content-type');
+    if (contentType) res.setHeader('content-type', contentType);
+    const setCookie = response.headers.get('set-cookie');
+    if (setCookie) res.setHeader('set-cookie', setCookie);
+    res.status(response.status).send(Buffer.from(await response.arrayBuffer()));
+  } catch (error) {
+    console.error('Backend proxy error:', error);
+    res.status(502).json({ code: 'BACKEND_UNAVAILABLE', message: 'Backend unavailable' });
+  }
+}
+
+app.use('/api', (req, res, next) => {
+  void authBackendMiddleware(req, res).catch(next);
+});
+
+/* // In-Memory initial seed data for API routes
 const MOCK_PRODUCTS = [
   {
     id: 'prod-01',
@@ -78,9 +135,9 @@ const MOCK_PRODUCTS = [
     totalStock: 6,
     status: 'ACTIVE'
   }
-];
+]; */
 
-const MOCK_CATEGORIES = [
+/* const MOCK_CATEGORIES = [
   { id: 'cat-01', code: 'HERR', name: 'Herramientas Eléctricas', description: 'Taladros, esmeriles, sierras y equipos de poder', color: 'blue' },
   { id: 'cat-02', code: 'RED', name: 'Redes y Telecom', description: 'Cableado estructurado, conectores y fibra', color: 'purple' },
   { id: 'cat-03', code: 'PIN', name: 'Acabados y Pinturas', description: 'Pinturas látex, esmaltes y solventes', color: 'emerald' },
@@ -95,11 +152,11 @@ const MOCK_WAREHOUSES = [
   { id: 'wh-02', code: 'ALM-NORTE', name: 'Almacén Sucursal Norte', location: 'Parque Comercial Norte Local 12', isMain: false, status: 'ACTIVE', capacity: 8000, managerName: 'Elena Rivas', phone: '+58 212 555-2002' },
   { id: 'wh-03', code: 'DEP-03', name: 'Depósito 3 (Logística Rápida)', location: 'Zona Portuaria Almacén 8', isMain: false, status: 'ACTIVE', capacity: 5000, managerName: 'Marcos Peña', phone: '+58 212 555-3003' }
 ];
-
+*/
 const MOCK_CUSTOMERS = [
   { id: 'cust-01', taxId: 'B-77492019-3', name: 'Constructora San Martín S.A.C.', email: 'compras@constructorasanmartin.com', customerType: 'EMPRESA' },
   { id: 'cust-02', taxId: 'B-88301922-1', name: 'Soluciones Eléctricas del Pacífico', email: 'finanzas@se-pacifico.net', customerType: 'EMPRESA' },
-  { id: 'cust-03', taxId: 'RFC-XAXX010101000', name: 'Cliente Mostrador / Venta Rápida', email: 'ventasmostrador@4-inLine.local', customerType: 'FINAL_CONSUMIDOR' }
+  { id: 'cust-03', taxId: 'RFC-XAXX010101000', name: 'Cliente Mostrador / Venta Rápida', email: 'ventasmostrador@Helameb.local', customerType: 'FINAL_CONSUMIDOR' }
 ];
 
 const MOCK_SUPPLIERS = [
@@ -108,14 +165,14 @@ const MOCK_SUPPLIERS = [
 ];
 
 // ERP REST API Routes
-app.get('/api/products', (req, res) => {
-  res.json(MOCK_PRODUCTS);
+/* app.get('/api/products', (req, res) => {
+  res.json(res);
 });
 
 app.post('/api/products', (req, res) => {
   const newProduct = req.body;
   newProduct.id = newProduct.id || `prod-${Date.now()}`;
-  MOCK_PRODUCTS.push(newProduct);
+  //MOCK_PRODUCTS.push(newProduct);
   res.status(201).json(newProduct);
 });
 
@@ -168,7 +225,7 @@ app.delete('/api/warehouses/:id', (req, res) => {
     res.status(404).json({ error: 'Warehouse not found' });
   }
 });
-
+*/
 app.get('/api/customers', (req, res) => {
   res.json(MOCK_CUSTOMERS);
 });
@@ -177,14 +234,14 @@ app.get('/api/suppliers', (req, res) => {
   res.json(MOCK_SUPPLIERS);
 });
 
-app.get('/api/invoices', (req, res) => {
+/* app.get('/api/invoices', (req, res) => {
   res.json([]);
 });
 
 app.post('/api/invoices', (req, res) => {
   const newInvoice = req.body;
   res.status(201).json(newInvoice);
-});
+}); */
 
 app.get('/api/kardex', (req, res) => {
   res.json([]);
@@ -387,7 +444,7 @@ let MASTER_AUDIT_LOGS = [
   {
     id: 'aud-001',
     timestamp: new Date(Date.now() - 3600000 * 24).toISOString(),
-    performerEmail: 'superadmin@4-inline.cloud',
+    performerEmail: 'superadmin@Helameb.cloud',
     action: 'PROVISION_TENANT',
     tenantId: 'tenant-tech-03',
     tenantName: 'Corporación Farmacéutica Global S.A.',
@@ -397,7 +454,7 @@ let MASTER_AUDIT_LOGS = [
   {
     id: 'aud-002',
     timestamp: new Date(Date.now() - 3600000 * 12).toISOString(),
-    performerEmail: 'superadmin@4-inline.cloud',
+    performerEmail: 'superadmin@Helameb.cloud',
     action: 'SUSPEND_TENANT',
     tenantId: 'tenant-dist-04',
     tenantName: 'Distribuidora Alimentos Mar Caribe',
@@ -407,7 +464,7 @@ let MASTER_AUDIT_LOGS = [
   {
     id: 'aud-003',
     timestamp: new Date(Date.now() - 3600000 * 2).toISOString(),
-    performerEmail: 'superadmin@4-inline.cloud',
+    performerEmail: 'superadmin@Helameb.cloud',
     action: 'PLAN_CHANGE',
     tenantId: 'tenant-agro-01',
     tenantName: 'AgroInsumos del Centro C.A.',
@@ -459,11 +516,11 @@ app.post('/api/v1/master/tenants', (req, res) => {
   MASTER_AUDIT_LOGS.unshift({
     id: `aud-${Date.now().toString(36)}`,
     timestamp: new Date().toISOString(),
-    performerEmail: 'superadmin@4-inline.cloud',
+    performerEmail: 'superadmin@Helameb.cloud',
     action: 'PROVISION_TENANT',
     tenantId: newTenant.id,
     tenantName: newTenant.companyName,
-    details: `Aprovisionamiento de nuevo tenant con subdominio ${newTenant.slug}.4-inline.cloud y Plan ${newTenant.plan}.`,
+    details: `Aprovisionamiento de nuevo tenant con subdominio ${newTenant.slug}.helameb.com y Plan ${newTenant.plan}.`,
     ipAddress: req.ip || '127.0.0.1'
   });
 
@@ -488,7 +545,7 @@ app.put('/api/v1/master/tenants/:id', (req, res) => {
   MASTER_AUDIT_LOGS.unshift({
     id: `aud-${Date.now().toString(36)}`,
     timestamp: new Date().toISOString(),
-    performerEmail: 'superadmin@4-inline.cloud',
+    performerEmail: 'superadmin@Helameb.cloud',
     action: 'UPDATE_TENANT',
     tenantId: id,
     tenantName: MASTER_TENANTS[index].companyName,
@@ -520,7 +577,7 @@ app.patch('/api/v1/master/tenants/:id/status', (req, res) => {
   MASTER_AUDIT_LOGS.unshift({
     id: `aud-${Date.now().toString(36)}`,
     timestamp: new Date().toISOString(),
-    performerEmail: 'superadmin@4-inline.cloud',
+    performerEmail: 'superadmin@Helameb.cloud',
     action: status === 'SUSPENDED' ? 'SUSPEND_TENANT' : 'ACTIVATE_TENANT',
     tenantId: id,
     tenantName: tenant.companyName,
@@ -557,7 +614,7 @@ app.patch('/api/v1/master/tenants/:id/plan', (req, res) => {
   MASTER_AUDIT_LOGS.unshift({
     id: `aud-${Date.now().toString(36)}`,
     timestamp: new Date().toISOString(),
-    performerEmail: 'superadmin@4-inline.cloud',
+    performerEmail: 'superadmin@Helameb.cloud',
     action: 'PLAN_CHANGE',
     tenantId: id,
     tenantName: tenant.companyName,
@@ -583,7 +640,7 @@ app.delete('/api/v1/master/tenants/:id', (req, res) => {
   MASTER_AUDIT_LOGS.unshift({
     id: `aud-${Date.now().toString(36)}`,
     timestamp: new Date().toISOString(),
-    performerEmail: 'superadmin@4-inline.cloud',
+    performerEmail: 'superadmin@Helameb.cloud',
     action: 'DELETE_TENANT',
     tenantId: id,
     tenantName: tenant.companyName,
@@ -610,7 +667,7 @@ app.post('/api/v1/master/impersonate', (req, res) => {
   MASTER_AUDIT_LOGS.unshift({
     id: `aud-${Date.now().toString(36)}`,
     timestamp: new Date().toISOString(),
-    performerEmail: 'superadmin@4-inline.cloud',
+    performerEmail: 'superadmin@Helameb.cloud',
     action: 'START_IMPERSONATION',
     tenantId: tenant.id,
     tenantName: tenant.companyName,
@@ -623,7 +680,7 @@ app.post('/api/v1/master/impersonate', (req, res) => {
     tenantId: tenant.id,
     tenantName: tenant.companyName,
     tenantSlug: tenant.slug,
-    supportAgentEmail: 'superadmin@4-inline.cloud',
+    supportAgentEmail: 'superadmin@Helameb.cloud',
     reason,
     startedAt: new Date().toISOString(),
     expiresAt,
