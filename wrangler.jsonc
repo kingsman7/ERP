@@ -1,0 +1,10 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "erp-helameb",
+  "main": "./dist/app/server/server.mjs",
+  "compatibility_date": "2026-09-24",
+  "assets": {
+    "directory": "./dist/app/browser",
+    "not_found_handling": "single-page-application"
+  }
+}
