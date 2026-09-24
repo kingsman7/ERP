@@ -57,6 +57,8 @@ const UNAUTHENTICATED_USER: User = {
   status: 'INACTIVO'
 };
 
+const PLATFORM_HOSTS = new Set(['admin.helameb.com', 'erp.helameb.com']);
+
 export interface PublicTenantContext {
   slug: string;
   name: string;
@@ -291,7 +293,7 @@ export class AuthService {
   }
 
   private isAdminHost(host: string): boolean {
-    return host.split('.')[0] === 'admin';
+    return PLATFORM_HOSTS.has(host);
   }
 
   login(email: string, password?: string): Observable<boolean> {
@@ -305,10 +307,7 @@ export class AuthService {
 
     const loginRequest = isMasterLogin
       ? this.http.post<AuthUser>(`${this.baseUrl}/v1/master/auth/login`, { email, password }, { withCredentials: true })
-      : this.http.post<AuthUser>(`${this.baseUrl}/auth/login`, { email, password }, {
-        withCredentials: true,
-        headers: { 'x-tenant-slug': tenant!.slug }
-      });
+      : this.http.post<AuthUser>(`${this.baseUrl}/auth/login`, { email, password }, { withCredentials: true });
 
     return loginRequest
       .pipe(

@@ -58,7 +58,7 @@ describe('AuthService session restoration', () => {
     request.flush({ tenantId: 'private-id', slug: 'repuestos-michelena', name: 'Repuestos Michelena', status: 'ACTIVE' });
   });
 
-  it('sends only credentials in the body and the resolved slug in the header', () => {
+  it('sends credentials without a tenant header because the backend resolves the hostname', () => {
     setHostname('repuestos-michelena.localhost');
     const service = TestBed.inject(AuthService);
     service.resolveTenantFromHost().subscribe();
@@ -68,13 +68,13 @@ describe('AuthService session restoration', () => {
 
     service.login('user@example.com', 'password123').subscribe(result => expect(result).toBe(true));
     const request = http.expectOne('/api/auth/login');
-    expect(request.request.headers.get('x-tenant-slug')).toBe('repuestos-michelena');
+    expect(request.request.headers.has('x-tenant-slug')).toBe(false);
     expect(request.request.body).toEqual({ email: 'user@example.com', password: 'password123' });
     request.flush({ accessToken: tokenWithExpiration(Math.floor(Date.now() / 1000) + 3600), user: TEST_USER });
   });
 
-  it('uses the master login on an admin host without resolving or sending a tenant', () => {
-    setHostname('admin.example.com');
+  it('uses the master login on the admin platform host without resolving or sending a tenant', () => {
+    setHostname('admin.helameb.com');
     const service = TestBed.inject(AuthService);
 
     service.resolveTenantFromHost().subscribe(context => expect(context).toBeNull());
@@ -85,6 +85,43 @@ describe('AuthService session restoration', () => {
     expect(request.request.headers.has('x-tenant-slug')).toBe(false);
     expect(request.request.body).toEqual({ email: 'admin@example.com', password: 'password123' });
     request.flush({ accessToken: tokenWithExpiration(Math.floor(Date.now() / 1000) + 3600), user: TEST_USER });
+  });
+
+  it('uses the master login on the ERP platform host', () => {
+    setHostname('erp.helameb.com');
+    const service = TestBed.inject(AuthService);
+
+    service.resolveTenantFromHost().subscribe(context => expect(context).toBeNull());
+    expect(service.isAdminDomain()).toBe(true);
+
+    service.login('admin@example.com', 'password123').subscribe(result => expect(result).toBe(true));
+    const request = http.expectOne('/api/v1/master/auth/login');
+    expect(request.request.headers.has('x-tenant-slug')).toBe(false);
+    request.flush({ accessToken: tokenWithExpiration(Math.floor(Date.now() / 1000) + 3600), user: TEST_USER });
+  });
+
+  it('resolves tenant.helameb.com as a tenant host', () => {
+    setHostname('tenant.helameb.com');
+    const service = TestBed.inject(AuthService);
+
+    service.resolveTenantFromHost().subscribe(context => {
+      expect(context).toEqual({ slug: 'tenant', name: 'Tenant', status: 'ACTIVE' });
+    });
+
+    const request = http.expectOne('/api/auth/public/tenants/resolve/tenant');
+    request.flush({ slug: 'tenant', name: 'Tenant', status: 'ACTIVE' });
+  });
+
+  it('keeps resolving tenants on non-platform preview hosts', () => {
+    setHostname('preview-tenant.pages.dev');
+    const service = TestBed.inject(AuthService);
+
+    service.resolveTenantFromHost().subscribe(context => {
+      expect(context).toEqual({ slug: 'preview-tenant', name: 'Preview Tenant', status: 'ACTIVE' });
+    });
+
+    const request = http.expectOne('/api/auth/public/tenants/resolve/preview-tenant');
+    request.flush({ slug: 'preview-tenant', name: 'Preview Tenant', status: 'ACTIVE' });
   });
 
   it('uses the master login on localhost and keeps the SUPERADMIN outside tenant context', () => {
