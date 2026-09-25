@@ -8,6 +8,12 @@ const checkAuthentication = () => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
+  if (authService.authInitialized()) {
+    return authService.isAuthenticated()
+      ? true
+      : router.createUrlTree(['/']);
+  }
+
   return toObservable(authService.authInitialized).pipe(
     filter(Boolean),
     take(1),

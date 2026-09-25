@@ -250,6 +250,12 @@ export default class LoginComponent implements OnInit {
 
   ngOnInit(): void {
     this.authService.resolveTenantFromHost().subscribe();
+    if (this.authService.isAuthenticated()) {
+      const destination = this.authService.isSuperAdmin()
+        ? (this.authService.hasTenantContext() ? ['/app/dashboard'] : ['/master/super-admin'])
+        : ['/app/dashboard'];
+      void this.router.navigate(destination);
+    }
   }
 
   onSubmitCredentials(): void {

@@ -57,7 +57,8 @@ const UNAUTHENTICATED_USER: User = {
   status: 'INACTIVO'
 };
 
-const PLATFORM_HOSTS = new Set(['admin.helameb.com', 'erp.helameb.com']);
+const PLATFORM_HOSTS = new Set(['admin.helameb.com', 'erp.helameb.com', 'devhelameb.local', 'erp.devhelameb.local']);
+const ADMIN_HOSTS = new Set(['admin.helameb.com', 'erp.helameb.com', 'devhelameb.local']);
 
 export interface PublicTenantContext {
   slug: string;
@@ -94,13 +95,38 @@ export class AuthService {
   private baseUrl = '/api';
   auditService = inject(AuditService);
 
+  private hasValidAccessToken(token: string): boolean {
+    if (!token || typeof token !== 'string') return false;
+    try {
+      const parts = token.split('.');
+      if (parts.length !== 3) return false;
+      const base64Url = parts[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const padLength = (4 - (base64.length % 4)) % 4;
+      const padded = base64 + '='.repeat(padLength);
+      const decodedStr = typeof atob !== 'undefined'
+        ? atob(padded)
+        : Buffer.from(padded, 'base64').toString('binary');
+      const jsonPayload = decodeURIComponent(
+        Array.prototype.map
+          .call(decodedStr, (c: string) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+          .join('')
+      );
+      const payload = JSON.parse(jsonPayload) as { exp?: number };
+      return typeof payload.exp === 'number' && payload.exp * 1000 > Date.now();
+    } catch {
+      return false;
+    }
+  }
+
+  private initialSession = this.loadStoredSession();
   private usersSignal = signal<User[]>([]);
-  private currentUserSignal = signal<User>(this.loadStoredSession()?.user ?? UNAUTHENTICATED_USER);
-  private tokenSignal = signal<string>('');
-  private isAuthenticatedSignal = signal<boolean>(false);
-  private authInitializedSignal = signal<boolean>(false);
+  private currentUserSignal = signal<User>(this.initialSession?.user ?? UNAUTHENTICATED_USER);
+  private tokenSignal = signal<string>(this.initialSession?.accessToken ?? '');
+  private isAuthenticatedSignal = signal<boolean>(Boolean(this.initialSession?.accessToken && this.hasValidAccessToken(this.initialSession.accessToken)));
+  private authInitializedSignal = signal<boolean>(Boolean(this.initialSession?.accessToken && this.hasValidAccessToken(this.initialSession.accessToken)));
   private tenantContextSignal = signal<PublicTenantContext | null>(null);
-  private impersonationContextSignal = signal<ImpersonationContext | null>(this.loadStoredSession()?.impersonationContext ?? null);
+  private impersonationContextSignal = signal<ImpersonationContext | null>(this.initialSession?.impersonationContext ?? null);
   private tenantResolutionPendingSignal = signal<boolean>(false);
   private tenantResolutionFailureSignal = signal<'tenant-unavailable' | 'admin-domain' | 'tenant-required' | null>(null);
   private lastAuthFailureSignal = signal<AuthFailure | null>(null);
@@ -180,7 +206,7 @@ export class AuthService {
   }
 
   private restoreSession(): void {
-    const session = this.loadStoredSession();
+    const session = this.initialSession ?? this.loadStoredSession();
     if (!session) {
       this.isAuthenticatedSignal.set(false);
       this.tokenSignal.set('');
@@ -197,9 +223,14 @@ export class AuthService {
       return;
     }
 
-    // The refresh token is an HttpOnly cookie, so it is intentionally not
-    // stored in localStorage. Give it a chance to renew the access token
-    // before the router evaluates the protected route.
+    const host = typeof window !== 'undefined' ? window.location.hostname.toLowerCase() : '';
+    if (this.isAdminHost(host)) {
+      this.handleExpiredSession();
+      this.authInitializedSignal.set(true);
+      return;
+    }
+
+    // El token expiró en tenant normal, intentar renovarlo con cookie
     this.http.post<{ accessToken: string }>(`${this.baseUrl}/auth/refresh`, {}, { withCredentials: true }).pipe(
       catchError(() => of(null))
     ).subscribe(result => {
@@ -213,19 +244,6 @@ export class AuthService {
       }
       this.authInitializedSignal.set(true);
     });
-  }
-
-  private hasValidAccessToken(token: string): boolean {
-    try {
-      const encodedPayload = token.split('.')[1]
-        .replace(/-/g, '+')
-        .replace(/_/g, '/');
-      const paddedPayload = encodedPayload.padEnd(Math.ceil(encodedPayload.length / 4) * 4, '=');
-      const payload = JSON.parse(atob(paddedPayload)) as { exp?: number };
-      return typeof payload.exp === 'number' && payload.exp * 1000 > Date.now();
-    } catch {
-      return false;
-    }
   }
 
   readonly sessionExpired = signal(false);
@@ -263,6 +281,11 @@ export class AuthService {
       this.tenantResolutionFailureSignal.set('admin-domain');
       return of(null);
     }
+    if (this.isPlatformHost(host)) {
+      this.tenantContextSignal.set(null);
+      this.tenantResolutionFailureSignal.set('tenant-required');
+      return of(null);
+    }
     if (!slug) {
       this.tenantResolutionFailureSignal.set('tenant-required');
       return of(null);
@@ -286,13 +309,17 @@ export class AuthService {
   }
 
   private slugFromHost(host: string): string | null {
-    if (!host || host === 'localhost' || this.isAdminHost(host)) return null;
+    if (!host || host === 'localhost' || this.isPlatformHost(host)) return null;
     if (host.endsWith('.localhost')) return host.slice(0, -'.localhost'.length).split('.')[0] || null;
     const labels = host.split('.');
     return labels.length >= 3 ? labels[0] : null;
   }
 
   private isAdminHost(host: string): boolean {
+    return ADMIN_HOSTS.has(host);
+  }
+
+  private isPlatformHost(host: string): boolean {
     return PLATFORM_HOSTS.has(host);
   }
 

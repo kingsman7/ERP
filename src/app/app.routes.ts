@@ -13,7 +13,6 @@ export const routes: Routes = [
 	},
 	{
 		path: 'app',
-		canMatch: [authMatchGuard],
 		canActivate: [authGuard],
 		loadComponent: () => import('./layouts/private-shell/private-shell.component').then(module => module.PrivateShellComponent),
 		children: [
@@ -38,7 +37,6 @@ export const routes: Routes = [
 	},
 	{
 		path: 'master',
-		canMatch: [authMatchGuard],
 		canActivate: [authGuard],
 		component: MasterShellComponent,
 		children: [

@@ -100,6 +100,33 @@ describe('AuthService session restoration', () => {
     request.flush({ accessToken: tokenWithExpiration(Math.floor(Date.now() / 1000) + 3600), user: TEST_USER });
   });
 
+  it('uses the master login on the local admin platform host', () => {
+    setHostname('devhelameb.local');
+    const service = TestBed.inject(AuthService);
+
+    service.resolveTenantFromHost().subscribe(context => expect(context).toBeNull());
+    expect(service.isAdminDomain()).toBe(true);
+
+    service.login('admin@example.com', 'password123').subscribe(result => expect(result).toBe(true));
+    const request = http.expectOne('/api/v1/master/auth/login');
+    expect(request.request.headers.has('x-tenant-slug')).toBe(false);
+    request.flush({ accessToken: tokenWithExpiration(Math.floor(Date.now() / 1000) + 3600), user: TEST_USER });
+  });
+
+  it('blocks tenant resolution and master login on the local ERP platform host', () => {
+    setHostname('erp.devhelameb.local');
+    const service = TestBed.inject(AuthService);
+
+    service.resolveTenantFromHost().subscribe(context => expect(context).toBeNull());
+    expect(service.isAdminDomain()).toBe(false);
+    expect(service.tenantResolutionFailure()).toBe('tenant-required');
+
+    service.login('admin@example.com', 'password123').subscribe(result => expect(result).toBe(false));
+    http.expectNone('/api/auth/public/tenants/resolve/erp');
+    http.expectNone('/api/v1/master/auth/login');
+    http.expectNone('/api/auth/login');
+  });
+
   it('resolves tenant.helameb.com as a tenant host', () => {
     setHostname('tenant.helameb.com');
     const service = TestBed.inject(AuthService);
