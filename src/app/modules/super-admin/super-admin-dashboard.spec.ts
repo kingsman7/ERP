@@ -1,6 +1,6 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { of, throwError } from 'rxjs';
 import { AuthService } from '../../services/auth.service';
@@ -55,12 +55,14 @@ const tenant: Tenant = {
 
 describe('SuperAdminDashboardComponent SaaS billing flow', () => {
   let component: SuperAdminDashboardComponent;
+  let fixture: ComponentFixture<SuperAdminDashboardComponent>;
   let service: SuperAdminService;
   let http: HttpTestingController;
   let authService: {
     impersonationContext: ReturnType<typeof signal>;
     impersonateTenant: ReturnType<typeof vi.fn>;
     clearImpersonationContext: ReturnType<typeof vi.fn>;
+    logout: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(() => {
@@ -75,14 +77,15 @@ describe('SuperAdminDashboardComponent SaaS billing flow', () => {
           useValue: authService = {
             impersonationContext: signal(null),
             impersonateTenant: vi.fn(),
-            clearImpersonationContext: vi.fn()
+            clearImpersonationContext: vi.fn(),
+            logout: vi.fn()
           }
         },
         { provide: ErpStateService, useValue: { notify: vi.fn() } },
       ],
     });
 
-    const fixture = TestBed.createComponent(SuperAdminDashboardComponent);
+    fixture = TestBed.createComponent(SuperAdminDashboardComponent);
     component = fixture.componentInstance;
     service = TestBed.inject(SuperAdminService);
     http = TestBed.inject(HttpTestingController);
@@ -138,6 +141,50 @@ describe('SuperAdminDashboardComponent SaaS billing flow', () => {
     ]);
   });
 
+  it('normalizes the paginated master tenant response and keeps tenants without a plan', () => {
+    service.fetchMasterData().subscribe();
+
+    http.expectOne('/api/v1/master/tenants').flush({
+      data: [
+        { id: 'tenant-1', name: 'Helameb', slug: 'erp', status: 'ACTIVE', plan: null },
+        { id: 'tenant-2', name: 'Acme Norte', slug: 'acme-norte', status: 'ACTIVE', plan: null },
+        { id: 'tenant-3', name: 'Acme Sur', slug: 'acme-sur', status: 'SUSPENDED', plan: null }
+      ],
+      meta: { total: 3, page: 1, limit: 20 }
+    });
+    http.expectOne('/api/v1/master/billing/plans').flush([]);
+
+    expect(service.filteredTenants()).toHaveLength(3);
+    expect(service.filteredTenants()[0]).toMatchObject({
+      id: 'tenant-1',
+      companyName: 'Helameb',
+      slug: 'erp',
+      status: 'ACTIVE',
+      plan: 'BASIC'
+    });
+  });
+
+  it('updates a tenant with PATCH and preserves the optimistic response and local state', () => {
+    let response: Tenant | null = null;
+    service.updateTenant(TENANT_ID, { companyName: 'Acme Updated' }).subscribe(result => {
+      response = result;
+    });
+
+    const request = http.expectOne(`/api/v1/master/tenants/${TENANT_ID}`);
+    expect(request.request.method).toBe('PATCH');
+    expect(request.request.body).toEqual({ companyName: 'Acme Updated' });
+    request.flush({ ...tenant, companyName: 'Acme Updated' });
+
+    expect(response).toMatchObject({
+      id: TENANT_ID,
+      companyName: 'Acme Updated'
+    });
+    expect(service.tenants()[0]).toMatchObject({
+      id: TENANT_ID,
+      companyName: 'Acme Updated'
+    });
+  });
+
   it('selects an active catalog tenant through AuthService impersonation', () => {
     authService.impersonateTenant.mockReturnValue(of({}));
     component.availableTenantSelection.set(TENANT_ID);
@@ -166,5 +213,18 @@ describe('SuperAdminDashboardComponent SaaS billing flow', () => {
 
     expect(authService.clearImpersonationContext).toHaveBeenCalled();
     expect(component.availableTenantSelection()).toBe('');
+  });
+
+  it('closes the SuperAdmin session from the visible header control', () => {
+    fixture.detectChanges();
+
+    const logoutButton = fixture.nativeElement.querySelector('#btn-superadmin-logout') as HTMLButtonElement;
+    expect(logoutButton).not.toBeNull();
+    expect(logoutButton.getAttribute('aria-label')).toBe('Cerrar sesión e ir al login');
+    expect(logoutButton.querySelector('mat-icon')?.textContent?.trim()).toBe('logout');
+
+    logoutButton.click();
+
+    expect(authService.logout).toHaveBeenCalledTimes(1);
   });
 });

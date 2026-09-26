@@ -44,6 +44,17 @@
           <mat-icon class="text-base">add_business</mat-icon>
           <span>Aprovisionar Nuevo Tenant</span>
         </button>
+
+        <button
+          type="button"
+          id="btn-superadmin-logout"
+          (click)="authService.logout()"
+          aria-label="Cerrar sesión e ir al login"
+          title="Cerrar sesión e ir al login"
+          class="px-3 py-2.5 rounded-xl bg-rose-600/90 hover:bg-rose-500 text-white font-bold text-xs shadow-lg shadow-rose-900/20 flex items-center space-x-1.5 transition-all cursor-pointer">
+          <mat-icon class="text-sm">logout</mat-icon>
+          <span>Cerrar sesión</span>
+        </button>
       </div>
 
     </div>

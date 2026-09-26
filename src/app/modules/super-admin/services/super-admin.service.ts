@@ -26,6 +26,11 @@ export interface AvailableTenant {
   plan: string;
 }
 
+interface MasterTenantsResponse {
+  data?: unknown;
+  meta?: unknown;
+}
+
 const STORAGE_KEY_TENANTS = 'nexus_erp_saas_tenants_v1';
 const STORAGE_KEY_PLANS = 'nexus_erp_saas_plans_v1';
 const STORAGE_KEY_AUDIT = 'nexus_erp_saas_audit_v1';
@@ -169,7 +174,10 @@ export class SuperAdminService {
   fetchMasterData(): Observable<boolean> {
     this.isLoading.set(true);
     return forkJoin({
-      tenants: this.http.get<Tenant[]>(`${this.MASTER_API_BASE}/tenants`).pipe(catchError(() => of([]))),
+      tenants: this.http.get<Tenant[] | MasterTenantsResponse>(`${this.MASTER_API_BASE}/tenants`).pipe(
+        map(response => this.normalizeTenantsResponse(response)),
+        catchError(() => of([] as Tenant[]))
+      ),
       plans: this.http.get<SubscriptionPlan[]>(`${this.MASTER_API_BASE}/billing/plans`).pipe(
         map(plans => plans.map(plan => ({ ...plan, id: plan.code as PlanTier, saasPlanId: plan.id }))),
         catchError(() => of([] as SubscriptionPlan[]))
@@ -183,6 +191,74 @@ export class SuperAdminService {
       }),
       map(() => true)
     );
+  }
+
+  private normalizeTenantsResponse(response: Tenant[] | MasterTenantsResponse): Tenant[] {
+    const records = Array.isArray(response)
+      ? response
+      : Array.isArray(response?.data) ? response.data : [];
+
+    return records.map(record => this.normalizeTenant(record));
+  }
+
+  private normalizeTenant(record: unknown): Tenant {
+    const tenant = this.asRecord(record);
+    const plan = tenant['plan'];
+    const planCode = this.asRecord(plan)?.['code'] ?? plan;
+    const status = tenant['status'];
+
+    return {
+      id: this.asString(tenant['id'], ''),
+      slug: this.asString(tenant['slug'], 'tenant'),
+      companyName: this.asString(tenant['companyName'] ?? tenant['name'], 'Sin nombre'),
+      legalTaxId: this.asString(tenant['legalTaxId'] ?? tenant['taxId'], 'N/D'),
+      plan: this.isPlanTier(planCode) ? planCode : 'BASIC',
+      status: this.isTenantStatus(status) ? status : 'PENDING',
+      createdAt: this.asString(tenant['createdAt'], new Date(0).toISOString()),
+      updatedAt: this.asOptionalString(tenant['updatedAt']),
+      contactEmail: this.asString(tenant['contactEmail'], ''),
+      contactPhone: this.asString(tenant['contactPhone'], ''),
+      adminUserName: this.asString(tenant['adminUserName'], 'N/D'),
+      adminUserEmail: this.asString(tenant['adminUserEmail'] ?? tenant['adminEmail'], ''),
+      maxUsers: this.asNumber(tenant['maxUsers']),
+      currentUsersCount: this.asNumber(tenant['currentUsersCount']),
+      storageLimitMb: this.asNumber(tenant['storageLimitMb']),
+      storageUsedMb: this.asNumber(tenant['storageUsedMb']),
+      customDomain: this.asOptionalString(tenant['customDomain']),
+      billingCycle: tenant['billingCycle'] === 'ANNUAL' ? 'ANNUAL' : 'MONTHLY',
+      monthlyFeeUsd: this.asNumber(tenant['monthlyFeeUsd']),
+      nextBillingDate: this.asString(tenant['nextBillingDate'], ''),
+      region: this.asString(tenant['region'], 'N/D'),
+      databaseTier: this.asString(tenant['databaseTier'], 'N/D'),
+      features: Array.isArray(tenant['features']) ? tenant['features'].filter((feature): feature is string => typeof feature === 'string') : [],
+      notes: this.asOptionalString(tenant['notes'])
+    };
+  }
+
+  private asRecord(value: unknown): Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value)
+      ? value as Record<string, unknown>
+      : {};
+  }
+
+  private asString(value: unknown, fallback: string): string {
+    return typeof value === 'string' && value.trim() ? value : fallback;
+  }
+
+  private asOptionalString(value: unknown): string | undefined {
+    return typeof value === 'string' && value.trim() ? value : undefined;
+  }
+
+  private asNumber(value: unknown): number {
+    return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+  }
+
+  private isPlanTier(value: unknown): value is PlanTier {
+    return value === 'BASIC' || value === 'PRO' || value === 'ENTERPRISE';
+  }
+
+  private isTenantStatus(value: unknown): value is TenantStatus {
+    return value === 'ACTIVE' || value === 'SUSPENDED' || value === 'PENDING';
   }
 
   getTenants(): Observable<Tenant[]> {
@@ -352,7 +428,7 @@ export class SuperAdminService {
         severity: 'INFO'
       });
 
-      this.http.put(`${this.MASTER_API_BASE}/tenants/${id}`, updates).pipe(
+      this.http.patch(`${this.MASTER_API_BASE}/tenants/${id}`, updates).pipe(
         catchError(() => of(null))
       ).subscribe();
 
