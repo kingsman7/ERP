@@ -99,6 +99,21 @@ describe('SuperAdminDashboardComponent SaaS billing flow', () => {
 
   afterEach(() => http.verify());
 
+  const fillProvisionForm = () => component.provisionForm.patchValue({
+    companyName: 'Acme Nueva',
+    slug: 'acme-nueva',
+    legalTaxId: 'J-12345678-9',
+    contactEmail: 'billing@example.com',
+    contactPhone: '+58 212-555-0100',
+    adminUserName: 'Admin Acme',
+    adminUserEmail: 'admin@example.com',
+    adminPassword: 'Initial-Password-123!',
+    billingCycle: 'ANNUAL',
+    region: 'sa-east1',
+    customDomain: 'erp.acme.example',
+    notes: 'Cuenta nueva'
+  });
+
   it('keeps the selected tenant plan unchanged until the backend confirms ACTIVE', () => {
     component.openChangePlanModal(tenant);
     component.planChangeForm.controls.plan.setValue('BASIC');
@@ -141,7 +156,7 @@ describe('SuperAdminDashboardComponent SaaS billing flow', () => {
     ]);
   });
 
-  it('normalizes the paginated master tenant response and keeps tenants without a plan', () => {
+  it('normalizes the paginated master tenant response without assigning plans to unassigned tenants', () => {
     service.fetchMasterData().subscribe();
 
     http.expectOne('/api/v1/master/tenants').flush({
@@ -160,8 +175,63 @@ describe('SuperAdminDashboardComponent SaaS billing flow', () => {
       companyName: 'Helameb',
       slug: 'erp',
       status: 'ACTIVE',
-      plan: 'BASIC'
+      plan: null
     });
+  });
+
+  it('submits without a plan selector and closes the provisioning modal only after API success', () => {
+    component.openProvisionModal();
+    fillProvisionForm();
+    expect(component.provisionForm.contains('plan')).toBe(false);
+
+    component.submitProvision();
+
+    const request = http.expectOne('/api/v1/master/tenants');
+    expect(request.request.body).toMatchObject({
+      name: 'Acme Nueva',
+      slug: 'acme-nueva',
+      adminEmail: 'admin@example.com',
+      adminName: 'Admin Acme',
+      adminPassword: 'Initial-Password-123!',
+      rif: 'J-12345678-9',
+      contactEmail: 'billing@example.com',
+      contactPhone: '+58 212-555-0100',
+      billingCycle: 'ANNUAL',
+      region: 'sa-east1',
+      customDomain: 'erp.acme.example',
+      notes: 'Cuenta nueva'
+    });
+    expect(component.showProvisionModal()).toBe(true);
+
+    request.flush({
+      tenant: {
+        id: 'new-tenant',
+        name: 'Acme Nueva',
+        slug: 'acme-nueva',
+        status: 'ACTIVE',
+        metadata: { rif: 'J-12345678-9', region: 'sa-east1' }
+      },
+      adminUser: { id: 'new-admin', name: 'Admin Acme', email: 'admin@example.com' },
+      mainWarehouse: { id: 'new-warehouse', code: 'ALM-ACME-01', name: 'Almacén Principal Acme Nueva' }
+    });
+
+    expect(component.showProvisionModal()).toBe(false);
+    expect(service.tenants()[0]).toMatchObject({ id: 'new-tenant', companyName: 'Acme Nueva' });
+  });
+
+  it('keeps the provisioning modal open and shows the API error on failure', () => {
+    component.openProvisionModal();
+    fillProvisionForm();
+    component.submitProvision();
+
+    const request = http.expectOne('/api/v1/master/tenants');
+    request.flush({ message: 'El slug ya está en uso' }, { status: 409, statusText: 'Conflict' });
+    fixture.detectChanges();
+
+    expect(component.showProvisionModal()).toBe(true);
+    expect(component.provisionError()).toBe('El slug ya está en uso');
+    expect(fixture.nativeElement.textContent).toContain('El slug ya está en uso');
+    expect(service.tenants()).toEqual([tenant]);
   });
 
   it('updates a tenant with PATCH and preserves the optimistic response and local state', () => {

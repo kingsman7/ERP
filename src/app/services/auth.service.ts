@@ -57,8 +57,8 @@ const UNAUTHENTICATED_USER: User = {
   status: 'INACTIVO'
 };
 
-const PLATFORM_HOSTS = new Set(['admin.helameb.com', 'erp.helameb.com', 'devhelameb.local', 'erp.devhelameb.local']);
-const ADMIN_HOSTS = new Set(['admin.helameb.com', 'erp.helameb.com', 'devhelameb.local']);
+const PLATFORM_HOSTS = new Set(['admin.helameb.com', 'erp.helameb.com', 'helameb.local', 'erp.helameb.local']);
+const ADMIN_HOSTS = new Set(['admin.helameb.com', 'erp.helameb.com', 'helameb.local']);
 
 export interface PublicTenantContext {
   slug: string;

@@ -59,7 +59,7 @@ app.listen(PORT, () => {
   console.log(`=========================================`);
   console.log(`🚀 Frontend ERP activo con PM2 en puerto: ${PORT}`);
   console.log(`🌐 URL Local: http://localhost:${PORT}`);
-  console.log(`🌐 Dominio: http://devhelameb.local${PORT === 80 ? '' : ':' + PORT}`);
+  console.log(`🌐 Dominio: http://helameb.local${PORT === 80 ? '' : ':' + PORT}`);
   console.log(`🔗 Proxy /api redirigiendo a: ${BACKEND_URL}/api`);
   console.log(`=========================================`);
 });

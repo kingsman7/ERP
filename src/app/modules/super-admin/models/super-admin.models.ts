@@ -9,7 +9,7 @@ export interface Tenant {
   slug: string;
   companyName: string;
   legalTaxId: string; // RIF, RFC, NIF or CIF
-  plan: PlanTier;
+  plan: PlanTier | null;
   status: TenantStatus;
   createdAt: string;
   updatedAt?: string;

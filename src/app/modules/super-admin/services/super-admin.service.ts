@@ -1,6 +1,6 @@
 import { Injectable, inject, signal, computed, Injector } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, of, tap, catchError, forkJoin, map, throwError } from 'rxjs';
+import { Observable, of, tap, catchError, forkJoin, map } from 'rxjs';
 import { 
   Tenant, 
   SubscriptionPlan, 
@@ -29,6 +29,12 @@ export interface AvailableTenant {
 interface MasterTenantsResponse {
   data?: unknown;
   meta?: unknown;
+}
+
+interface CreateTenantResponse {
+  tenant: unknown;
+  adminUser?: unknown;
+  mainWarehouse?: unknown;
 }
 
 const STORAGE_KEY_TENANTS = 'nexus_erp_saas_tenants_v1';
@@ -203,6 +209,7 @@ export class SuperAdminService {
 
   private normalizeTenant(record: unknown): Tenant {
     const tenant = this.asRecord(record);
+    const metadata = this.asRecord(tenant['metadata']);
     const plan = tenant['plan'];
     const planCode = this.asRecord(plan)?.['code'] ?? plan;
     const status = tenant['status'];
@@ -211,27 +218,27 @@ export class SuperAdminService {
       id: this.asString(tenant['id'], ''),
       slug: this.asString(tenant['slug'], 'tenant'),
       companyName: this.asString(tenant['companyName'] ?? tenant['name'], 'Sin nombre'),
-      legalTaxId: this.asString(tenant['legalTaxId'] ?? tenant['taxId'], 'N/D'),
-      plan: this.isPlanTier(planCode) ? planCode : 'BASIC',
+      legalTaxId: this.asString(tenant['legalTaxId'] ?? tenant['taxId'] ?? metadata['rif'], 'N/D'),
+      plan: this.isPlanTier(planCode) ? planCode : null,
       status: this.isTenantStatus(status) ? status : 'PENDING',
       createdAt: this.asString(tenant['createdAt'], new Date(0).toISOString()),
       updatedAt: this.asOptionalString(tenant['updatedAt']),
-      contactEmail: this.asString(tenant['contactEmail'], ''),
-      contactPhone: this.asString(tenant['contactPhone'], ''),
+      contactEmail: this.asString(tenant['contactEmail'] ?? metadata['contactEmail'], ''),
+      contactPhone: this.asString(tenant['contactPhone'] ?? metadata['contactPhone'], ''),
       adminUserName: this.asString(tenant['adminUserName'], 'N/D'),
       adminUserEmail: this.asString(tenant['adminUserEmail'] ?? tenant['adminEmail'], ''),
       maxUsers: this.asNumber(tenant['maxUsers']),
       currentUsersCount: this.asNumber(tenant['currentUsersCount']),
       storageLimitMb: this.asNumber(tenant['storageLimitMb']),
       storageUsedMb: this.asNumber(tenant['storageUsedMb']),
-      customDomain: this.asOptionalString(tenant['customDomain']),
-      billingCycle: tenant['billingCycle'] === 'ANNUAL' ? 'ANNUAL' : 'MONTHLY',
+      customDomain: this.asOptionalString(tenant['customDomain'] ?? metadata['customDomain']),
+      billingCycle: (tenant['billingCycle'] ?? metadata['billingCycle']) === 'ANNUAL' ? 'ANNUAL' : 'MONTHLY',
       monthlyFeeUsd: this.asNumber(tenant['monthlyFeeUsd']),
       nextBillingDate: this.asString(tenant['nextBillingDate'], ''),
-      region: this.asString(tenant['region'], 'N/D'),
+      region: this.asString(tenant['region'] ?? metadata['region'], 'N/D'),
       databaseTier: this.asString(tenant['databaseTier'], 'N/D'),
       features: Array.isArray(tenant['features']) ? tenant['features'].filter((feature): feature is string => typeof feature === 'string') : [],
-      notes: this.asOptionalString(tenant['notes'])
+      notes: this.asOptionalString(tenant['notes'] ?? metadata['notes'])
     };
   }
 
@@ -316,7 +323,7 @@ export class SuperAdminService {
     companyName: string;
     slug?: string;
     legalTaxId: string;
-    plan: PlanTier;
+    adminPassword: string;
     contactEmail: string;
     contactPhone?: string;
     adminUserName: string;
@@ -327,77 +334,48 @@ export class SuperAdminService {
     notes?: string;
   }): Observable<Tenant> {
     const slug = payload.slug ? this.slugify(payload.slug) : this.slugify(payload.companyName);
-    const planConfig = this.plans().find(p => p.id === payload.plan) || this.plans()[0];
-    if (!planConfig) {
-      return throwError(() => new Error('No hay planes reales disponibles. Sincroniza el catálogo antes de crear el tenant.'));
-    }
-    const fee = payload.billingCycle === 'ANNUAL' ? (planConfig.priceAnnualUsd / 12) : planConfig.priceMonthlyUsd;
-
-    const newTenant: Tenant = {
-      id: `tnt-${Date.now().toString().slice(-6)}`,
+    const request = {
+      name: payload.companyName.trim(),
       slug,
-      companyName: payload.companyName.trim(),
-      legalTaxId: payload.legalTaxId.trim().toUpperCase(),
-      plan: payload.plan,
-      status: 'ACTIVE',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      contactEmail: payload.contactEmail.trim().toLowerCase(),
-      contactPhone: payload.contactPhone || '+58 212-0000000',
-      adminUserName: payload.adminUserName.trim(),
-      adminUserEmail: payload.adminUserEmail.trim().toLowerCase(),
-      maxUsers: planConfig.maxUsers,
-      currentUsersCount: 1, // The initial admin user
-      storageLimitMb: planConfig.storageLimitMb,
-      storageUsedMb: 45, // Initial schema bootstrap footprint
-      customDomain: payload.customDomain ? payload.customDomain.trim().toLowerCase() : undefined,
-      billingCycle: payload.billingCycle || 'MONTHLY',
-      monthlyFeeUsd: Math.round(fee * 100) / 100,
-      nextBillingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      region: payload.region || 'us-east1',
-      databaseTier: payload.plan === 'ENTERPRISE' ? 'Cloud SQL PG15 (Dedicated)' : 'Cloud SQL Shared',
-      features: [...planConfig.allowedModules],
-      notes: payload.notes
+      adminEmail: payload.adminUserEmail.trim().toLowerCase(),
+      adminName: payload.adminUserName.trim(),
+      adminPassword: payload.adminPassword,
+      ...(payload.legalTaxId.trim() ? { rif: payload.legalTaxId.trim().toUpperCase() } : {}),
+      ...(payload.contactEmail.trim() ? { contactEmail: payload.contactEmail.trim().toLowerCase() } : {}),
+      ...(payload.contactPhone?.trim() ? { contactPhone: payload.contactPhone.trim() } : {}),
+      ...(payload.billingCycle ? { billingCycle: payload.billingCycle } : {}),
+      ...(payload.region?.trim() ? { region: payload.region.trim() } : {}),
+      ...(payload.customDomain?.trim() ? { customDomain: payload.customDomain.trim().toLowerCase() } : {}),
+      ...(payload.notes?.trim() ? { notes: payload.notes.trim() } : {})
     };
 
-    // Update in-memory state
-    this.tenants.update(list => [newTenant, ...list]);
-    this.saveTenantsToStorage(this.tenants());
-
-    // Record Audit Log
-    this.recordAuditLog({
-      tenantId: newTenant.id,
-      tenantName: newTenant.companyName,
-      action: 'PROVISION_TENANT',
-      details: `Aprovisionamiento de nuevo tenant: ${newTenant.companyName} (${newTenant.slug}) con Plan ${newTenant.plan}. Admin: ${newTenant.adminUserEmail}`,
-      severity: 'INFO'
-    });
-
-    // Persist the tenant using the master API contract.
-    this.http.post(`${this.MASTER_API_BASE}/tenants`, {
-      name: newTenant.companyName,
-      slug: newTenant.slug,
-      adminEmail: newTenant.adminUserEmail,
-      adminName: newTenant.adminUserName,
-      adminPassword: this.generateTemporaryPassword()
-    }).pipe(
-      catchError(() => of(newTenant))
-    ).subscribe();
-
-    this.erpState.notify(
-      'success',
-      'Tenant Aprovisionado con Éxito',
-      `La empresa ${newTenant.companyName} ha sido creada en la región ${newTenant.region} con el subdominio ${newTenant.slug}.helameb.com`
+    return this.http.post<CreateTenantResponse>(`${this.MASTER_API_BASE}/tenants`, request).pipe(
+      map(response => {
+        const tenant = this.asRecord(response.tenant);
+        const adminUser = this.asRecord(response.adminUser);
+        return this.normalizeTenant({
+          ...tenant,
+          adminUserName: tenant['adminUserName'] ?? adminUser['name'],
+          adminUserEmail: tenant['adminUserEmail'] ?? adminUser['email']
+        });
+      }),
+      tap(createdTenant => {
+        this.tenants.update(list => [createdTenant, ...list]);
+        this.saveTenantsToStorage(this.tenants());
+        this.recordAuditLog({
+          tenantId: createdTenant.id,
+          tenantName: createdTenant.companyName,
+          action: 'PROVISION_TENANT',
+          details: `Aprovisionamiento de tenant: ${createdTenant.companyName} (${createdTenant.slug}). Admin: ${createdTenant.adminUserEmail}`,
+          severity: 'INFO'
+        });
+        this.erpState.notify(
+          'success',
+          'Tenant Aprovisionado con Éxito',
+          `La empresa ${createdTenant.companyName} ha sido creada. El plan se gestiona después desde Planes/Suscripciones.`
+        );
+      })
     );
-
-    return of(newTenant);
-  }
-
-  private generateTemporaryPassword(): string {
-    const random = typeof crypto !== 'undefined' && 'randomUUID' in crypto
-      ? crypto.randomUUID().replace(/-/g, '')
-      : `${Date.now()}${Math.random().toString(36).slice(2)}`;
-    return `Tmp-${random.slice(0, 16)}!`;
   }
 
   updateTenant(id: string, updates: Partial<Tenant>): Observable<Tenant | null> {
@@ -636,7 +614,7 @@ export class SuperAdminService {
       taxId: tenant.legalTaxId,
       email: tenant.contactEmail,
       phone: tenant.contactPhone,
-      planTier: tenant.plan === 'BASIC' ? 'BASE' : 'FULL'
+      planTier: tenant.plan === 'BASIC' || tenant.plan === null ? 'BASE' : 'FULL'
     });
 
     // Create a support session user identity

@@ -32,6 +32,8 @@ export default class SuperAdminDashboardComponent {
 
   // Modal Visibility Signals
   showProvisionModal = signal<boolean>(false);
+  provisionSubmitting = signal<boolean>(false);
+  provisionError = signal<string | null>(null);
   editingTenant = signal<Tenant | null>(null);
   changingPlanTenant = signal<Tenant | null>(null);
   impersonatingTenant = signal<Tenant | null>(null);
@@ -54,11 +56,11 @@ export default class SuperAdminDashboardComponent {
     companyName: new FormControl<string>('', { nonNullable: true, validators: [Validators.required, Validators.minLength(3)] }),
     slug: new FormControl<string>('', { nonNullable: true }),
     legalTaxId: new FormControl<string>('', { nonNullable: true, validators: [Validators.required] }),
-    plan: new FormControl<string>('', { nonNullable: true, validators: [Validators.required] }),
     contactEmail: new FormControl<string>('', { nonNullable: true, validators: [Validators.required, Validators.email] }),
     contactPhone: new FormControl<string>('+58 212-0000000', { nonNullable: true }),
     adminUserName: new FormControl<string>('', { nonNullable: true, validators: [Validators.required] }),
     adminUserEmail: new FormControl<string>('', { nonNullable: true, validators: [Validators.required, Validators.email] }),
+    adminPassword: new FormControl<string>('', { nonNullable: true, validators: [Validators.required, Validators.minLength(8), Validators.maxLength(128)] }),
     billingCycle: new FormControl<BillingCycle>('MONTHLY', { nonNullable: true }),
     region: new FormControl<string>('us-east1', { nonNullable: true }),
     customDomain: new FormControl<string>('', { nonNullable: true }),
@@ -164,16 +166,18 @@ export default class SuperAdminDashboardComponent {
       companyName: '',
       slug: '',
       legalTaxId: '',
-      plan: '',
       contactEmail: '',
       contactPhone: '+58 212-0000000',
       adminUserName: '',
       adminUserEmail: '',
+      adminPassword: '',
       billingCycle: 'MONTHLY',
       region: 'us-east1',
       customDomain: '',
       notes: ''
     });
+    this.provisionError.set(null);
+    this.provisionSubmitting.set(false);
     this.showProvisionModal.set(true);
   }
 
@@ -182,11 +186,13 @@ export default class SuperAdminDashboardComponent {
   }
 
   submitProvision(): void {
-    if (this.provisionForm.invalid) {
+    if (this.provisionForm.invalid || this.provisionSubmitting()) {
       this.provisionForm.markAllAsTouched();
       return;
     }
 
+    this.provisionError.set(null);
+    this.provisionSubmitting.set(true);
     const val = this.provisionForm.getRawValue();
     const finalSlug = val.slug && val.slug.trim().length > 0 
       ? this.superAdminService.slugify(val.slug) 
@@ -196,18 +202,33 @@ export default class SuperAdminDashboardComponent {
       companyName: val.companyName,
       slug: finalSlug,
       legalTaxId: val.legalTaxId,
-      plan: val.plan as PlanTier,
       contactEmail: val.contactEmail,
       contactPhone: val.contactPhone,
       adminUserName: val.adminUserName,
       adminUserEmail: val.adminUserEmail,
+      adminPassword: val.adminPassword,
       billingCycle: val.billingCycle,
       region: val.region,
       customDomain: val.customDomain || undefined,
       notes: val.notes || undefined
-    }).subscribe(() => {
-      this.closeProvisionModal();
+    }).subscribe({
+      next: () => {
+        this.provisionSubmitting.set(false);
+        this.closeProvisionModal();
+      },
+      error: error => {
+        this.provisionSubmitting.set(false);
+        this.provisionError.set(this.getProvisionErrorMessage(error));
+      }
     });
+  }
+
+  private getProvisionErrorMessage(error: unknown): string {
+    const response = error as HttpErrorResponse;
+    const message = response?.error?.message;
+    if (Array.isArray(message)) return message.join(' ');
+    if (typeof message === 'string' && message.trim()) return message;
+    return 'No fue posible crear el tenant. Revisa los datos e inténtalo nuevamente.';
   }
 
   // =========================================================================
@@ -264,7 +285,7 @@ export default class SuperAdminDashboardComponent {
     this.billingStatus.set('NONE');
     this.billingError.set(null);
     this.planChangeForm.patchValue({
-      plan: tenant.plan,
+      plan: tenant.plan ?? '',
       billingCycle: tenant.billingCycle
     });
   }

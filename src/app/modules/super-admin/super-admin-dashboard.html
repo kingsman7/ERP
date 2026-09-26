@@ -394,10 +394,10 @@
                     <div class="flex flex-col">
                       <div class="flex items-center space-x-1.5">
                         <span class="px-2 py-0.5 rounded-md font-mono text-[10px] font-bold uppercase border"
-                          [class]="tenant.plan === 'ENTERPRISE' 
+                          [class]="tenant.plan === 'ENTERPRISE'
                             ? 'bg-purple-50 text-purple-700 border-purple-200' 
-                            : (tenant.plan === 'PRO' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-blue-50 text-blue-700 border-blue-200')">
-                          {{ tenant.plan }}
+                            : (tenant.plan === 'PRO' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : (tenant.plan === 'BASIC' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-50 text-slate-500 border-slate-200'))">
+                          {{ tenant.plan ?? 'Sin plan' }}
                         </span>
                         <span class="text-[10px] font-bold text-slate-400 uppercase">
                           {{ tenant.billingCycle === 'ANNUAL' ? 'ANUAL' : 'MENSUAL' }}
@@ -830,13 +830,15 @@
           </div>
           <div>
             <h2 class="text-base font-black text-slate-900">Aprovisionar Nuevo Tenant SaaS</h2>
-            <p class="text-xs text-slate-500">Alta de empresa con partición de datos, usuario administrador y plan inicial.</p>
+            <p class="text-xs text-slate-500">Alta de empresa, espacio de datos y usuario administrador.</p>
           </div>
         </div>
 
         <button 
           id="btn-close-provision-modal"
           (click)="closeProvisionModal()"
+          [disabled]="provisionSubmitting()"
+          aria-label="Cerrar aprovisionamiento"
           class="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer">
           <mat-icon>close</mat-icon>
         </button>
@@ -862,7 +864,7 @@
 
           <!-- Subdomain / Slug Preview -->
           <div class="space-y-1">
-            <label class="font-bold text-slate-700" for="prov-slug">Subdominio SaaS (Slug) *</label>
+            <label class="font-bold text-slate-700" for="prov-slug">Subdominio SaaS (Slug)</label>
             <div class="flex items-center rounded-xl border border-slate-300 overflow-hidden bg-slate-50 focus-within:ring-2 focus-within:ring-indigo-500">
               <input 
                 id="prov-slug"
@@ -891,20 +893,6 @@
             }
           </div>
 
-          <!-- Plan Selection -->
-          <div class="space-y-1">
-            <label class="font-bold text-slate-700" for="prov-plan">Plan Inicial de Suscripción *</label>
-            <select
-              id="prov-plan"
-              formControlName="plan"
-              class="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 font-medium">
-              <option value="" disabled>Selecciona un plan real</option>
-              @for (plan of plans(); track plan.id) {
-                <option [value]="plan.code">{{ plan.name }} ({{ plan.maxUsers }} usuarios)</option>
-              }
-            </select>
-          </div>
-
           <!-- Billing Cycle -->
           <div class="space-y-1">
             <label class="font-bold text-slate-700" for="prov-cycle">Ciclo de Facturación</label>
@@ -912,8 +900,8 @@
               id="prov-cycle"
               formControlName="billingCycle"
               class="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 font-medium">
-              <option value="MONTHLY">Mensual (Tarifa estándar)</option>
-              <option value="ANNUAL">Anual (20% de descuento incluido)</option>
+              <option value="MONTHLY">Mensual</option>
+              <option value="ANNUAL">Anual</option>
             </select>
           </div>
 
@@ -961,6 +949,19 @@
               class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500" />
           </div>
 
+          <div class="space-y-1">
+            <label class="font-bold text-slate-700" for="prov-admin-password">Contraseña inicial del administrador *</label>
+            <input
+              id="prov-admin-password"
+              type="password"
+              autocomplete="new-password"
+              formControlName="adminPassword"
+              class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500" />
+            @if (provisionForm.controls.adminPassword.touched && provisionForm.controls.adminPassword.invalid) {
+              <p class="text-rose-600 text-[10px]">Usa una contraseña de entre 8 y 128 caracteres.</p>
+            }
+          </div>
+
           <!-- Cloud Region -->
           <div class="space-y-1">
             <label class="font-bold text-slate-700" for="prov-region">Región Cloud de Alojamiento</label>
@@ -985,13 +986,30 @@
               class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 font-mono" />
           </div>
 
+          <div class="sm:col-span-2 space-y-1">
+            <label class="font-bold text-slate-700" for="prov-notes">Notas administrativas</label>
+            <textarea
+              id="prov-notes"
+              rows="3"
+              maxlength="2000"
+              formControlName="notes"
+              class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"></textarea>
+          </div>
+
         </div>
+
+        <p class="text-[11px] text-slate-500">Después del alta, gestiona el plan desde Planes/Suscripciones.</p>
+
+        @if (provisionError(); as error) {
+          <p role="alert" aria-live="assertive" class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{{ error }}</p>
+        }
 
         <div class="pt-4 border-t border-slate-100 flex items-center justify-end space-x-3">
           <button 
             id="btn-cancel-provision"
             type="button"
             (click)="closeProvisionModal()"
+            [disabled]="provisionSubmitting()"
             class="px-4 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-bold transition-all cursor-pointer">
             Cancelar
           </button>
@@ -999,10 +1017,10 @@
           <button 
             id="btn-submit-provision"
             type="submit"
-            [disabled]="provisionForm.invalid"
+            [disabled]="provisionForm.invalid || provisionSubmitting()"
             class="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold shadow-md shadow-indigo-600/30 flex items-center space-x-2 transition-all cursor-pointer">
-            <mat-icon class="text-sm">rocket_launch</mat-icon>
-            <span>Crear y Aprovisionar Tenant</span>
+            <mat-icon class="text-sm">{{ provisionSubmitting() ? 'progress_activity' : 'rocket_launch' }}</mat-icon>
+            <span>{{ provisionSubmitting() ? 'Creando tenant…' : 'Crear tenant' }}</span>
           </button>
         </div>
 
@@ -1385,7 +1403,7 @@
         
         <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
           <span class="text-slate-400 block text-[10px] uppercase font-bold">Plan y Facturación</span>
-          <span class="font-bold text-slate-900 block mt-1">Plan {{ target.plan }} ({{ target.billingCycle }})</span>
+          <span class="font-bold text-slate-900 block mt-1">Plan {{ target.plan ?? 'Sin plan' }} ({{ target.billingCycle }})</span>
           <span class="text-slate-500 font-mono">${{ target.monthlyFeeUsd  | number: '1.2-2' }} USD/mes</span>
         </div>
 
