@@ -290,11 +290,11 @@ export class KeyboardShortcutsService {
       id: 'NAV_SUPERADMIN',
       keys: ['Alt', 'M'],
       keyDisplay: 'Alt + M',
-      title: 'Consola Master Multi-Tenant',
-      description: 'Gestión global SaaS de inquilinos, aprovisionamiento e impersonación de soporte',
+      title: 'Gestión de Empresa y Suscripción',
+      description: 'Consulta la configuración singleton de la empresa y su suscripción SaaS',
       category: 'NAVIGATION',
       icon: 'admin_panel_settings',
-      targetNav: 'super-admin'
+      targetNav: 'company-admin'
     },
     {
       id: 'NAV_MANUAL',

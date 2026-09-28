@@ -17,13 +17,6 @@ function tokenWithExpiration(expiration: number): string {
   return `header.${payload}.signature`;
 }
 
-function setHostname(hostname: string): void {
-  Object.defineProperty(window, 'location', {
-    configurable: true,
-    value: { hostname }
-  });
-}
-
 describe('AuthService session restoration', () => {
   let http: HttpTestingController;
 
@@ -41,148 +34,43 @@ describe('AuthService session restoration', () => {
 
   afterEach(() => {
     http.verify();
-    setHostname('localhost');
     localStorage.clear();
   });
 
-  it('resolves the tenant slug from a tenant hostname and stores no tenant id', () => {
-    setHostname('repuestos-michelena.tudominio.com');
+  it('logs in through the shared endpoint without company context', () => {
     const service = TestBed.inject(AuthService);
-
-    service.resolveTenantFromHost().subscribe(context => {
-      expect(context).toEqual({ slug: 'repuestos-michelena', name: 'Repuestos Michelena', status: 'ACTIVE' });
-      expect(context && 'tenantId' in context).toBe(false);
-    });
-
-    const request = http.expectOne('/api/auth/public/tenants/resolve/repuestos-michelena');
-    request.flush({ tenantId: 'private-id', slug: 'repuestos-michelena', name: 'Repuestos Michelena', status: 'ACTIVE' });
-  });
-
-  it('sends credentials without a tenant header because the backend resolves the hostname', () => {
-    setHostname('repuestos-michelena.localhost');
-    const service = TestBed.inject(AuthService);
-    service.resolveTenantFromHost().subscribe();
-    http.expectOne('/api/auth/public/tenants/resolve/repuestos-michelena').flush({
-      tenantId: 'private-id', slug: 'repuestos-michelena', name: 'Repuestos Michelena', status: 'ACTIVE'
-    });
 
     service.login('user@example.com', 'password123').subscribe(result => expect(result).toBe(true));
     const request = http.expectOne('/api/auth/login');
-    expect(request.request.headers.has('x-tenant-slug')).toBe(false);
     expect(request.request.body).toEqual({ email: 'user@example.com', password: 'password123' });
     request.flush({ accessToken: tokenWithExpiration(Math.floor(Date.now() / 1000) + 3600), user: TEST_USER });
   });
 
-  it('uses the master login on the admin platform host without resolving or sending a tenant', () => {
-    setHostname('admin.helameb.com');
+  it('retains mustChangePassword from login for the route guard', () => {
     const service = TestBed.inject(AuthService);
 
-    service.resolveTenantFromHost().subscribe(context => expect(context).toBeNull());
-    expect(service.isAdminDomain()).toBe(true);
-
-    service.login('admin@example.com', 'password123').subscribe(result => expect(result).toBe(true));
-    const request = http.expectOne('/api/v1/master/auth/login');
-    expect(request.request.headers.has('x-tenant-slug')).toBe(false);
-    expect(request.request.body).toEqual({ email: 'admin@example.com', password: 'password123' });
-    request.flush({ accessToken: tokenWithExpiration(Math.floor(Date.now() / 1000) + 3600), user: TEST_USER });
-  });
-
-  it('uses the master login on the ERP platform host', () => {
-    setHostname('erp.helameb.com');
-    const service = TestBed.inject(AuthService);
-
-    service.resolveTenantFromHost().subscribe(context => expect(context).toBeNull());
-    expect(service.isAdminDomain()).toBe(true);
-
-    service.login('admin@example.com', 'password123').subscribe(result => expect(result).toBe(true));
-    const request = http.expectOne('/api/v1/master/auth/login');
-    expect(request.request.headers.has('x-tenant-slug')).toBe(false);
-    request.flush({ accessToken: tokenWithExpiration(Math.floor(Date.now() / 1000) + 3600), user: TEST_USER });
-  });
-
-  it('resolves tenant.helameb.com as a tenant host', () => {
-    setHostname('tenant.helameb.com');
-    const service = TestBed.inject(AuthService);
-
-    service.resolveTenantFromHost().subscribe(context => {
-      expect(context).toEqual({ slug: 'tenant', name: 'Tenant', status: 'ACTIVE' });
+    service.login('user@example.com', 'temporary-password').subscribe(result => expect(result).toBe(true));
+    http.expectOne('/api/auth/login').flush({
+      accessToken: tokenWithExpiration(Math.floor(Date.now() / 1000) + 3600),
+      user: { ...TEST_USER, mustChangePassword: true }
     });
 
-    const request = http.expectOne('/api/auth/public/tenants/resolve/tenant');
-    request.flush({ slug: 'tenant', name: 'Tenant', status: 'ACTIVE' });
+    expect(service.currentUser().mustChangePassword).toBe(true);
   });
 
-  it('keeps resolving tenants on non-platform preview hosts', () => {
-    setHostname('preview-tenant.pages.dev');
+  it('preserves the SUPERADMIN role in the normal authenticated session', () => {
     const service = TestBed.inject(AuthService);
-
-    service.resolveTenantFromHost().subscribe(context => {
-      expect(context).toEqual({ slug: 'preview-tenant', name: 'Preview Tenant', status: 'ACTIVE' });
-    });
-
-    const request = http.expectOne('/api/auth/public/tenants/resolve/preview-tenant');
-    request.flush({ slug: 'preview-tenant', name: 'Preview Tenant', status: 'ACTIVE' });
-  });
-
-  it('uses the master login on localhost and keeps the SUPERADMIN outside tenant context', () => {
-    setHostname('localhost');
-    const service = TestBed.inject(AuthService);
-
-    service.resolveTenantFromHost().subscribe(context => expect(context).toBeNull());
-    expect(service.isAdminDomain()).toBe(true);
 
     service.login('admin@example.com', 'password123').subscribe(result => expect(result).toBe(true));
-    const request = http.expectOne('/api/v1/master/auth/login');
-    expect(request.request.headers.has('x-tenant-slug')).toBe(false);
+    const request = http.expectOne('/api/auth/login');
     request.flush({
       accessToken: tokenWithExpiration(Math.floor(Date.now() / 1000) + 3600),
       user: { ...TEST_USER, role: 'SUPERADMIN' }
     });
 
     expect(service.isSuperAdmin()).toBe(true);
-    expect(service.tenantContext()).toBeNull();
-    expect(service.impersonationContext()).toBeNull();
-    expect(JSON.parse(localStorage.getItem(SESSION_KEY)!).impersonationContext).toBeNull();
-  });
-
-  it('accepts only a validated tenant selection for SUPERADMIN impersonation', () => {
-    const accessToken = tokenWithExpiration(Math.floor(Date.now() / 1000) + 3600);
-    localStorage.setItem(SESSION_KEY, JSON.stringify({
-      user: { ...TEST_USER, role: 'SUPERADMIN' },
-      accessToken
-    }));
-    const service = TestBed.inject(AuthService);
-    const tenantId = '796cc9d6-6c6f-4187-8abf-e57eecf4e9c0';
-    let result: unknown;
-
-    service.impersonateTenant(tenantId).subscribe(value => result = value);
-    const request = http.expectOne(`/api/v1/master/tenants/${tenantId}/impersonate`);
-    expect(request.request.method).toBe('POST');
-    expect(request.request.body).toEqual({});
-    request.flush({
-      impersonationToken: tokenWithExpiration(Math.floor(Date.now() / 1000) + 3600),
-      tenant: { id: tenantId, slug: 'tenant-a', name: 'Tenant A', status: 'ACTIVE' },
-      targetUser: { id: 'target-user', email: 'target@example.com', name: 'Target', role: 'ADMIN' },
-      expiresIn: '1h'
-    });
-
-    expect(result).toBeTruthy();
-    expect(service.impersonationContext()).toEqual(expect.objectContaining({ id: tenantId, slug: 'tenant-a' }));
-    expect(JSON.parse(localStorage.getItem(SESSION_KEY)!).impersonationContext.id).toBe(tenantId);
-  });
-
-  it('rejects an invalid tenant id before making a request', () => {
-    localStorage.setItem(SESSION_KEY, JSON.stringify({
-      user: { ...TEST_USER, role: 'SUPERADMIN' },
-      accessToken: tokenWithExpiration(Math.floor(Date.now() / 1000) + 3600)
-    }));
-    const service = TestBed.inject(AuthService);
-
-    let error: Error | undefined;
-    service.impersonateTenant('tenant-from-user-input').subscribe({ error: value => error = value });
-
-    expect(error?.message).toContain('tenant válido');
-    http.expectNone(request => request.url.includes('/api/v1/master/tenants/'));
+    expect(JSON.parse(localStorage.getItem(SESSION_KEY)!).user.role).toBe('SUPERADMIN');
+    expect('impersonationContext' in JSON.parse(localStorage.getItem(SESSION_KEY)!)).toBe(false);
   });
 
   it('restores a session from a persisted valid access token without calling refresh', () => {
@@ -208,12 +96,13 @@ describe('AuthService session restoration', () => {
     const service = TestBed.inject(AuthService);
     const request = http.expectOne('/api/auth/refresh');
     const refreshedToken = tokenWithExpiration(Math.floor(Date.now() / 1000) + 3600);
-    request.flush({ accessToken: refreshedToken });
+    request.flush({ accessToken: refreshedToken, mustChangePassword: true });
 
     expect(service.authInitialized()).toBeTruthy();
     expect(service.isAuthenticated()).toBeTruthy();
     expect(service.token()).toBe(refreshedToken);
-    expect(localStorage.getItem(SESSION_KEY)).not.toBeNull();
+    expect(service.currentUser().mustChangePassword).toBe(true);
+    expect(JSON.parse(localStorage.getItem(SESSION_KEY)!).user.mustChangePassword).toBe(true);
   });
 
   it('clears the session when the refresh token is rejected', () => {
@@ -243,5 +132,42 @@ describe('AuthService session restoration', () => {
     expect(service.isAuthenticated()).toBe(true);
     expect(service.currentRoleConfig().permissions).toContain('audit:view');
     expect(service.isSuperAdmin()).toBe(false);
+  });
+
+  it('resets a temporary password through the admin endpoint without storing it locally', () => {
+    const service = TestBed.inject(AuthService);
+    const temporaryPassword = 'Temporary-Password-2026';
+
+    service.adminSetUserPassword('target-user-id', temporaryPassword).subscribe();
+    const request = http.expectOne('/api/auth/users/target-user-id/temporary-password');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ temporaryPassword });
+    request.flush({ success: true });
+
+    expect(JSON.stringify(service.users())).not.toContain(temporaryPassword);
+  });
+
+  it('stores the new access token and clears the password-change flag after a successful change', () => {
+    const oldAccessToken = tokenWithExpiration(Math.floor(Date.now() / 1000) + 3600);
+    localStorage.setItem(SESSION_KEY, JSON.stringify({
+      user: { ...TEST_USER, mustChangePassword: true },
+      accessToken: oldAccessToken
+    }));
+    const service = TestBed.inject(AuthService);
+    const newAccessToken = tokenWithExpiration(Math.floor(Date.now() / 1000) + 7200);
+
+    service.changePassword('temporary-password', 'a-long-new-password-2026').subscribe();
+    const request = http.expectOne('/api/auth/change-password');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({
+      currentPassword: 'temporary-password',
+      newPassword: 'a-long-new-password-2026'
+    });
+    request.flush({ accessToken: newAccessToken, mustChangePassword: false });
+
+    expect(service.token()).toBe(newAccessToken);
+    expect(service.currentUser().mustChangePassword).toBe(false);
+    expect(JSON.parse(localStorage.getItem(SESSION_KEY)!).accessToken).toBe(newAccessToken);
+    expect(JSON.parse(localStorage.getItem(SESSION_KEY)!).user.mustChangePassword).toBe(false);
   });
 });

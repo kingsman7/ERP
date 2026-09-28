@@ -1,6 +1,7 @@
 import { Component, ChangeDetectionStrategy, inject, signal, computed } from '@angular/core';
 import { ReactiveFormsModule, FormGroup, FormControl, Validators } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
+import { Router } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { ErpStateService } from '../../services/erp-state.service';
 
@@ -84,6 +85,7 @@ import { ErpStateService } from '../../services/erp-state.service';
                   id="current-pwd"
                   [type]="showCurrent() ? 'text' : 'password'"
                   formControlName="currentPassword"
+                  maxlength="128"
                   placeholder="Ingresa tu clave actual o temporal"
                   class="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition-colors font-mono" />
                 <mat-icon class="absolute left-3 top-2.5 text-slate-400 text-base">vpn_key</mat-icon>
@@ -105,13 +107,15 @@ import { ErpStateService } from '../../services/erp-state.service';
                 <label for="new-pwd" class="font-semibold text-slate-700">
                   Nueva Contraseña Personal <span class="text-rose-500">*</span>
                 </label>
-                <span class="text-[10px] text-slate-400 font-mono">Mínimo 6 caracteres</span>
+                <span class="text-[10px] text-slate-400 font-mono">12 a 128 caracteres</span>
               </div>
               <div class="relative">
                 <input 
                   id="new-pwd"
                   [type]="showNew() ? 'text' : 'password'"
                   formControlName="newPassword"
+                  minlength="12"
+                  maxlength="128"
                   placeholder="Define tu nueva clave segura"
                   class="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition-colors font-mono" />
                 <mat-icon class="absolute left-3 top-2.5 text-slate-400 text-base">lock</mat-icon>
@@ -123,7 +127,7 @@ import { ErpStateService } from '../../services/erp-state.service';
                 </button>
               </div>
               @if (passwordForm.get('newPassword')?.touched && passwordForm.get('newPassword')?.invalid) {
-                <p class="text-rose-500 text-[11px] mt-1">La nueva clave debe contener al menos 6 caracteres.</p>
+                <p class="text-rose-500 text-[11px] mt-1">La nueva clave debe contener entre 12 y 128 caracteres.</p>
               }
 
               <!-- Strength Indicator -->
@@ -200,6 +204,7 @@ import { ErpStateService } from '../../services/erp-state.service';
 export class ChangePasswordModalComponent {
   authService = inject(AuthService);
   stateService = inject(ErpStateService);
+  private router = inject(Router);
 
   showCurrent = signal<boolean>(false);
   showNew = signal<boolean>(false);
@@ -213,9 +218,9 @@ export class ChangePasswordModalComponent {
   });
 
   passwordForm = new FormGroup({
-    currentPassword: new FormControl('', [Validators.required]),
-    newPassword: new FormControl('', [Validators.required, Validators.minLength(6)]),
-    confirmPassword: new FormControl('', [Validators.required, Validators.minLength(6)])
+    currentPassword: new FormControl('', [Validators.required, Validators.maxLength(128)]),
+    newPassword: new FormControl('', [Validators.required, Validators.minLength(12), Validators.maxLength(128)]),
+    confirmPassword: new FormControl('', [Validators.required, Validators.minLength(12), Validators.maxLength(128)])
   });
 
   passwordMismatch = computed(() => {
@@ -228,24 +233,24 @@ export class ChangePasswordModalComponent {
   strengthClass = computed(() => {
     const pwd = this.passwordForm.get('newPassword')?.value || '';
     if (pwd.length === 0) return 'w-0 bg-transparent';
-    if (pwd.length < 6) return 'w-1/4 bg-rose-500';
+    if (pwd.length < 12) return 'w-1/4 bg-rose-500';
     const hasLetters = /[a-zA-Z]/.test(pwd);
     const hasNumbers = /[0-9]/.test(pwd);
     const hasSpecial = /[^a-zA-Z0-9]/.test(pwd);
-    if (hasLetters && hasNumbers && hasSpecial && pwd.length >= 8) return 'w-full bg-emerald-500';
-    if ((hasLetters && hasNumbers) || pwd.length >= 8) return 'w-2/3 bg-amber-500';
+    if (hasLetters && hasNumbers && hasSpecial && pwd.length >= 16) return 'w-full bg-emerald-500';
+    if ((hasLetters && hasNumbers) || pwd.length >= 12) return 'w-2/3 bg-amber-500';
     return 'w-1/3 bg-rose-400';
   });
 
   strengthText = computed(() => {
     const pwd = this.passwordForm.get('newPassword')?.value || '';
     if (pwd.length === 0) return 'Vacía';
-    if (pwd.length < 6) return 'Insegura (<6)';
+    if (pwd.length < 12) return 'Insegura (<12)';
     const hasLetters = /[a-zA-Z]/.test(pwd);
     const hasNumbers = /[0-9]/.test(pwd);
     const hasSpecial = /[^a-zA-Z0-9]/.test(pwd);
-    if (hasLetters && hasNumbers && hasSpecial && pwd.length >= 8) return 'Fuerte';
-    if ((hasLetters && hasNumbers) || pwd.length >= 8) return 'Media';
+    if (hasLetters && hasNumbers && hasSpecial && pwd.length >= 16) return 'Fuerte';
+    if ((hasLetters && hasNumbers) || pwd.length >= 12) return 'Media';
     return 'Básica';
   });
 
@@ -261,7 +266,7 @@ export class ChangePasswordModalComponent {
 
     const currentPwd = this.passwordForm.get('currentPassword')?.value || '';
     const newPwd = this.passwordForm.get('newPassword')?.value || '';
-    const user = this.targetUser();
+    const user = this.authService.currentUser();
 
     if (!user) {
       this.errorMessage.set('Usuario no válido para el cambio de contraseña.');
@@ -271,12 +276,12 @@ export class ChangePasswordModalComponent {
     this.isSubmitting.set(true);
     this.errorMessage.set(null);
 
-    setTimeout(() => {
-      const res = this.authService.changePassword(user.id, currentPwd, newPwd);
+    const mustChangePassword = user.mustChangePassword === true;
+    this.authService.changePassword(currentPwd, newPwd).subscribe({
+      next: () => {
       this.isSubmitting.set(false);
-
-      if (res.success) {
         this.successMessage.set('Contraseña actualizada exitosamente. Tu nueva clave está activa.');
+        this.passwordForm.reset();
         
         this.stateService.logAudit(
           'USER_LOGIN',
@@ -291,11 +296,17 @@ export class ChangePasswordModalComponent {
         );
 
         setTimeout(() => {
-          this.close();
+          if (mustChangePassword) {
+            void this.router.navigate(['/app/dashboard']);
+          } else {
+            this.close();
+          }
         }, 1200);
-      } else {
-        this.errorMessage.set(res.message || 'Error al cambiar la contraseña.');
+      },
+      error: () => {
+        this.isSubmitting.set(false);
+        this.errorMessage.set('No fue posible cambiar la contraseña. Verifica la clave actual e inténtalo nuevamente.');
       }
-    }, 400);
+    });
   }
 }

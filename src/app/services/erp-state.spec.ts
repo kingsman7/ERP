@@ -151,7 +151,7 @@ describe('ErpStateService', () => {
     expect(service.cashSessionHistory()).toMatchObject([{ id: 'session-closed', status: 'CERRADA' }]);
   });
 
-  it('loads audit records and keeps super-admin access available in the base plan', () => {
+  it('loads audit records and keeps company management available in the base plan', () => {
     service.loadRouteData('audit-log').subscribe();
     http.expectOne('/api/audit/logs').flush([{ id: 'audit-1', action: 'CREATE_BACKUP', isCritical: true }]);
 
@@ -163,6 +163,6 @@ describe('ErpStateService', () => {
       isCritical: true,
     }));
     expect(service.isTabAllowedInPlan('audit-log')).toBe(false);
-    expect(service.isTabAllowedInPlan('super-admin')).toBe(true);
+    expect(service.isTabAllowedInPlan('company-admin')).toBe(true);
   });
 });

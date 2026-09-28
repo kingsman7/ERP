@@ -14,9 +14,9 @@ export const SYSTEM_ROLES: RoleConfig[] = [
   },
   {
     id: 'ADMIN',
-    name: 'Administrador de Tenant',
+    name: 'Administrador de Empresa',
     badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-    description: 'Administración del tenant y sus operaciones autorizadas.',
+    description: 'Administración de la empresa y sus operaciones autorizadas.',
     permissions: ['security:manage', 'audit:view', 'inventory:adjust', 'sales:manage', 'purchases:manage', 'reports:export', 'treasury:manage', 'treasury:view', 'accounting:manage']
   },
   {
@@ -57,33 +57,22 @@ const UNAUTHENTICATED_USER: User = {
   status: 'INACTIVO'
 };
 
-const PLATFORM_HOSTS = new Set(['admin.helameb.com', 'erp.helameb.com']);
-
-export interface PublicTenantContext {
-  slug: string;
-  name: string;
-  status: string;
-}
-
-export interface ImpersonationContext extends PublicTenantContext {
-  id: string;
-  expiresIn: string;
-}
-
 interface StoredSession {
   user: User;
   accessToken: string;
-  impersonationContext?: ImpersonationContext;
 }
 
-interface ImpersonationResponse {
-  impersonationToken: string;
-  tenant: ImpersonationContext;
-  targetUser: { id: string; email: string; name: string; role: string };
-  expiresIn: string;
+interface RefreshResponse {
+  accessToken: string;
+  mustChangePassword: boolean;
 }
 
-export type AuthFailure = 'tenant-unavailable' | 'credentials' | 'admin-domain' | 'tenant-required';
+interface ChangePasswordResponse {
+  accessToken: string;
+  mustChangePassword: false;
+}
+
+export type AuthFailure = 'credentials' | 'request';
 
 @Injectable({
   providedIn: 'root'
@@ -99,10 +88,6 @@ export class AuthService {
   private tokenSignal = signal<string>('');
   private isAuthenticatedSignal = signal<boolean>(false);
   private authInitializedSignal = signal<boolean>(false);
-  private tenantContextSignal = signal<PublicTenantContext | null>(null);
-  private impersonationContextSignal = signal<ImpersonationContext | null>(this.loadStoredSession()?.impersonationContext ?? null);
-  private tenantResolutionPendingSignal = signal<boolean>(false);
-  private tenantResolutionFailureSignal = signal<'tenant-unavailable' | 'admin-domain' | 'tenant-required' | null>(null);
   private lastAuthFailureSignal = signal<AuthFailure | null>(null);
 
   // Global Change Password Modal State
@@ -114,12 +99,7 @@ export class AuthService {
   readonly token = this.tokenSignal.asReadonly();
   readonly isAuthenticated = this.isAuthenticatedSignal.asReadonly();
   readonly authInitialized = this.authInitializedSignal.asReadonly();
-  readonly tenantContext = this.tenantContextSignal.asReadonly();
-  readonly impersonationContext = this.impersonationContextSignal.asReadonly();
-  readonly tenantResolutionPending = this.tenantResolutionPendingSignal.asReadonly();
-  readonly tenantResolutionFailure = this.tenantResolutionFailureSignal.asReadonly();
   readonly lastAuthFailure = this.lastAuthFailureSignal.asReadonly();
-  readonly isAdminDomain = computed(() => this.tenantResolutionFailureSignal() === 'admin-domain');
 
   readonly currentRoleConfig = computed(() => {
     const role = this.currentUserSignal().role;
@@ -153,7 +133,7 @@ export class AuthService {
         if (stored) {
           const session = JSON.parse(stored);
           if (session?.user && typeof session.accessToken === 'string') {
-            return { user: session.user, accessToken: session.accessToken, impersonationContext: session.impersonationContext };
+            return { user: session.user, accessToken: session.accessToken };
           }
         }
       }
@@ -163,10 +143,10 @@ export class AuthService {
     return null;
   }
 
-  private persistSession(user: User, accessToken: string, impersonationContext = this.impersonationContextSignal()): void {
+  private persistSession(user: User, accessToken: string): void {
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
-        localStorage.setItem(AuthService.SESSION_KEY, JSON.stringify({ user, accessToken, impersonationContext }));
+        localStorage.setItem(AuthService.SESSION_KEY, JSON.stringify({ user, accessToken }));
       }
     } catch (e) {
       console.warn('Error persisting auth session:', e);
@@ -192,7 +172,6 @@ export class AuthService {
       this.currentUserSignal.set(session.user);
       this.isAuthenticatedSignal.set(true);
       this.tokenSignal.set(session.accessToken);
-      this.impersonationContextSignal.set(session.impersonationContext ?? null);
       this.authInitializedSignal.set(true);
       return;
     }
@@ -200,14 +179,15 @@ export class AuthService {
     // The refresh token is an HttpOnly cookie, so it is intentionally not
     // stored in localStorage. Give it a chance to renew the access token
     // before the router evaluates the protected route.
-    this.http.post<{ accessToken: string }>(`${this.baseUrl}/auth/refresh`, {}, { withCredentials: true }).pipe(
+    this.http.post<RefreshResponse>(`${this.baseUrl}/auth/refresh`, {}, { withCredentials: true }).pipe(
       catchError(() => of(null))
     ).subscribe(result => {
       if (result?.accessToken && this.hasValidAccessToken(result.accessToken)) {
-        this.currentUserSignal.set(session.user);
+        const user = { ...session.user, mustChangePassword: result.mustChangePassword };
+        this.currentUserSignal.set(user);
         this.tokenSignal.set(result.accessToken);
         this.isAuthenticatedSignal.set(true);
-        this.persistSession(session.user, result.accessToken, session.impersonationContext);
+        this.persistSession(user, result.accessToken);
       } else {
         this.handleExpiredSession();
       }
@@ -233,7 +213,6 @@ export class AuthService {
   handleExpiredSession(): void {
     this.clearPersistedSession();
     this.tokenSignal.set('');
-    this.clearImpersonationContext();
     this.isAuthenticatedSignal.set(false);
     this.currentUserSignal.set(UNAUTHENTICATED_USER);
     this.sessionExpired.set(true);
@@ -253,68 +232,12 @@ export class AuthService {
     this.targetUserForPasswordChange.set(null);
   }
 
-  resolveTenantFromHost(): Observable<PublicTenantContext | null> {
-    const host = typeof window !== 'undefined' ? window.location.hostname.toLowerCase() : '';
-    const slug = this.slugFromHost(host);
-    this.tenantResolutionPendingSignal.set(false);
-
-    if (host === 'localhost' || this.isAdminHost(host)) {
-      this.tenantContextSignal.set(null);
-      this.tenantResolutionFailureSignal.set('admin-domain');
-      return of(null);
-    }
-    if (!slug) {
-      this.tenantResolutionFailureSignal.set('tenant-required');
-      return of(null);
-    }
-
-    this.tenantResolutionPendingSignal.set(true);
-    this.tenantResolutionFailureSignal.set(null);
-    return this.http.get<{ tenantId?: string; slug: string; name: string; status: string }>(`${this.baseUrl}/auth/public/tenants/resolve/${encodeURIComponent(slug)}`).pipe(
-      map(({ slug: resolvedSlug, name, status }) => ({ slug: resolvedSlug, name, status })),
-      tap(context => {
-        this.tenantContextSignal.set(context);
-        this.tenantResolutionPendingSignal.set(false);
-      }),
-      catchError(() => {
-        this.tenantContextSignal.set(null);
-        this.tenantResolutionPendingSignal.set(false);
-        this.tenantResolutionFailureSignal.set('tenant-unavailable');
-        return of(null);
-      })
-    );
-  }
-
-  private slugFromHost(host: string): string | null {
-    if (!host || host === 'localhost' || this.isAdminHost(host)) return null;
-    if (host.endsWith('.localhost')) return host.slice(0, -'.localhost'.length).split('.')[0] || null;
-    const labels = host.split('.');
-    return labels.length >= 3 ? labels[0] : null;
-  }
-
-  private isAdminHost(host: string): boolean {
-    return PLATFORM_HOSTS.has(host);
-  }
-
   login(email: string, password?: string): Observable<boolean> {
     this.lastAuthFailureSignal.set(null);
-    const tenant = this.tenantContextSignal();
-    const isMasterLogin = this.isAdminDomain();
-    if (!tenant && !isMasterLogin) {
-      this.lastAuthFailureSignal.set(this.tenantResolutionFailureSignal() === 'admin-domain' ? 'admin-domain' : 'tenant-required');
-      return of(false);
-    }
-
-    const loginRequest = isMasterLogin
-      ? this.http.post<AuthUser>(`${this.baseUrl}/v1/master/auth/login`, { email, password }, { withCredentials: true })
-      : this.http.post<AuthUser>(`${this.baseUrl}/auth/login`, { email, password }, { withCredentials: true });
-
-    return loginRequest
+    return this.http.post<AuthUser>(`${this.baseUrl}/auth/login`, { email, password }, { withCredentials: true })
       .pipe(
       tap((user) => {
         if (user.user) {
-          this.clearImpersonationContext();
-          if (isMasterLogin) this.tenantContextSignal.set(null);
           this.currentUserSignal.set(user.user);
           this.tokenSignal.set(user.accessToken);
           this.persistSession(user.user, user.accessToken);
@@ -334,7 +257,7 @@ export class AuthService {
       }),
       map(() => true),
       catchError((error: HttpErrorResponse) => {
-        this.lastAuthFailureSignal.set(error.status === 401 ? 'credentials' : 'tenant-unavailable');
+        this.lastAuthFailureSignal.set(error.status === 401 ? 'credentials' : 'request');
         return of(false);
       })
     )
@@ -343,8 +266,6 @@ export class AuthService {
   logout(): void {
     this.currentUserSignal.set(UNAUTHENTICATED_USER);
     this.tokenSignal.set('');
-    this.clearImpersonationContext();
-    this.tenantContextSignal.set(null);
     this.isAuthenticatedSignal.set(false);
     this.clearPersistedSession();
 
@@ -360,45 +281,6 @@ export class AuthService {
 
   setAuthenticated(authenticated: boolean): void {
     this.isAuthenticatedSignal.set(authenticated);
-  }
-
-  impersonateTenant(tenantId: string): Observable<ImpersonationResponse> {
-    if (!this.isSuperAdmin() || !this.isUuid(tenantId)) {
-      return new Observable(subscriber => subscriber.error(new Error('Solo un SUPERADMIN puede seleccionar un tenant válido')));
-    }
-
-    return this.http.post<ImpersonationResponse>(`${this.baseUrl}/v1/master/tenants/${encodeURIComponent(tenantId)}/impersonate`, {}).pipe(
-      tap(response => {
-        if (!response?.impersonationToken || response.tenant?.id !== tenantId || response.tenant.status !== 'ACTIVE') {
-          throw new Error('Respuesta de impersonación inválida');
-        }
-        const context = { ...response.tenant, expiresIn: response.expiresIn };
-        this.tokenSignal.set(response.impersonationToken);
-        this.impersonationContextSignal.set(context);
-        this.persistSession(this.currentUserSignal(), response.impersonationToken, context);
-      })
-    );
-  }
-
-  clearImpersonationContext(): void {
-    this.impersonationContextSignal.set(null);
-  }
-
-  hasTenantContext(): boolean {
-    const context = this.impersonationContextSignal();
-    return Boolean(context && this.isUuid(context.id) && context.status === 'ACTIVE');
-  }
-
-  isTenantRequest(url: string): boolean {
-    return url.includes('/api/')
-      && !url.includes('/api/v1/master/')
-      && !url.includes('/api/auth/public/')
-      && !url.includes('/api/auth/login')
-      && !url.includes('/api/auth/logout');
-  }
-
-  private isUuid(value: string): boolean {
-    return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
   }
 
   switchUser(user: User) {
@@ -473,84 +355,43 @@ export class AuthService {
   }
 
   adminSetUserPassword(
-    userId: string, 
-    temporaryPassword: string, 
-    mustChangePassword: boolean = true
-  ): { success: boolean; message?: string } {
-    if (!temporaryPassword || temporaryPassword.trim().length < 6) {
-      return { success: false, message: 'La contraseña temporal debe contener al menos 6 caracteres.' };
-    }
-
-    const trimmedPassword = temporaryPassword.trim();
-    const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
-
-    this.usersSignal.update(list => {
-      const updatedList = list.map(u => {
-        if (u.id === userId) {
-          const updated: User = {
-            ...u,
-            password: trimmedPassword,
-            mustChangePassword: mustChangePassword,
-            temporaryPasswordSetAt: timestamp
-          };
-          if (this.currentUserSignal().id === userId) {
-            this.currentUserSignal.set(updated);
-          }
-          return updated;
-        }
-        return u;
-      });
-      return updatedList;
-    });
-
-    return { success: true, message: 'Clave temporal establecida correctamente por el Administrador.' };
+    userId: string,
+    temporaryPassword: string
+  ): Observable<void> {
+    return this.http.post<{ success: boolean }>(
+      `${this.baseUrl}/auth/users/${userId}/temporary-password`,
+      { temporaryPassword }
+    ).pipe(
+      tap(result => {
+        if (!result.success) throw new Error('No fue posible restablecer la contraseña.');
+        this.usersSignal.update(users => users.map(user => user.id === userId
+          ? { ...user, mustChangePassword: true }
+          : user));
+      }),
+      map(() => undefined)
+    );
   }
 
   changePassword(
-    userId: string, 
     currentPassword: string, 
     newPassword: string
-  ): { success: boolean; message?: string } {
-    const user = this.usersSignal().find(u => u.id === userId);
-    if (!user) {
-      return { success: false, message: 'Usuario no encontrado.' };
-    }
-
-    // Verify current password if user has one
-    if (user.password && user.password !== currentPassword.trim()) {
-      return { success: false, message: 'La contraseña actual ingresada es incorrecta.' };
-    }
-
-    if (!newPassword || newPassword.trim().length < 6) {
-      return { success: false, message: 'La nueva contraseña debe tener al menos 6 caracteres.' };
-    }
-
-    if (user.password && user.password === newPassword.trim()) {
-      return { success: false, message: 'La nueva contraseña no puede ser idéntica a la anterior.' };
-    }
-
-    const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
-
-    this.usersSignal.update(list => {
-      const updatedList = list.map(u => {
-        if (u.id === userId) {
-          const updated: User = {
-            ...u,
-            password: newPassword.trim(),
-            mustChangePassword: false,
-            passwordChangedAt: timestamp
-          };
-          if (this.currentUserSignal().id === userId) {
-            this.currentUserSignal.set(updated);
-          }
-          return updated;
+  ): Observable<void> {
+    return this.http.post<ChangePasswordResponse>(`${this.baseUrl}/auth/change-password`, {
+      currentPassword,
+      newPassword
+    }).pipe(
+      tap(result => {
+        if (!result.accessToken || result.mustChangePassword !== false) {
+          throw new Error('No fue posible actualizar la sesión.');
         }
-        return u;
-      });
-      return updatedList;
-    });
-
-    return { success: true, message: 'Contraseña actualizada con éxito.' };
+        const updated = { ...this.currentUserSignal(), mustChangePassword: false };
+        this.currentUserSignal.set(updated);
+        this.tokenSignal.set(result.accessToken);
+        this.usersSignal.update(users => users.map(user => user.id === updated.id ? updated : user));
+        this.persistSession(updated, result.accessToken);
+      }),
+      map(() => undefined)
+    );
   }
 
   toggleUserStatus(id: string): void {

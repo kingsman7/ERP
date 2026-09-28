@@ -10,11 +10,7 @@ describe('LoginComponent destination', () => {
   let authService: {
     login: ReturnType<typeof vi.fn>;
     isSuperAdmin: ReturnType<typeof signal<boolean>>;
-    hasTenantContext: ReturnType<typeof vi.fn>;
-    tenantResolutionPending: ReturnType<typeof signal<boolean>>;
-    tenantContext: ReturnType<typeof signal<null>>;
-    isAdminDomain: ReturnType<typeof signal<boolean>>;
-    tenantResolutionFailure: ReturnType<typeof signal<null>>;
+    currentUser: ReturnType<typeof signal<{ mustChangePassword?: boolean }>>;
     lastAuthFailure: ReturnType<typeof signal<null>>;
     roles: [];
   };
@@ -24,11 +20,7 @@ describe('LoginComponent destination', () => {
     authService = {
       login: vi.fn().mockReturnValue(of(true)),
       isSuperAdmin: signal(false),
-      hasTenantContext: vi.fn().mockReturnValue(false),
-      tenantResolutionPending: signal(false),
-      tenantContext: signal(null),
-      isAdminDomain: signal(false),
-      tenantResolutionFailure: signal(null),
+      currentUser: signal({ mustChangePassword: false }),
       lastAuthFailure: signal(null),
       roles: []
     };
@@ -53,24 +45,23 @@ describe('LoginComponent destination', () => {
     fixture.componentInstance.onSubmitCredentials();
   }
 
-  it('keeps tenant users on the tenant dashboard', () => {
+  it('keeps company users on the operational dashboard', () => {
     submit();
 
     expect(navigate).toHaveBeenCalledWith(['/app/dashboard']);
   });
 
-  it('sends a SUPERADMIN without impersonation to the Master module', () => {
+  it('keeps SUPERADMIN on the operational ERP dashboard after login', () => {
     authService.isSuperAdmin.set(true);
-    submit();
-
-    expect(navigate).toHaveBeenCalledWith(['/master/super-admin']);
-  });
-
-  it('sends a SUPERADMIN with validated impersonation to the tenant dashboard', () => {
-    authService.isSuperAdmin.set(true);
-    authService.hasTenantContext.mockReturnValue(true);
     submit();
 
     expect(navigate).toHaveBeenCalledWith(['/app/dashboard']);
+  });
+
+  it('routes users with a temporary password to the mandatory change screen', () => {
+    authService.currentUser.set({ mustChangePassword: true });
+    submit();
+
+    expect(navigate).toHaveBeenCalledWith(['/app/change-password']);
   });
 });

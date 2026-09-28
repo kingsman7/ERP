@@ -5,7 +5,6 @@ import { filter } from 'rxjs';
 import { ErpStateService } from '../../services/erp-state.service';
 import { AuthService } from '../../services/auth.service';
 import { KeyboardShortcutsService } from '../../services/keyboard-shortcuts.service';
-import { SuperAdminService } from '../../modules/super-admin/services/super-admin.service';
 import { HeaderComponent } from '../../components/header/header';
 import { SidebarComponent, NavTab } from '../../components/sidebar/sidebar';
 import { ArchitectureModal } from '../../components/architecture-modal/architecture-modal';
@@ -28,22 +27,6 @@ import { ChangePasswordModalComponent } from '../../components/change-password-m
   ],
   template: `
     <div class="min-h-screen bg-[#f8fafc] flex flex-col font-sans text-slate-800 antialiased selection:bg-blue-600 selection:text-white">
-      @if (superAdminService.activeImpersonation(); as session) {
-        <div class="bg-linear-to-r from-amber-600 via-amber-700 to-amber-600 text-white px-4 py-2.5 shadow-xl border-b border-amber-400/40 flex flex-col sm:flex-row items-center justify-between gap-2 z-50 sticky top-0 text-xs">
-          <div class="flex items-center space-x-2.5 min-w-0">
-            <mat-icon class="text-base shrink-0">support_agent</mat-icon>
-            <div class="truncate">
-              <span class="font-black uppercase tracking-wider text-[10px] bg-black/30 px-2 py-0.5 rounded-full mr-2 font-mono">SESION DE SOPORTE ACTIVA</span>
-              <span>Operando en el tenant: <strong class="underline">{{ session.tenantName }}</strong> ({{ session.tenantSlug }})</span>
-            </div>
-          </div>
-          <button (click)="superAdminService.stopImpersonation()" class="px-3.5 py-1.5 bg-black/40 hover:bg-black/60 text-white font-bold rounded-xl border border-white/30 text-xs flex items-center space-x-1.5 cursor-pointer">
-            <mat-icon class="text-sm">logout</mat-icon>
-            <span>Finalizar Soporte y Volver a SuperAdmin</span>
-          </button>
-        </div>
-      }
-
       <app-header
         (openArchitecture)="showArchModal.set(true)"
         (openCash)="navigateTo('cash-closing')"
@@ -90,7 +73,6 @@ export class PrivateShellComponent {
   stateService = inject(ErpStateService);
   authService = inject(AuthService);
   shortcutService = inject(KeyboardShortcutsService);
-  superAdminService = inject(SuperAdminService);
   private router = inject(Router);
 
   activeNavId = signal<NavTab>('dashboard');
@@ -121,8 +103,8 @@ export class PrivateShellComponent {
       this.showArchModal.set(true);
       return;
     }
-    if (navId === 'super-admin') {
-      void this.router.navigate(['/master/super-admin']);
+    if (navId === 'company-admin') {
+      void this.router.navigate(['/app/company-admin']);
       return;
     }
     this.router.navigate(['/app', navId]);

@@ -21,7 +21,7 @@ export type NavTab =
   | 'backups'
   | 'manual'
   | 'architecture'
-  | 'super-admin';
+  | 'company-admin';
 
 @Component({
   selector: 'app-sidebar',
@@ -330,15 +330,15 @@ export type NavTab =
           </div>
           <button 
             id="nav-btn-superadmin"
-            (click)="selectTab('super-admin')"
-            [class]="activeTab() === 'super-admin' ? 'bg-indigo-600/20 text-indigo-300 font-semibold border-l-4 border-indigo-500 rounded-r-lg' : 'hover:bg-slate-800/90 text-slate-300 rounded-lg'"
+            (click)="selectTab('company-admin')"
+            [class]="activeTab() === 'company-admin' ? 'bg-indigo-600/20 text-indigo-300 font-semibold border-l-4 border-indigo-500 rounded-r-lg' : 'hover:bg-slate-800/90 text-slate-300 rounded-lg'"
             class="w-full flex items-center justify-between px-3.5 py-2 text-xs transition-all duration-150 text-left cursor-pointer">
             <div class="flex items-center space-x-3">
               <mat-icon class="text-purple-400 text-lg">admin_panel_settings</mat-icon>
-              <span class="font-medium">Gestión Multi-Tenant</span>
+              <span class="font-medium">Gestión de Empresa</span>
             </div>
             <span class="px-1.5 py-0.5 text-[9px] font-mono font-bold rounded bg-indigo-900/60 text-indigo-300 border border-indigo-700">
-              GLOBAL
+              EMPRESA
             </span>
           </button>
         </div>

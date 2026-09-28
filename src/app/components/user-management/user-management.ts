@@ -668,13 +668,15 @@ import { User, UserRole } from '../../models/erp.models';
                         <label for="modal-user-pwd" class="font-semibold text-slate-700 block">
                           {{ isEditing() ? 'Nueva Clave Temporal Manual' : 'Clave Temporal Inicial' }} <span class="text-rose-500">*</span>
                         </label>
-                        <span class="text-[10px] text-slate-400 font-mono">Mínimo 6 caracteres</span>
+                        <span class="text-[10px] text-slate-400 font-mono">12 a 128 caracteres</span>
                       </div>
                       <div class="relative">
                         <input 
                           id="modal-user-pwd"
                           [type]="showTempPassword() ? 'text' : 'password'" 
                           formControlName="temporaryPassword"
+                          minlength="12"
+                          maxlength="128"
                           placeholder="Ej: TempClave2026*" 
                           class="w-full pl-9 pr-10 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-mono" />
                         <mat-icon class="absolute left-3 top-2 text-slate-400 text-base">vpn_key</mat-icon>
@@ -690,15 +692,19 @@ import { User, UserRole } from '../../models/erp.models';
                       </p>
                     </div>
 
-                    <label class="flex items-center space-x-2 cursor-pointer select-none pt-1">
-                      <input 
-                        type="checkbox" 
-                        formControlName="mustChangePassword" 
-                        class="rounded bg-white border-slate-300 text-indigo-600 focus:ring-0" />
-                      <span class="text-slate-700 font-medium">
-                        Exigir que el usuario cambie su clave al iniciar sesión
-                      </span>
-                    </label>
+                    @if (isEditing()) {
+                      <p class="text-[11px] text-amber-800">El restablecimiento obliga al usuario a cambiar la clave al iniciar sesión.</p>
+                    } @else {
+                      <label class="flex items-center space-x-2 cursor-pointer select-none pt-1">
+                        <input 
+                          type="checkbox" 
+                          formControlName="mustChangePassword" 
+                          class="rounded bg-white border-slate-300 text-indigo-600 focus:ring-0" />
+                        <span class="text-slate-700 font-medium">
+                          Exigir que el usuario cambie su clave al iniciar sesión
+                        </span>
+                      </label>
+                    }
                   </div>
                 } @else {
                   <div class="text-[11px] text-slate-500 flex items-center justify-between bg-white p-2.5 rounded-lg border border-slate-200">
@@ -710,6 +716,12 @@ import { User, UserRole } from '../../models/erp.models';
                   </div>
                 }
               </div>
+
+              @if (userFormError()) {
+                <div class="p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs" role="alert">
+                  {{ userFormError() }}
+                </div>
+              }
 
               <div class="p-3 bg-indigo-50/60 rounded-xl border border-indigo-100 flex items-start space-x-2 text-indigo-900">
                 <mat-icon class="text-base text-indigo-600 shrink-0 mt-0.5">info</mat-icon>
@@ -727,10 +739,10 @@ import { User, UserRole } from '../../models/erp.models';
                 </button>
                 <button 
                   type="submit"
-                  [disabled]="userForm.invalid"
+                  [disabled]="userForm.invalid || isSavingUser()"
                   class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-semibold shadow-xs transition-colors cursor-pointer flex items-center space-x-1">
-                  <mat-icon class="text-sm">save</mat-icon>
-                  <span>{{ isEditing() ? 'Guardar Cambios' : 'Registrar Usuario' }}</span>
+                  <mat-icon class="text-sm">{{ isSavingUser() ? 'refresh' : 'save' }}</mat-icon>
+                  <span>{{ isSavingUser() ? 'Guardando...' : (isEditing() ? 'Guardar Cambios' : 'Registrar Usuario') }}</span>
                 </button>
               </div>
 
@@ -784,7 +796,7 @@ import { User, UserRole } from '../../models/erp.models';
                   <label for="quick-reset-pwd" class="font-semibold text-slate-700 block">
                     Nueva Clave Temporal Manual <span class="text-rose-500">*</span>
                   </label>
-                  <span class="text-[10px] text-slate-400 font-mono">Mínimo 6 caracteres</span>
+                    <span class="text-[10px] text-slate-400 font-mono">12 a 128 caracteres</span>
                 </div>
                 <div class="relative">
                   <input 
@@ -792,6 +804,9 @@ import { User, UserRole } from '../../models/erp.models';
                     [type]="showQuickResetPassword() ? 'text' : 'password'"
                     [value]="quickResetPassword()"
                     (input)="onQuickResetInput($event)"
+                    minlength="12"
+                    maxlength="128"
+                    [disabled]="quickResetSubmitting()"
                     placeholder="Ej: TempClave2026*"
                     class="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-mono" />
                   <mat-icon class="absolute left-3 top-2.5 text-slate-400 text-base">key</mat-icon>
@@ -807,30 +822,26 @@ import { User, UserRole } from '../../models/erp.models';
                 </p>
               </div>
 
-              <!-- Must Change Checkbox -->
-              <label class="flex items-center space-x-2 cursor-pointer select-none p-2 rounded-lg bg-amber-50/60 border border-amber-200 text-amber-900">
-                <input 
-                  type="checkbox" 
-                  [checked]="quickResetMustChange()"
-                  (change)="onQuickResetMustChangeChange($event)"
-                  class="rounded bg-white border-amber-300 text-amber-600 focus:ring-0" />
-                <span class="font-medium text-xs">Exigir cambio de clave al próximo inicio de sesión</span>
-              </label>
+              <p class="p-2 rounded-lg bg-amber-50/60 border border-amber-200 text-amber-900">
+                El usuario deberá cambiar esta clave al iniciar sesión.
+              </p>
 
               <!-- Modal Actions -->
               <div class="pt-2 border-t border-slate-100 flex items-center justify-end space-x-2">
                 <button 
                   type="button"
                   (click)="closeQuickResetModal()"
+                  [disabled]="quickResetSubmitting()"
                   class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold transition-colors cursor-pointer">
                   Cancelar
                 </button>
                 <button 
                   type="button"
                   (click)="saveQuickResetPassword()"
+                  [disabled]="quickResetSubmitting()"
                   class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-semibold shadow-xs transition-colors cursor-pointer flex items-center space-x-1">
-                  <mat-icon class="text-sm">check</mat-icon>
-                  <span>Guardar Clave Temporal</span>
+                  <mat-icon class="text-sm">{{ quickResetSubmitting() ? 'refresh' : 'check' }}</mat-icon>
+                  <span>{{ quickResetSubmitting() ? 'Guardando...' : 'Guardar Clave Temporal' }}</span>
                 </button>
               </div>
 
@@ -863,9 +874,11 @@ export default class UserManagementComponent {
   showQuickResetModal = signal<boolean>(false);
   quickResetUser = signal<User | null>(null);
   quickResetPassword = signal<string>('');
-  quickResetMustChange = signal<boolean>(true);
   showQuickResetPassword = signal<boolean>(false);
   quickResetError = signal<string | null>(null);
+  quickResetSubmitting = signal<boolean>(false);
+  userFormError = signal<string | null>(null);
+  isSavingUser = signal<boolean>(false);
 
   // Reactive Form
   userForm = new FormGroup({
@@ -1074,53 +1087,55 @@ export default class UserManagementComponent {
     this.quickResetError.set(null);
   }
 
-  onQuickResetMustChangeChange(event: Event): void {
-    const target = event.target as HTMLInputElement;
-    this.quickResetMustChange.set(target.checked);
-  }
-
   openQuickResetPasswordModal(user: User): void {
     this.quickResetUser.set(user);
     this.quickResetPassword.set('');
-    this.quickResetMustChange.set(true);
     this.showQuickResetPassword.set(false);
     this.quickResetError.set(null);
+    this.quickResetSubmitting.set(false);
     this.showQuickResetModal.set(true);
   }
 
   closeQuickResetModal(): void {
     this.showQuickResetModal.set(false);
     this.quickResetUser.set(null);
+    this.quickResetPassword.set('');
+    this.showQuickResetPassword.set(false);
     this.quickResetError.set(null);
   }
 
   saveQuickResetPassword(): void {
     const user = this.quickResetUser();
-    const pwd = this.quickResetPassword().trim();
-    if (!user) return;
+    const pwd = this.quickResetPassword();
+    if (!user || this.quickResetSubmitting()) return;
 
-    if (!pwd || pwd.length < 6) {
-      this.quickResetError.set('La clave temporal debe tener al menos 6 caracteres.');
+    if (pwd.length < 12 || pwd.length > 128) {
+      this.quickResetError.set('La clave temporal debe contener entre 12 y 128 caracteres.');
       return;
     }
 
-    const res = this.authService.adminSetUserPassword(user.id, pwd, this.quickResetMustChange());
-    if (res.success) {
+    this.quickResetSubmitting.set(true);
+    this.authService.adminSetUserPassword(user.id, pwd).subscribe({
+      next: () => {
       this.stateService.logAudit(
         'USER_LOGIN',
         'AUTH',
         `Clave temporal asignada: ${user.name}`,
-        `El Administrador asignó manualmente una nueva clave temporal al usuario ${user.email} con cambio obligatorio: ${this.quickResetMustChange() ? 'SÍ' : 'NO'}.`,
+        `El Administrador asignó manualmente una nueva clave temporal al usuario ${user.email} con cambio obligatorio.`,
         undefined,
-        { userId: user.id, email: user.email, mustChangePassword: this.quickResetMustChange() },
+        { userId: user.id, email: user.email, mustChangePassword: true },
         undefined,
         true,
         'SECURITY_ROLE'
       );
+      this.stateService.notify('success', 'Clave temporal restablecida', 'El usuario deberá cambiarla al iniciar sesión.');
       this.closeQuickResetModal();
-    } else {
-      this.quickResetError.set(res.message || 'Error al guardar la clave temporal.');
-    }
+      },
+      error: () => {
+        this.quickResetSubmitting.set(false);
+        this.quickResetError.set('No fue posible restablecer la clave. Verifica tus permisos e inténtalo nuevamente.');
+      }
+    });
   }
 
   openNewUserModal(): void {
@@ -1162,6 +1177,8 @@ export default class UserManagementComponent {
   closeUserModal(): void {
     this.showUserModal.set(false);
     this.showTempPassword.set(false);
+    this.userForm.controls.temporaryPassword.reset('');
+    this.userFormError.set(null);
   }
 
   saveUser(): void {
@@ -1173,11 +1190,12 @@ export default class UserManagementComponent {
     const formVal = this.userForm.value;
     const isEdit = this.isEditing();
     const userId = this.selectedUserId();
+    this.userFormError.set(null);
 
     if (!isEdit) {
-      const tempPass = formVal.temporaryPassword?.trim();
-      if (!tempPass || tempPass.length < 6) {
-        alert('Por favor ingrese una clave temporal de al menos 6 caracteres para el nuevo usuario.');
+      const tempPass = formVal.temporaryPassword || '';
+      if (tempPass.length < 12 || tempPass.length > 128) {
+        this.userFormError.set('La clave temporal debe contener entre 12 y 128 caracteres.');
         return;
       }
     }
@@ -1192,30 +1210,35 @@ export default class UserManagementComponent {
         status: formVal.status as 'ACTIVO' | 'INACTIVO'
       };
 
-      if (formVal.resetPassword && formVal.temporaryPassword?.trim()) {
-        const tempPass = formVal.temporaryPassword.trim();
-        if (tempPass.length < 6) {
-          alert('La nueva clave temporal debe tener al menos 6 caracteres.');
+      const shouldResetPassword = !!formVal.resetPassword;
+      const temporaryPassword = formVal.temporaryPassword || '';
+      if (shouldResetPassword) {
+        if (temporaryPassword.length < 12 || temporaryPassword.length > 128) {
+          this.userFormError.set('La clave temporal debe contener entre 12 y 128 caracteres.');
           return;
         }
-        updates.password = tempPass;
-        updates.mustChangePassword = !!formVal.mustChangePassword;
-        updates.temporaryPasswordSetAt = new Date().toISOString().replace('T', ' ').substring(0, 19);
+      }
+
+      if (shouldResetPassword) {
+        this.isSavingUser.set(true);
+        this.authService.adminSetUserPassword(userId, temporaryPassword).subscribe({
+          next: () => {
+            this.authService.updateUser(userId, updates);
+            this.logUserUpdate(formVal, true);
+            this.isSavingUser.set(false);
+            this.stateService.notify('success', 'Usuario actualizado', 'La clave temporal quedó restablecida y exige cambio al ingresar.');
+            this.closeUserModal();
+          },
+          error: () => {
+            this.isSavingUser.set(false);
+            this.userFormError.set('No fue posible restablecer la clave. Verifica tus permisos e inténtalo nuevamente.');
+          }
+        });
+        return;
       }
 
       this.authService.updateUser(userId, updates);
-
-      this.stateService.logAudit(
-        'USER_LOGIN',
-        'AUTH',
-        `Actualización de usuario: ${formVal.name}`,
-        `Se actualizaron los datos y rol (${formVal.role}) del usuario ${formVal.email}.${formVal.resetPassword ? ' Se configuró nueva clave temporal manual.' : ''}`,
-        undefined,
-        { name: formVal.name, email: formVal.email, role: formVal.role, status: formVal.status, passwordReset: !!formVal.resetPassword },
-        undefined,
-        true,
-        'SECURITY_ROLE'
-      );
+      this.logUserUpdate(formVal, false);
     } else {
       const tempPass = formVal.temporaryPassword?.trim() || 'Temp2026*';
       const created = this.authService.addUser({
@@ -1241,5 +1264,19 @@ export default class UserManagementComponent {
     }
 
     this.closeUserModal();
+  }
+
+  private logUserUpdate(formVal: typeof this.userForm.value, passwordReset: boolean): void {
+    this.stateService.logAudit(
+      'USER_LOGIN',
+      'AUTH',
+      `Actualización de usuario: ${formVal.name}`,
+      `Se actualizaron los datos y rol (${formVal.role}) del usuario ${formVal.email}.${passwordReset ? ' Se configuró nueva clave temporal manual.' : ''}`,
+      undefined,
+      { name: formVal.name, email: formVal.email, role: formVal.role, status: formVal.status, passwordReset },
+      undefined,
+      true,
+      'SECURITY_ROLE'
+    );
   }
 }

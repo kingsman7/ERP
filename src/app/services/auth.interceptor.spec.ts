@@ -9,7 +9,7 @@ function tokenWithExpiration(expiration: number): string {
   return `header.${payload}.signature`;
 }
 
-describe('authInterceptor tenant context', () => {
+describe('authInterceptor bearer authentication', () => {
   let http: HttpTestingController;
   let client: HttpClient;
 
@@ -35,43 +35,17 @@ describe('authInterceptor tenant context', () => {
     localStorage.clear();
   });
 
-  it('blocks tenant requests until a server-issued tenant context exists', () => {
-    const service = TestBed.inject(AuthService);
-    let error: Error | undefined;
-
-    client.get('/api/users').subscribe({ error: value => error = value });
-
-    expect(error?.message).toContain('Tenant context is required');
-    http.expectNone('/api/users');
-  });
-
-  it('allows master requests without tenant context and does not send x-tenant-id', () => {
-    client.get('/api/v1/master/tenants').subscribe();
-
-    const request = http.expectOne('/api/v1/master/tenants');
+  it('sends a normal bearer token without company headers to operational and master APIs', () => {
+    client.get('/api/users').subscribe();
+    const request = http.expectOne('/api/users');
     expect(request.request.headers.get('Authorization')).toContain('Bearer ');
     expect(request.request.headers.get('x-tenant-id')).toBeNull();
     request.flush([]);
-  });
 
-  it('sends Bearer and x-tenant-id only from the validated impersonation context', () => {
-    const service = TestBed.inject(AuthService);
-    const tenantId = '796cc9d6-6c6f-4187-8abf-e57eecf4e9c0';
-
-    service.impersonateTenant(tenantId).subscribe();
-    const impersonationRequest = http.expectOne(`/api/v1/master/tenants/${tenantId}/impersonate`);
-    expect(impersonationRequest.request.headers.get('x-tenant-id')).toBeNull();
-    impersonationRequest.flush({
-      impersonationToken: 'temporary-token',
-      tenant: { id: tenantId, slug: 'tenant-a', name: 'Tenant A', status: 'ACTIVE' },
-      targetUser: { id: 'target-user', email: 'target@example.com', name: 'Target', role: 'ADMIN' },
-      expiresIn: '1h'
-    });
-
-    client.get('/api/users').subscribe();
-    const tenantRequest = http.expectOne('/api/users');
-    expect(tenantRequest.request.headers.get('Authorization')).toBe('Bearer temporary-token');
-    expect(tenantRequest.request.headers.get('x-tenant-id')).toBe(tenantId);
-    tenantRequest.flush([]);
+    client.get('/api/v1/master/company').subscribe();
+    const masterRequest = http.expectOne('/api/v1/master/company');
+    expect(masterRequest.request.headers.get('Authorization')).toContain('Bearer ');
+    expect(masterRequest.request.headers.has('x-tenant-id')).toBe(false);
+    masterRequest.flush({});
   });
 });

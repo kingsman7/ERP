@@ -1,6 +1,6 @@
 {
   "name": "4-inLine - MVP Core Enterprise Suite",
-  "description": "Sistema ERP Enterprise modular con Consola Master SuperAdmin Multi-Tenant (Aprovisionamiento, Cuotas, Impersonación de Soporte con Auditoría Forense), Facturación Multimoneda (USD, VES, EUR), Tasas BCV, 5 Niveles de Precios, IVA e IGTF 3%, Inventario Multialmacén, Kardex CPP, Manufactura MRP, CRM Pipeline Kanban, Contabilidad General NIIF con Partida Doble en tiempo real, Copias de Seguridad Automáticas en Google Cloud Firestore y Descarga de Archivos JSON.",
+  "description": "Sistema ERP Enterprise modular para una sola empresa, con perfil corporativo y suscripción, facturación multimoneda (USD, VES, EUR), tasas BCV, 5 niveles de precios, IVA e IGTF 3%, inventario multialmacén, Kardex CPP, manufactura MRP, CRM Pipeline Kanban, contabilidad general NIIF con partida doble en tiempo real, copias de seguridad automáticas en Google Cloud Firestore y descarga de archivos JSON.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
