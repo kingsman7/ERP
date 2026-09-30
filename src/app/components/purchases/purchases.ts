@@ -71,7 +71,7 @@ interface TempItem {
           [class]="activeTab() === 'suppliers' ? 'bg-indigo-50 text-indigo-700 font-semibold border-indigo-200' : 'hover:bg-slate-100 text-slate-600'"
           class="px-4 py-2 rounded-xl border border-transparent transition-colors flex items-center space-x-1.5 cursor-pointer">
           <mat-icon class="text-sm">contacts</mat-icon>
-          <span>Directorio de Proveedores ({{ suppliers.length }})</span>
+          <span>Directorio de Proveedores ({{ suppliers().length }})</span>
         </button>
       </div>
 
@@ -93,7 +93,7 @@ interface TempItem {
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-100 text-slate-700">
-                @for (po of stateService.purchaseOrders(); track po.id) {
+                @for (po of purchaseOrders(); track po.id) {
                   <tr class="hover:bg-slate-50/60 transition-colors">
                     <td class="py-3 px-4">
                       <span class="font-mono font-bold text-slate-900 text-sm">{{ po.orderNumber }}</span>
@@ -142,7 +142,7 @@ interface TempItem {
       <!-- Tab 2: Suppliers Directory -->
       @if (activeTab() === 'suppliers') {
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          @for (sup of suppliers; track sup.id) {
+          @for (sup of suppliers(); track sup.id) {
             <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-3 hover:border-indigo-200 transition-all">
               <div class="flex items-start justify-between">
                 <div>
@@ -212,7 +212,7 @@ interface TempItem {
                     [value]="selectedSupplierId()"
                     (change)="selectedSupplierId.set($any($event.target).value)"
                     class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800">
-                    @for (sup of suppliers; track sup.id) {
+                    @for (sup of suppliers(); track sup.id) {
                       <option [value]="sup.id">{{ sup.name }} ({{ sup.taxId }})</option>
                     }
                   </select>
@@ -224,7 +224,7 @@ interface TempItem {
                     [value]="selectedWarehouseId()"
                     (change)="selectedWarehouseId.set($any($event.target).value)"
                     class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800">
-                    @for (wh of warehouses; track wh.id) {
+                    @for (wh of warehouses(); track wh.id) {
                       <option [value]="wh.id">{{ wh.name }}</option>
                     }
                   </select>
@@ -434,14 +434,9 @@ interface TempItem {
                 <div>
                   <span class="block font-semibold text-slate-700 mb-1">Categoría *</span>
                   <select formControlName="category" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl">
-                    <option value="Ferretería">Ferretería & Plomería</option>
-                    <option value="Eléctricos">Material Eléctrico</option>
-                    <option value="Iluminación">Iluminación LED</option>
-                    <option value="Pinturas">Pinturas & Acabados</option>
-                    <option value="Redes">Redes & Telecomunicaciones</option>
-                    <option value="Herramientas">Herramientas</option>
-                    <option value="Construcción">Materiales de Construcción</option>
-                    <option value="General">General / Misceláneos</option>
+                    @for(cat of productCategories(); track cat.id) {
+                      <option [value]="cat.name">{{cat.name}}</option>
+                    }
                   </select>
                 </div>
 
@@ -454,7 +449,6 @@ interface TempItem {
                     <option value="CJ">CJ (Caja)</option>
                     <option value="MT">MT (Metro)</option>
                     <option value="PQ">PQ (Paquete)</option>
-                    <option value="ROLLO">ROLLO (Rollo)</option>
                   </select>
                 </div>
               </div>
@@ -585,6 +579,18 @@ interface TempItem {
                   <input type="text" formControlName="category" placeholder="Ej: Ferretería" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl" />
                 </div>
               </div>
+
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <span class="block font-semibold text-slate-700 mb-1">Teléfono</span>
+                  <input type="text" formControlName="phone" placeholder="Ej: +58 412-3456789" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl" />
+                </div>
+                <div>
+                  <span class="block font-semibold text-slate-700 mb-1">Dirección</span>
+                  <input type="text" formControlName="address" placeholder="Ej: Av. Principal, Caracas" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl" />
+                </div>
+              </div>
+
               <div>
                 <span class="block font-semibold text-slate-700 mb-1">Email</span>
                 <input type="email" formControlName="email" placeholder="ventas@proveedor.com" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl" />
@@ -607,9 +613,12 @@ export default class PurchasesComponent {
   authService = inject(AuthService);
   shortcutService = inject(KeyboardShortcutsService);
 
-  suppliers = this.stateService.suppliers();
-  warehouses = this.stateService.warehouses();
-  products = this.stateService.products();
+  suppliers = computed(() => this.stateService.suppliers());
+  warehouses = computed(() => this.stateService.warehouses());
+  products = computed(() => this.stateService.products());
+  purchaseOrders = computed(() => this.stateService.purchaseOrders());
+
+  productCategories = computed(() => this.stateService.categories());
 
   activeTab = signal<'orders' | 'suppliers'>('orders');
   showNewPurchaseModal = signal<boolean>(false);
@@ -629,13 +638,13 @@ export default class PurchasesComponent {
     });
   }
 
-  selectedSupplierId = signal<string>(this.suppliers[0]?.id || '');
-  selectedWarehouseId = signal<string>(this.warehouses[0]?.id || '');
+  selectedSupplierId = signal<string>(this.suppliers()[0]?.id || '');
+  selectedWarehouseId = signal<string>(this.warehouses()[0]?.id || '');
   itemsList = signal<TempItem[]>([]);
 
   filteredProducts = computed(() => {
     const q = this.productSearchQuery().trim().toLowerCase();
-    const prods = this.products;
+    const prods = this.products();
     if (!q) return prods;
     return prods.filter(p => 
       p.name.toLowerCase().includes(q) || 
@@ -655,7 +664,7 @@ export default class PurchasesComponent {
     email: new FormControl('', [Validators.email]),
     phone: new FormControl('+52 55 0000 0000'),
     address: new FormControl('Zona Industrial'),
-    paymentTerms: new FormControl<'CONTADO' | '15_DIAS' | '30_DIAS' | '60_DIAS'>('30_DIAS', [Validators.required]),
+    paymentTerms: new FormControl<'CONTADO' | 'DIAS_15' | 'DIAS_30' | '60_DIAS'>('DIAS_30', [Validators.required]),
     category: new FormControl('General'),
     rating: new FormControl(5.0)
   });
@@ -674,8 +683,8 @@ export default class PurchasesComponent {
 
   openNewPurchaseModal() {
     this.productSearchQuery.set('');
-    if (this.products.length > 0) {
-      this.selectedProductIdForEntry.set(this.products[0].id);
+    if (this.products().length > 0) {
+      this.selectedProductIdForEntry.set(this.products()[0].id);
     }
     this.showNewPurchaseModal.set(true);
   }
@@ -737,7 +746,7 @@ export default class PurchasesComponent {
     const isExempt = Boolean(val.isTaxExempt);
     const cost = Number(val.costPrice);
     const buyQty = Number(val.initialBuyQty || 10);
-    const whCentral = this.warehouses[0];
+    const whCentral = this.warehouses()[0];
 
     const prices: ProductPrices = {
       price1: p1,
@@ -747,7 +756,7 @@ export default class PurchasesComponent {
       price5: Number((p1 * 0.75).toFixed(2))
     };
 
-    const createdProduct = this.stateService.createProduct({
+    this.stateService.createProduct({
       sku: val.sku!.trim().toUpperCase(),
       barcode: val.barcode?.trim() || val.sku!.trim().toUpperCase(),
       name: val.name!.trim(),
@@ -763,27 +772,45 @@ export default class PurchasesComponent {
         { warehouseId: whCentral.id, warehouseName: whCentral.name, quantity: 0 }
       ],
       status: 'ACTIVE'
+    }).subscribe({
+      next: createdProduct => {
+        // Auto-select and add to current purchase order
+        this.selectedProductIdForEntry.set(createdProduct.id);
+        this.addItem(createdProduct.id, buyQty, cost);
+
+        this.productSearchQuery.set('');
+        this.showQuickProductModal.set(false);
+
+        this.stateService.notify(
+          'success',
+          'Producto Creado al Vuelo',
+          `"${createdProduct.sku} - ${createdProduct.name}" agregado con éxito a la orden de compra.`
+        );
+      },
+      error: () => {
+        this.stateService.notify(
+          'error',
+          'Error al Crear Producto',
+          'Ocurrió un error al intentar crear el producto al vuelo.'
+        );
+      }
     });
 
-    // Auto-select and add to current purchase order
-    this.selectedProductIdForEntry.set(createdProduct.id);
-    this.addItem(createdProduct.id, buyQty, cost);
+    // this.productSearchQuery.set('');
+    // this.showQuickProductModal.set(false);
 
-    this.productSearchQuery.set('');
-    this.showQuickProductModal.set(false);
-
-    this.stateService.notify(
-      'success',
-      'Producto Creado al Vuelo',
-      `"${createdProduct.sku} - ${createdProduct.name}" agregado con éxito a la orden de compra.`
-    );
+    // this.stateService.notify(
+    //   'success',
+    //   'Producto Creado al Vuelo',
+    //   `"${createdProduct.sku} - ${createdProduct.name}" agregado con éxito a la orden de compra.`
+    // );
   }
 
   addItem(productId: string, quantity: number, unitCost: number) {
     if (!productId || quantity <= 0 || unitCost <= 0) return;
     
     // Check if item is tax exempt
-    const p = this.products.find(item => item.id === productId);
+    const p = this.products().find(item => item.id === productId);
     const taxRate = p?.isTaxExempt ? 0 : 0.16;
 
     this.itemsList.update(list => [...list, { productId, quantity, unitCost, taxRate }]);
@@ -794,12 +821,12 @@ export default class PurchasesComponent {
   }
 
   getProductName(prodId: string): string {
-    const p = this.products.find(item => item.id === prodId);
+    const p = this.products().find(item => item.id === prodId);
     return p ? `${p.sku} - ${p.name}` : prodId;
   }
 
   calculateSimulatedCPP(prodId: string, incomingQty: number, incomingCost: number): number {
-    const prod = this.products.find(p => p.id === prodId);
+    const prod = this.products().find(p => p.id === prodId);
     if (!prod) return incomingCost;
     const currentStock = prod.totalStock;
     const currentCost = prod.costPrice;
@@ -833,11 +860,11 @@ export default class PurchasesComponent {
       email: val.email || '',
       phone: val.phone || '',
       address: val.address || '',
-      paymentTerms: val.paymentTerms as '30_DIAS',
+      paymentTerms: val.paymentTerms as 'CONTADO' | 'DIAS_15' | 'DIAS_30' | '60_DIAS',
       category: val.category || 'General',
       rating: 4.8
     });
-    this.supplierForm.reset({ paymentTerms: '30_DIAS' });
+    this.supplierForm.reset({ paymentTerms: 'DIAS_30' });
     this.showNewSupplierModal.set(false);
   }
 }

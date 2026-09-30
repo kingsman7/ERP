@@ -140,12 +140,14 @@ export class ErpStateService {
       orders: this.apiService.getPurchaseOrders(),
       warehouses: this.apiService.getWarehouses(),
       products: this.apiService.getProducts(),
+      categories: this.apiService.getCategories(),
     }).pipe(
-      tap(({ suppliers, orders, warehouses, products }) => { 
+      tap(({ suppliers, orders, warehouses, products, categories }) => { 
         this.suppliers.set(suppliers); 
         this.purchaseOrders.set(orders); 
         this.warehouses.set(warehouses);
         this.products.set(products);
+        this.categories.set(categories);
       }), map(() => true)
     );
   }
@@ -2102,7 +2104,7 @@ export class ErpStateService {
       return of({ success: false, message: 'Parámetros de orden de compra inválidos.' });
     }
 
-    const orderNumber = 'OC-2026-' + (this.purchaseOrders().length + 39).toString().padStart(4, '0');
+    const orderNumber = 'OC-2026-' + (this.purchaseOrders().length + 39).toString().padStart(4, '0') + new Date().getTime().toString(36);
     const nowStr = new Date().toISOString();
 
     let subtotal = 0;
@@ -2113,7 +2115,6 @@ export class ErpStateService {
 
     // Clone products map for atomic transaction
     const currentProducts = [...this.products()];
-
     for (const item of items) {
       const prodIndex = currentProducts.findIndex(p => p.id === item.productId);
       if (prodIndex === -1) continue;
@@ -2132,7 +2133,7 @@ export class ErpStateService {
         unitCost: item.unitCost,
         taxRate: item.taxRate,
         subtotal: itemSubtotal,
-        total: itemSubtotal + itemTax
+        total: Number((itemSubtotal + itemTax).toFixed(2))
       });
 
       // Cálculo de Costo Promedio Ponderado (CPP)
@@ -2249,14 +2250,14 @@ export class ErpStateService {
         credit: newPO.total
       }
     ];
-
+    debugger
     return this.apiService.createPurchaseOrder(newPO).pipe(
-      switchMap(() => forkJoin({
+      switchMap((response) => forkJoin({
         inventory: this.loadRouteData('inventory'),
         kardex: this.loadRouteData('kardex'),
-        purchases: this.loadRouteData('purchases')
       })),
-      tap(() => {
+      tap((res) => {
+        this.purchaseOrders.update(po => [newPO, ...po.filter((item) => item.id !== newPO.id)]);
         this.generateAutomatedJournalEntry('COMPRA', orderNumber, `Recepción de Compra ${orderNumber} (${supplier.name})`, poAccountLines);
         this.logAudit(
           'PURCHASE_RECEIPT',
@@ -2584,11 +2585,12 @@ export class ErpStateService {
     if (!isStockAlreadyDeducted) {
       for (const item of items) {
         const prod = currentProducts.find(p => p.id === item.productId);
-        if (!prod) {
+         if (!prod) {
           return { success: false, message: `Producto con ID ${item.productId} no encontrado.` };
         }
-        // Servicios exentos o con stock >= 900 no bloquean
-        if (prod.totalStock < 900) {
+        const isService = prod.itemType === 'SERVICE' || prod.unit === 'HRA' || prod.unit === 'SRV' || prod.unit === 'GLB';
+        // Servicios (horas, soporte, intangibles) no manejan almacén físico y no bloquean por stock
+        if (!isService && prod.totalStock < 900) {
           const whStock = prod.stockByWarehouse.find(sw => sw.warehouseId === warehouseId)?.quantity || 0;
           if (whStock < item.quantity) {
             return {
@@ -2657,8 +2659,9 @@ export class ErpStateService {
         total: Number((lineSubtotal + itemTaxAmount).toFixed(2))
       });
 
-      // Update Warehouse stock & Total stock (only if not already physically deducted by Dispatch Guide)
-      if (!isStockAlreadyDeducted && prod.totalStock < 900) {
+      const isService = prod.itemType === 'SERVICE' || prod.unit === 'HRA' || prod.unit === 'SRV' || prod.unit === 'GLB';
+      // Update Warehouse stock & Total stock (only if not already physically deducted by Dispatch Guide and not a service)
+      if (!isStockAlreadyDeducted && !isService && prod.totalStock < 900) {
         const updatedStockByWh = prod.stockByWarehouse.map(sw => {
           if (sw.warehouseId === warehouseId) {
             return { ...sw, quantity: sw.quantity - item.quantity };
@@ -3997,7 +4000,7 @@ export class ErpStateService {
   }
 
   // Create Product Helper
-  createProduct(prod: Omit<Product, 'id' | 'updatedAt' | 'totalStock'>): Product {
+  createProduct(prod: Omit<Product, 'id' | 'updatedAt' | 'totalStock'>): Observable<Product> {
     const allWarehouses = this.warehouses();
     const existingStockMap = new Map<string, number>();
     (prod.stockByWarehouse || []).forEach(sw => {
@@ -4018,9 +4021,8 @@ export class ErpStateService {
       : (prod.category ? [prod.category] : ['General']);
     const primaryCategory = categories[0] || 'General';
 
-    const newProd: Product = {
+    const newProd: Omit<Product, 'id'>  = {
       ...prod,
-      id: 'prod-' + Date.now().toString(36),
       category: primaryCategory,
       categories,
       primaryWarehouseId: prod.primaryWarehouseId || allWarehouses[0]?.id,
@@ -4029,22 +4031,22 @@ export class ErpStateService {
       updatedAt: nowStr
     };
 
-    this.products.update(ps => [newProd, ...ps]);
-    this.apiService.createProduct(newProd).subscribe({
-      next: saved => {
-        this.products.update(products => products.map(product => product.id === newProd.id || product.sku === newProd.sku ? saved : product));
-        this.saveState();
-      },
-      error: () => {
-        this.products.update(products => products.filter(product => product.id !== newProd.id));
-        this.saveState();
-        this.notify('error', 'Producto no creado', 'El backend rechazó el registro del producto.');
-      }
-    });
-    this.logAudit('CREATE_PRODUCT', 'INVENTORY', `Creación de Producto: ${prod.sku}`, `Alta de producto ${prod.name} con stock inicial de ${totalStock} UND.`, null, newProd as unknown as Record<string, unknown>);
-    this.notify('success', 'Producto Creado', `Se agregó ${newProd.name} al catálogo.`);
-    this.saveState();
-    return newProd;
+    //this.products.update(ps => [newProd, ...ps]);
+    return this.apiService.createProduct(newProd).pipe(
+      tap({
+        next: saved => {
+          console.log(saved)
+          this.products.update(products => [saved, ...products.filter(p => p.id !== saved.id)]);
+          this.saveState();
+          this.logAudit('CREATE_PRODUCT', 'INVENTORY', `Creación de Producto: ${saved.sku}`, `Alta de producto ${saved.name} con stock inicial de ${totalStock} UND.`, null, newProd as unknown as Record<string, unknown>);
+          this.notify('success', 'Producto Creado', `Se agregó ${saved.name} al catálogo.`);
+        },
+        error: () => {
+          this.saveState();
+          this.notify('error', 'Producto no creado', 'El backend rechazó el registro del producto.');
+        }
+      })
+    );
   }
 
   updateProduct(id: string, updated: Partial<Product>): { success: boolean; message?: string } {

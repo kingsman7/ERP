@@ -144,7 +144,8 @@ export interface Product {
   category: string;
   categories?: string[]; // Soporte para múltiples categorías simultáneas
   primaryWarehouseId?: string; // Almacén principal o de pertenencia
-  unit: 'UND' | 'KG' | 'LT' | 'CJ' | 'MT' | 'PQ';
+  itemType?: 'GOODS' | 'SERVICE';
+  unit: 'UND' | 'KG' | 'LT' | 'CJ' | 'MT' | 'PQ' | 'HRA' | 'SRV' | 'GLB';
   costPrice: number; // Costo Promedio Ponderado actual
   salePrice: number; // Alias or Base Price (Nivel 1)
   prices: ProductPrices; // Hasta 5 niveles de precio
@@ -215,7 +216,7 @@ export interface Supplier {
   email: string;
   phone: string;
   address: string;
-  paymentTerms: 'CONTADO' | '15_DIAS' | '30_DIAS' | '60_DIAS';
+  paymentTerms: 'CONTADO' | 'DIAS_15' | 'DIAS_30' | '60_DIAS';
   category: string;
   rating: number;
 }

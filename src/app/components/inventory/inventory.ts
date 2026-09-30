@@ -16,7 +16,7 @@ import { forkJoin, switchMap } from 'rxjs';
   imports: [ReactiveFormsModule, MatIconModule, DecimalPipe],
   template: `
     <div class="space-y-6 pb-12">
-      @if (stateService.inventoryLoading()) {
+       @if (stateService.inventoryLoading()) {
         <div role="status" class="flex items-center gap-2 px-4 py-3 rounded-xl border border-sky-200 bg-sky-50 text-sky-800 text-xs">
           <mat-icon class="animate-spin text-base">sync</mat-icon>
           <span>Cargando inventario y categorías desde el backend...</span>
@@ -151,6 +151,18 @@ import { forkJoin, switchMap } from 'rxjs';
           </select>
         </div>
 
+        <!-- Item Type Filter -->
+        <div class="w-full md:w-44">
+          <select 
+            [value]="selectedTypeFilter()"
+            (change)="selectedTypeFilter.set($any($event.target).value)"
+            class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20">
+            <option value="ALL">Todos los Tipos</option>
+            <option value="GOODS">Solo Mercancías Físicas</option>
+            <option value="SERVICE">Solo Servicios / Horas</option>
+          </select>
+        </div>
+
         <!-- Stock Status Filter -->
         <button 
           (click)="toggleOnlyLowStock()"
@@ -187,7 +199,14 @@ import { forkJoin, switchMap } from 'rxjs';
                   <!-- Product Name, SKU, Barcode -->
                   <td class="py-3 px-4">
                     <div class="space-y-0.5">
-                      <p class="font-semibold text-slate-900 text-xs sm:text-sm">{{ prod.name }}</p>
+                      <div class="flex items-center space-x-1.5 flex-wrap">
+                        <p class="font-semibold text-slate-900 text-xs sm:text-sm">{{ prod.name }}</p>
+                        @if (prod.itemType === 'SERVICE') {
+                          <span class="px-1.5 py-0.2 rounded text-[10px] font-bold bg-violet-100 text-violet-800 border border-violet-200">
+                            SERVICIO
+                          </span>
+                        }
+                      </div>
                       <div class="flex items-center space-x-2 text-[11px] text-slate-400 font-mono">
                         <span class="bg-slate-100 px-1.5 py-0.2 rounded text-slate-600">SKU: {{ prod.sku }}</span>
                         <span>•</span>
@@ -260,33 +279,43 @@ import { forkJoin, switchMap } from 'rxjs';
 
                   <!-- Total Stock & Stock per Warehouse Breakdown -->
                   <td class="py-3 px-3 text-center">
-                    <div class="inline-flex flex-col items-center space-y-1">
-                      <div class="flex items-center space-x-1.5">
-                        <span class="font-mono font-bold text-sm"
-                          [class]="prod.totalStock <= prod.minStock ? 'text-amber-600' : 'text-slate-900'">
-                          {{ prod.totalStock }}
+                    @if (prod.itemType === 'SERVICE') {
+                      <div class="inline-flex flex-col items-center space-y-0.5">
+                        <span class="px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 font-semibold text-[10px] border border-violet-200 inline-flex items-center space-x-1">
+                          <mat-icon class="text-[12px]">all_inclusive</mat-icon>
+                          <span>Ilimitado</span>
                         </span>
-                        @if (prod.totalStock <= prod.minStock) {
-                          <span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-100 text-amber-800 uppercase">
-                            Bajo Mín ({{ prod.minStock }})
-                          </span>
-                        } @else {
-                          <span class="text-[10px] text-slate-400">Mín: {{ prod.minStock }}</span>
-                        }
+                        <span class="text-[10px] text-slate-400 font-mono">Sin inventario físico</span>
                       </div>
+                    } @else {
+                      <div class="inline-flex flex-col items-center space-y-1">
+                        <div class="flex items-center space-x-1.5">
+                          <span class="font-mono font-bold text-sm"
+                            [class]="prod.totalStock <= prod.minStock ? 'text-amber-600' : 'text-slate-900'">
+                            {{ prod.totalStock }}
+                          </span>
+                          @if (prod.totalStock <= prod.minStock) {
+                            <span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-100 text-amber-800 uppercase">
+                              Bajo Mín ({{ prod.minStock }})
+                            </span>
+                          } @else {
+                            <span class="text-[10px] text-slate-400">Mín: {{ prod.minStock }}</span>
+                          }
+                        </div>
 
-                      <!-- Breakdown per warehouse -->
-                      <div class="flex flex-wrap items-center justify-center gap-1 text-[9px] font-mono text-slate-500 max-w-[200px]">
-                        @for (whEntry of prod.stockByWarehouse; track whEntry.warehouseId) {
-                          <span 
-                            class="px-1.5 py-0.5 rounded border text-[9px]"
-                            [class]="whEntry.quantity > 0 ? 'bg-slate-100 border-slate-200 text-slate-700 font-semibold' : 'bg-slate-50 border-slate-150 text-slate-400'"
-                            [title]="whEntry.warehouseName + ': ' + whEntry.quantity + ' ' + prod.unit">
-                            {{ getWarehouseShortName(whEntry.warehouseId) }}: {{ whEntry.quantity }}
-                          </span>
-                        }
+                        <!-- Breakdown per warehouse -->
+                        <div class="flex flex-wrap items-center justify-center gap-1 text-[9px] font-mono text-slate-500 max-w-[200px]">
+                          @for (whEntry of prod.stockByWarehouse; track whEntry.warehouseId) {
+                            <span 
+                              class="px-1.5 py-0.5 rounded border text-[9px]"
+                              [class]="whEntry.quantity > 0 ? 'bg-slate-100 border-slate-200 text-slate-700 font-semibold' : 'bg-slate-50 border-slate-150 text-slate-400'"
+                              [title]="whEntry.warehouseName + ': ' + whEntry.quantity + ' ' + prod.unit">
+                              {{ getWarehouseShortName(whEntry.warehouseId) }}: {{ whEntry.quantity }}
+                            </span>
+                          }
+                        </div>
                       </div>
-                    </div>
+                    }
                   </td>
 
                   <!-- Actions -->
@@ -660,16 +689,18 @@ import { forkJoin, switchMap } from 'rxjs';
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label class="block font-semibold text-slate-700 mb-1">Nombre de la Categoría *</label>
+                    <label for="cat-name-input" class="block font-semibold text-slate-700 mb-1">Nombre de la Categoría *</label>
                     <input 
+                      id="cat-name-input"
                       type="text" 
                       formControlName="name" 
                       placeholder="Ej: Herramientas Neumáticas" 
                       class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20" />
                   </div>
                   <div>
-                    <label class="block font-semibold text-slate-700 mb-1">Código / Sigla *</label>
+                    <label for="cat-code-input" class="block font-semibold text-slate-700 mb-1">Código / Sigla *</label>
                     <input 
+                      id="cat-code-input"
                       type="text" 
                       formControlName="code" 
                       placeholder="Ej: NEUM" 
@@ -678,29 +709,53 @@ import { forkJoin, switchMap } from 'rxjs';
                 </div>
 
                 <div>
-                  <label class="block font-semibold text-slate-700 mb-1">Descripción</label>
+                  <label for="cat-desc-input" class="block font-semibold text-slate-700 mb-1">Descripción</label>
                   <input 
+                    id="cat-desc-input"
                     type="text" 
                     formControlName="description" 
                     placeholder="Breve descripción del tipo de productos en esta categoría..." 
-                    class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20" />
-                </div>
-
-                <!-- Color selector -->
-                <div>
-                  <label class="block font-semibold text-slate-700 mb-1">Color del Distintivo</label>
-                  <div class="flex flex-wrap gap-2">
-                    @for (col of ['blue', 'emerald', 'amber', 'purple', 'rose', 'sky', 'indigo']; track col) {
-                      <button 
-                        type="button" 
-                        (click)="categoryForm.patchValue({ color: col })"
-                        [class]="categoryForm.value.color === col ? 'ring-2 ring-offset-2 ring-purple-600 scale-105' : 'opacity-70 hover:opacity-100'"
-                        [class]="getCategoryBadgeClass(col)"
-                        class="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer capitalize">
-                        {{ col }}
-                      </button>
-                    }
+                      class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20" />
                   </div>
+
+                  <!-- Color selector with prominent selection feedback -->
+                  <div>
+                    <div class="flex items-center justify-between mb-1.5">
+                      <span class="block font-semibold text-slate-700">Color del Distintivo *</span>
+                      <span class="text-[11px] text-slate-500 font-medium">
+                        Color activo: <strong class="capitalize font-bold text-purple-700">{{ selectedCategoryColor() }}</strong>
+                      </span>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      @for (opt of categoryColorOptions; track opt.key) {
+                        @let isSelected = selectedCategoryColor() === opt.key;
+                        <button 
+                          type="button" 
+                          (click)="selectCategoryColor(opt.key)"
+                          [class]="isSelected 
+                            ? 'ring-2 ring-purple-600 ring-offset-2 border-purple-500 bg-purple-50/60 shadow-sm font-bold scale-[1.02]' 
+                            : 'border-slate-200 bg-white hover:bg-slate-50 opacity-75 hover:opacity-100 font-medium'"
+                          class="px-2.5 py-2 rounded-xl border flex items-center justify-between text-xs transition-all cursor-pointer">
+                          <div class="flex items-center space-x-2">
+                            <span [class]="opt.dotClass" class="w-3.5 h-3.5 rounded-full inline-block shrink-0 shadow-xs"></span>
+                            <span class="text-slate-800">{{ opt.label }}</span>
+                          </div>
+                          @if (isSelected) {
+                            <mat-icon class="text-sm text-purple-700 font-bold shrink-0">check_circle</mat-icon>
+                          }
+                        </button>
+                      }
+                    </div>
+
+                    <!-- Live Preview Badge of the Category Pill -->
+                    <div class="mt-2.5 p-2 bg-white rounded-xl border border-purple-100 flex items-center justify-between">
+                      <span class="text-[11px] text-slate-500 font-medium">Vista previa de etiqueta en catálogo:</span>
+                      <span [class]="getCategoryBadgeClass(selectedCategoryColor())" class="px-2.5 py-0.5 rounded-full text-xs font-semibold inline-flex items-center space-x-1 shadow-2xs">
+                        <mat-icon class="text-[13px]">label</mat-icon>
+                        <span>{{ categoryForm.get('name')?.value || 'Nombre de Categoría' }}</span>
+                      </span>
+                    </div>
                 </div>
 
                 <div class="flex items-center justify-end space-x-2 pt-2 border-t border-purple-100">
@@ -1052,30 +1107,69 @@ import { forkJoin, switchMap } from 'rxjs';
 
             <form [formGroup]="newProductForm" (ngSubmit)="submitNewProduct()" class="p-6 space-y-4 text-xs">
               
-              <!-- 1. Warehouse Selection Section -->
-              <div class="p-3 bg-sky-50/70 border border-sky-200 rounded-xl space-y-1.5">
-                <div class="flex items-center justify-between">
-                  <label class="block font-semibold text-sky-950 flex items-center space-x-1.5">
-                    <mat-icon class="text-sm text-sky-600">warehouse</mat-icon>
-                    <span>Almacén de Ubicación / Asignación Inicial *</span>
-                  </label>
-                  <span class="text-[10px] font-semibold text-sky-700 bg-sky-100 px-2 py-0.5 rounded-full">
-                    Pertenencia de Stock
-                  </span>
+              <!-- 0. Item Nature Switcher: PRODUCTO vs SERVICIO -->
+              <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                <span class="block font-semibold text-slate-800 flex items-center space-x-1.5">
+                  <mat-icon class="text-sm text-indigo-600">category</mat-icon>
+                  <span>Naturaleza del Ítem *</span>
+                </span>
+                <div class="grid grid-cols-2 gap-2">
+                  <button 
+                    type="button" 
+                    (click)="onItemTypeChange('GOODS')"
+                    [class]="newProductForm.get('itemType')?.value === 'GOODS'
+                      ? 'bg-blue-600 text-white font-bold border-blue-600 shadow-xs'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100 font-medium'"
+                    class="p-2.5 rounded-xl border flex items-center justify-center space-x-2 text-xs transition-all cursor-pointer">
+                    <mat-icon class="text-base">inventory_2</mat-icon>
+                    <span>Mercancía Física</span>
+                  </button>
+                  <button 
+                    type="button" 
+                    (click)="onItemTypeChange('SERVICE')"
+                    [class]="newProductForm.get('itemType')?.value === 'SERVICE'
+                      ? 'bg-violet-600 text-white font-bold border-violet-600 shadow-xs'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100 font-medium'"
+                    class="p-2.5 rounded-xl border flex items-center justify-center space-x-2 text-xs transition-all cursor-pointer">
+                    <mat-icon class="text-base">support_agent</mat-icon>
+                    <span>Servicio / Horas</span>
+                  </button>
                 </div>
-                <select 
-                  formControlName="warehouseId" 
-                  class="w-full px-3 py-2 bg-white border border-sky-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-sky-500/20">
-                  @for (wh of stateService.warehouses(); track wh.id) {
-                    <option [value]="wh.id">
-                      [{{ wh.code }}] {{ wh.name }} @if (wh.isMain) { (Principal) } - {{ wh.location }}
-                    </option>
-                  }
-                </select>
-                <p class="text-[11px] text-sky-800">
-                  El stock inicial de este producto se guardará directamente en este almacén físico.
-                </p>
+                @if (newProductForm.get('itemType')?.value === 'SERVICE') {
+                  <div class="p-2 bg-violet-50 text-violet-800 border border-violet-200 rounded-lg text-[11px] flex items-start space-x-1.5">
+                    <mat-icon class="text-sm shrink-0 text-violet-600 mt-0.5">info</mat-icon>
+                    <span><strong>Servicio Intangible:</strong> Se factura libremente en el POS y cotizaciones con cantidad ilimitada de horas o servicios sin requerir existencias en almacén ni alterar el Kardex físico.</span>
+                  </div>
+                }
               </div>
+
+              <!-- 1. Warehouse Selection Section (only for physical products) -->
+              @if (newProductForm.get('itemType')?.value === 'GOODS') {
+                <div class="p-3 bg-sky-50/70 border border-sky-200 rounded-xl space-y-1.5">
+                  <div class="flex items-center justify-between">
+                    <label for="new-prod-wh" class="block font-semibold text-sky-950 flex items-center space-x-1.5">
+                      <mat-icon class="text-sm text-sky-600">warehouse</mat-icon>
+                      <span>Almacén de Ubicación / Asignación Inicial *</span>
+                    </label>
+                    <span class="text-[10px] font-semibold text-sky-700 bg-sky-100 px-2 py-0.5 rounded-full">
+                      Pertenencia de Stock
+                    </span>
+                  </div>
+                  <select 
+                    id="new-prod-wh"
+                    formControlName="warehouseId" 
+                    class="w-full px-3 py-2 bg-white border border-sky-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-sky-500/20">
+                    @for (wh of stateService.warehouses(); track wh.id) {
+                      <option [value]="wh.id">
+                        [{{ wh.code }}] {{ wh.name }} @if (wh.isMain) { (Principal) } - {{ wh.location }}
+                      </option>
+                    }
+                  </select>
+                  <p class="text-[11px] text-sky-800">
+                    El stock inicial de este producto se guardará directamente en este almacén físico.
+                  </p>
+                </div>
+              }
 
               <!-- 2. SKU, Barcode, Name -->
               <div class="grid grid-cols-2 gap-3">
@@ -1159,16 +1253,25 @@ import { forkJoin, switchMap } from 'rxjs';
                 <div>
                   <span class="block font-semibold text-slate-700 mb-1">Unidad de Medida *</span>
                   <select formControlName="unit" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl">
-                    <option value="UND">UND (Unidad)</option>
-                    <option value="KG">KG (Kilogramo)</option>
-                    <option value="LT">LT (Litro)</option>
-                    <option value="CJ">CJ (Caja)</option>
-                    <option value="MT">MT (Metro)</option>
-                    <option value="PQ">PQ (Paquete)</option>
+                    @if (newProductForm.get('itemType')?.value === 'SERVICE') {
+                      <option value="HRA">HRA (Horas de Servicio / Mano de Obra)</option>
+                      <option value="SRV">SRV (Servicio Técnico / Soporte)</option>
+                      <option value="GLB">GLB (Global / Contrato)</option>
+                      <option value="UND">UND (Unidad de Servicio)</option>
+                    } @else {
+                      <option value="UND">UND (Unidad)</option>
+                      <option value="KG">KG (Kilogramo)</option>
+                      <option value="LT">LT (Litro)</option>
+                      <option value="CJ">CJ (Caja)</option>
+                      <option value="MT">MT (Metro)</option>
+                      <option value="PQ">PQ (Paquete)</option>
+                    }
                   </select>
                 </div>
                 <div>
-                  <span class="block font-semibold text-slate-700 mb-1">Costo Compra ($) *</span>
+                  <span class="block font-semibold text-slate-700 mb-1">
+                    {{ newProductForm.get('itemType')?.value === 'SERVICE' ? 'Costo Base / Nómina ($)' : 'Costo Compra ($) *' }}
+                  </span>
                   <input type="number" step="0.01" formControlName="costPrice" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono" />
                 </div>
               </div>
@@ -1214,17 +1317,19 @@ import { forkJoin, switchMap } from 'rxjs';
                 </div>
               </div>
 
-              <!-- Stock Values -->
-              <div class="grid grid-cols-2 gap-3">
-                <div>
-                  <span class="block font-semibold text-slate-700 mb-1">Stock Mínimo (Alerta de reposición) *</span>
-                  <input type="number" formControlName="minStock" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono" />
+              <!-- Stock Values (only for physical products) -->
+              @if (newProductForm.get('itemType')?.value === 'GOODS') {
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <span class="block font-semibold text-slate-700 mb-1">Stock Mínimo (Alerta de reposición) *</span>
+                    <input type="number" formControlName="minStock" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono" />
+                  </div>
+                  <div>
+                    <span class="block font-semibold text-slate-700 mb-1">Stock Inicial de Apertura *</span>
+                    <input type="number" min="0" formControlName="initialStock" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono" />
+                  </div>
                 </div>
-                <div>
-                  <span class="block font-semibold text-slate-700 mb-1">Stock Inicial de Apertura *</span>
-                  <input type="number" min="0" formControlName="initialStock" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono" />
-                </div>
-              </div>
+              }
 
               <div class="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
                 <button type="button" (click)="showNewProductModal.set(false)" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-medium cursor-pointer">
@@ -1257,6 +1362,7 @@ export default class InventoryComponent {
   searchTerm = signal<string>('');
   selectedCategory = signal<string>('ALL');
   selectedWarehouse = signal<string>('ALL');
+  selectedTypeFilter = signal<'ALL' | 'GOODS' | 'SERVICE'>('ALL');
   onlyLowStock = signal<boolean>(false);
 
   showAdjustModal = signal<boolean>(false);
@@ -1270,6 +1376,18 @@ export default class InventoryComponent {
 
   editingCategoryId = signal<string | null>(null);
   editingWarehouseId = signal<string | null>(null);
+
+   readonly categoryColorOptions = [
+    { key: 'blue', label: 'Azul', dotClass: 'bg-blue-500' },
+    { key: 'emerald', label: 'Esmeralda', dotClass: 'bg-emerald-500' },
+    { key: 'amber', label: 'Ámbar', dotClass: 'bg-amber-500' },
+    { key: 'purple', label: 'Púrpura', dotClass: 'bg-purple-500' },
+    { key: 'rose', label: 'Rosa', dotClass: 'bg-rose-500' },
+    { key: 'sky', label: 'Celeste', dotClass: 'bg-sky-500' },
+    { key: 'indigo', label: 'Índigo', dotClass: 'bg-indigo-500' }
+  ] as const;
+
+  selectedCategoryColor = signal<string>('blue');
 
   categoryForm = new FormGroup({
     name: new FormControl('', [Validators.required, Validators.minLength(2)]),
@@ -1333,10 +1451,15 @@ export default class InventoryComponent {
         (prod.primaryWarehouseId === wh) ||
         prod.stockByWarehouse.some(s => s.warehouseId === wh && s.quantity > 0);
 
-      // Low Stock
-      const matchesLow = !low || prod.totalStock <= prod.minStock;
+      // Item Type Filter
+      const typeF = this.selectedTypeFilter();
+      const isSrv = prod.itemType === 'SERVICE' || prod.unit === 'HRA' || prod.unit === 'SRV' || prod.unit === 'GLB';
+      const matchesType = typeF === 'ALL' || (typeF === 'SERVICE' ? isSrv : !isSrv);
 
-      return matchesSearch && matchesCat && matchesWh && matchesLow;
+      // Low Stock (services never trigger low physical stock)
+      const matchesLow = !low || (!isSrv && prod.totalStock <= prod.minStock);
+
+      return matchesSearch && matchesCat && matchesWh && matchesLow && matchesType;
     });
   });
 
@@ -1362,21 +1485,45 @@ export default class InventoryComponent {
 
   // New Product Form
   newProductForm = new FormGroup({
-    warehouseId: new FormControl('', [Validators.required]),
+    itemType: new FormControl<'GOODS' | 'SERVICE'>('GOODS', [Validators.required]),
+    warehouseId: new FormControl(''),
     sku: new FormControl('', [Validators.required]),
     barcode: new FormControl('', [Validators.required]),
     name: new FormControl('', [Validators.required]),
-    unit: new FormControl<'UND' | 'KG' | 'LT' | 'CJ' | 'MT' | 'PQ'>('UND', [Validators.required]),
-    costPrice: new FormControl(10.00, [Validators.required, Validators.min(0.01)]),
+    unit: new FormControl<'UND' | 'KG' | 'LT' | 'CJ' | 'MT' | 'PQ' | 'HRA' | 'SRV' | 'GLB'>('UND', [Validators.required]),
+    costPrice: new FormControl(10.00, [Validators.required, Validators.min(0)]),
     salePrice: new FormControl(18.00, [Validators.required, Validators.min(0.01)]),
     price2: new FormControl(16.20),
     price3: new FormControl(14.76),
     price4: new FormControl(14.04),
     price5: new FormControl(13.50),
     isTaxExempt: new FormControl(false),
-    minStock: new FormControl(5, [Validators.required, Validators.min(1)]),
-    initialStock: new FormControl(10, [Validators.required, Validators.min(0)])
+    minStock: new FormControl(5, [Validators.min(0)]),
+    initialStock: new FormControl(10, [Validators.min(0)])
   });
+
+  onItemTypeChange(type: 'GOODS' | 'SERVICE') {
+    this.newProductForm.patchValue({ itemType: type });
+    if (type === 'SERVICE') {
+      this.newProductForm.patchValue({
+        unit: 'HRA',
+        costPrice: 0.00,
+        minStock: 0,
+        initialStock: 0
+      });
+      const srvCat = this.stateService.categories().find(c => c.name.toLowerCase().includes('servicio'))?.name || 'Servicios Profesionales';
+      this.selectedNewProductCategories.set([srvCat]);
+    } else {
+      this.newProductForm.patchValue({
+        unit: 'UND',
+        costPrice: 10.00,
+        minStock: 5,
+        initialStock: 10
+      });
+      const firstCat = this.stateService.categories()[0]?.name || 'Herramientas Eléctricas';
+      this.selectedNewProductCategories.set([firstCat]);
+    }
+  }
 
   toggleOnlyLowStock() {
     this.onlyLowStock.set(!this.onlyLowStock());
@@ -1425,18 +1572,26 @@ export default class InventoryComponent {
     this.showCategoryCrudModal.set(true);
   }
 
-  startEditCategory(cat: ProductCategory) {
+  selectCategoryColor(colorKey: string) {
+    this.selectedCategoryColor.set(colorKey);
+    this.categoryForm.patchValue({ color: colorKey });
+  }
+
+   startEditCategory(cat: ProductCategory) {
+    const col = cat.color || 'blue';
     this.editingCategoryId.set(cat.id);
+    this.selectedCategoryColor.set(col);
     this.categoryForm.patchValue({
       name: cat.name,
       code: cat.code,
       description: cat.description || '',
-      color: cat.color || 'blue'
+      color: col
     });
   }
 
-  cancelCategoryEdit() {
+   cancelCategoryEdit() {
     this.editingCategoryId.set(null);
+    this.selectedCategoryColor.set('blue');
     this.categoryForm.reset({
       name: '',
       code: '',
@@ -1449,13 +1604,14 @@ export default class InventoryComponent {
     if (this.categoryForm.invalid) return;
     const val = this.categoryForm.value;
     const editId = this.editingCategoryId();
+    const chosenColor = this.selectedCategoryColor() || 'blue';
 
     if (editId) {
       const res = this.stateService.updateCategory(editId, {
         name: val.name!.trim(),
         code: val.code!.trim().toUpperCase(),
         description: (val.description || '').trim(),
-        color: (val.color as any) || 'blue'
+        color: chosenColor
       });
       if (res.success) {
         this.cancelCategoryEdit();
@@ -1465,7 +1621,7 @@ export default class InventoryComponent {
         name: val.name!.trim(),
         code: val.code!.trim().toUpperCase(),
         description: (val.description || '').trim(),
-        color: (val.color as any) || 'blue'
+        color: chosenColor
       });
       if (res.success) {
         this.cancelCategoryEdit();
@@ -1534,6 +1690,7 @@ export default class InventoryComponent {
         name: val.name!.trim(),
         location: val.location!.trim(),
         isMain: Boolean(val.isMain),
+        status: val.status || 'ACTIVE',
         capacity: Number(val.capacity) || 10000,
         managerName: (val.managerName || '').trim(),
         phone: (val.phone || '').trim(),
@@ -1548,6 +1705,7 @@ export default class InventoryComponent {
         name: val.name!.trim(),
         location: val.location!.trim(),
         isMain: Boolean(val.isMain),
+        status: val.status || 'ACTIVE',
         capacity: Number(val.capacity) || 10000,
         managerName: (val.managerName || '').trim(),
         phone: (val.phone || '').trim(),
@@ -1592,6 +1750,7 @@ export default class InventoryComponent {
     const defaultWh = this.stateService.warehouses().find(w => w.isMain)?.id || this.stateService.warehouses()[0]?.id || '';
     
     this.newProductForm.reset({
+      itemType: 'GOODS',
       warehouseId: defaultWh,
       sku: '',
       barcode: '',
@@ -1641,7 +1800,7 @@ export default class InventoryComponent {
         productId: firstProd.id,
         warehouseId: this.getAdjustmentWarehouseId(firstProd),
         quantity: 1,
-        supportDocument: '',
+        supportDocument: 'FOLIO-ADJ-' + Math.floor(Math.random() * 9000 + 1000),
         justificationReason: ''
       });
     }
@@ -1653,7 +1812,7 @@ export default class InventoryComponent {
       productId: prod.id,
       warehouseId: this.getAdjustmentWarehouseId(prod),
       quantity: 1,
-      supportDocument: '',
+      supportDocument: 'FOLIO-MERMA-' + Math.floor(Math.random() * 9000 + 1000),
       justificationReason: ''
     });
     this.showAdjustModal.set(true);
@@ -1763,7 +1922,8 @@ export default class InventoryComponent {
     }
 
     const val = this.newProductForm.value;
-    const targetWhId = val.warehouseId || this.stateService.warehouses().find(w => w.isMain)?.id || this.stateService.warehouses()[0]?.id || '';
+    const isService = val.itemType === 'SERVICE';
+    const targetWhId = isService ? '' : (val.warehouseId || this.stateService.warehouses().find(w => w.isMain)?.id || this.stateService.warehouses()[0]?.id || '');
     const targetWh = this.stateService.warehouses().find(w => w.id === targetWhId);
     const targetWhName = targetWh ? targetWh.name : 'Almacén';
 
@@ -1772,31 +1932,32 @@ export default class InventoryComponent {
 
     const prices: ProductPrices = {
       price1: p1,
-      price2: Number(val.price2 || (p1 * 0.90)),
-      price3: Number(val.price3 || (p1 * 0.82)),
-      price4: Number(val.price4 || (p1 * 0.78)),
-      price5: Number(val.price5 || (p1 * 0.75))
+      price2: Number((val.price2 || (p1 * 0.90)).toFixed(2)),
+      price3: Number((val.price3 || (p1 * 0.82)).toFixed(2)),
+      price4: Number((val.price4 || (p1 * 0.78)).toFixed(2)),
+      price5: Number((val.price5 || (p1 * 0.75)).toFixed(2))
     };
 
     const chosenCategories = this.selectedNewProductCategories();
-    const primaryCat = chosenCategories[0] || 'General';
+    const primaryCat = chosenCategories[0] || (isService ? 'Servicios Profesionales' : 'General');
 
     this.stateService.createProduct({
+      itemType: isService ? 'SERVICE' : 'GOODS',
       sku: val.sku!.trim().toUpperCase(),
       barcode: val.barcode!.trim(),
       name: val.name!.trim(),
       category: primaryCat,
       categories: chosenCategories,
-      primaryWarehouseId: targetWhId,
-      unit: val.unit as 'UND',
-      costPrice: Number(val.costPrice),
+      primaryWarehouseId: isService ? undefined : targetWhId,
+      unit: (val.unit || (isService ? 'HRA' : 'UND')) as 'UND',
+      costPrice: Number(val.costPrice || 0),
       salePrice: p1,
       prices,
       isTaxExempt: isExempt,
       taxRate: isExempt ? 0 : 0.16,
-      minStock: Number(val.minStock),
-      stockByWarehouse: [
-        { warehouseId: targetWhId, warehouseName: targetWhName, quantity: Number(val.initialStock) }
+      minStock: isService ? 0 : Number(val.minStock || 0),
+      stockByWarehouse: isService ? [] : [
+        { warehouseId: targetWhId, warehouseName: targetWhName, quantity: Number(val.initialStock || 0) }
       ],
       status: 'ACTIVE'
     });

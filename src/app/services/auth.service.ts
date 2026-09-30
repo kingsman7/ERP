@@ -17,7 +17,7 @@ export const SYSTEM_ROLES: RoleConfig[] = [
     name: 'Administrador de Empresa',
     badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200',
     description: 'Administración de la empresa y sus operaciones autorizadas.',
-    permissions: ['security:manage', 'audit:view', 'inventory:adjust', 'sales:manage', 'purchases:manage', 'reports:export', 'treasury:manage', 'treasury:view', 'accounting:manage']
+    permissions: ['security:manage', 'audit:view', 'inventory:view', 'sales:manage', 'purchases:manage', 'reports:export', 'treasury:manage', 'treasury:view', 'accounting:manage']
   },
   {
     id: 'OPERATIONS_MANAGER',

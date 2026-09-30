@@ -213,7 +213,12 @@ interface CartItem {
                   
                   <div class="w-full">
                     <div class="flex items-start justify-between">
-                      <span class="text-[10px] font-mono font-semibold text-slate-400 group-hover:text-emerald-600">{{ product.sku }}</span>
+                      <div class="flex items-center space-x-1">
+                        <span class="text-[10px] font-mono font-semibold text-slate-400 group-hover:text-emerald-600">{{ product.sku }}</span>
+                        @if (product.itemType === 'SERVICE') {
+                          <span class="text-[9px] px-1 py-0.2 rounded font-bold bg-violet-100 text-violet-800">SERVICIO</span>
+                        }
+                      </div>
                       <span 
                         class="text-[10px] px-1.5 py-0.2 rounded-full font-medium"
                         [class]="product.isTaxExempt ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'">
@@ -240,11 +245,17 @@ interface CartItem {
                     </div>
 
                     <div class="text-right">
-                      <span 
-                        class="text-[10px] font-mono font-medium block"
-                        [class]="product.totalStock <= product.minStock ? 'text-rose-600 font-bold' : 'text-slate-500'">
-                        Stock: {{ product.totalStock }}
-                      </span>
+                      @if (product.itemType === 'SERVICE') {
+                        <span class="text-[10px] font-mono font-semibold block text-violet-700 bg-violet-50 px-1 rounded">
+                          {{ product.unit }} (Ilimitado)
+                        </span>
+                      } @else {
+                        <span 
+                          class="text-[10px] font-mono font-medium block"
+                          [class]="product.totalStock <= product.minStock ? 'text-rose-600 font-bold' : 'text-slate-500'">
+                          Stock: {{ product.totalStock }}
+                        </span>
+                      }
                       <span 
                         class="p-1 rounded-lg bg-emerald-50 text-emerald-700 group-hover:bg-emerald-600 group-hover:text-white transition-colors inline-flex items-center justify-center">
                         <mat-icon class="text-base">add_shopping_cart</mat-icon>
@@ -318,14 +329,17 @@ interface CartItem {
                   <div class="p-2.5 rounded-xl bg-slate-50/70 border border-slate-100 hover:border-slate-200 transition-all flex items-center justify-between gap-2">
                     
                     <div class="flex-1 min-w-0">
-                      <div class="flex items-center space-x-1.5">
+                      <div class="flex items-center space-x-1.5 flex-wrap">
                         <span class="text-xs font-semibold text-slate-900 truncate">{{ item.product.name }}</span>
+                        @if (item.product.itemType === 'SERVICE') {
+                          <span class="text-[9px] bg-violet-100 text-violet-800 px-1 py-0.2 rounded font-bold">SERVICIO</span>
+                        }
                         @if (item.product.isTaxExempt) {
                           <span class="text-[9px] bg-amber-100 text-amber-800 px-1 py-0.2 rounded font-bold">EXENTO</span>
                         }
                       </div>
                       <div class="flex items-center space-x-2 mt-0.5 text-[11px] text-slate-500">
-                        <span class="font-mono">\${{ getItemUnitPrice(item)  | number: '1.2-2' }} c/u</span>
+                        <span class="font-mono">\${{ getItemUnitPrice(item)  | number: '1.2-2' }} / {{ item.product.unit || 'UND' }}</span>
                         <span>•</span>
                         <span class="font-mono text-emerald-700">Bs. {{ (getItemUnitPrice(item) * stateService.bcvState().usdRate)  | number: '1.2-2' }}</span>
                       </div>
