@@ -6,12 +6,12 @@ import { KeyboardShortcutsService } from '../../services/keyboard-shortcuts.serv
 import { Quote, PriceLevelKey, Invoice, PaymentMethod, PaymentRecord, CurrencyCode, InvoiceType } from '../../models/erp.models';
 import { InvoiceModal } from '../invoice-modal/invoice-modal';
 import { QuotePrintModal } from './quote-print-modal';
-import { DecimalPipe } from '@angular/common';
+import { DecimalPipe, DatePipe } from '@angular/common';
 
 @Component({
   selector: 'app-quotes',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatIconModule, InvoiceModal, QuotePrintModal, DecimalPipe],
+  imports: [MatIconModule, InvoiceModal, QuotePrintModal, DecimalPipe, DatePipe],
   template: `
     <div class="space-y-6 pb-12">
       
@@ -67,7 +67,7 @@ import { DecimalPipe } from '@angular/common';
                       </span>
                     }
                   </div>
-                  <p class="text-xs text-slate-500 mt-0.5">Emitido: {{ q.date.substring(0, 10) }} • Vence: {{ q.expirationDate }}</p>
+                  <p class="text-xs text-slate-500 mt-0.5">Emitido: {{ q.date | date:'shortDate' }} • Vence: {{ q.validUntil | date:'shortDate' }}</p>
                 </div>
 
                 <div class="flex items-center space-x-1.5">
@@ -96,7 +96,7 @@ import { DecimalPipe } from '@angular/common';
                 <div class="divide-y divide-slate-100 max-h-28 overflow-y-auto pr-1">
                   @for (item of q.items; track item.productId) {
                     <div class="py-1 flex items-center justify-between">
-                      <span class="text-slate-700 truncate max-w-[200px]">{{ item.quantity }}x {{ item.productName }}</span>
+                      <span class="text-slate-700 truncate max-w-[200px]">{{ item.quantity }}x {{ item.name }}</span>
                       <span class="font-mono font-medium text-slate-900">\${{ item.total  | number: '1.2-2' }}</span>
                     </div>
                   }
@@ -330,7 +330,7 @@ import { DecimalPipe } from '@angular/common';
                       @for (it of calc.detailedItems; track it.productId) {
                         <tr class="hover:bg-slate-50/60 transition-colors">
                           <td class="px-3 py-2">
-                            <div class="font-semibold text-slate-900">{{ it.productName }}</div>
+                            <div class="font-semibold text-slate-900">{{ it.name }}</div>
                             <div class="font-mono text-[10px] text-slate-400">{{ it.productSku }}</div>
                           </td>
                           <td class="px-2 py-2 text-center font-mono font-bold text-slate-800">
@@ -564,24 +564,40 @@ import { DecimalPipe } from '@angular/common';
                 <mat-icon>request_quote</mat-icon>
                 <h3 class="font-semibold text-sm">Crear Presupuesto Comercial</h3>
               </div>
-              <button (click)="showNewQuoteModal.set(false)" class="text-white/80 hover:text-white cursor-pointer">
-                <mat-icon>close</mat-icon>
-              </button>
+              <div class="flex items-center space-x-2">
+                <!-- select for bcvRate -->
+                <select 
+                  [value]="selectedBcvRateId()"
+                  (change)="selectedBcvRateId.set($any($event.target).value)"
+                  class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20">
+                    <option [value]="'usd'">USD: {{ stateService.bcvState().usdRate }}</option>
+                    <option [value]="'eur'">EUR: {{ stateService.bcvState().eurRate }}</option>
+                </select>
+                <button (click)="showNewQuoteModal.set(false)" class="text-white/80 hover:text-white cursor-pointer">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </div>
             </div>
 
             <div class="p-6 overflow-y-auto space-y-4 text-xs">
+
+              <div class="grid grid-cols-1 gap-3">
+                <select 
+                  [value]="selectedWarehouse()"
+                  (change)="selectedWarehouse.set($any($event.target).value)"
+                  class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20">
+                  
+                  @for (wh of stateService.warehouses(); track wh.id) {
+                    <option [value]="wh.id">{{ wh.name }}</option>
+                  }
+                </select>
+              </div>
               
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <div class="flex items-center justify-between mb-1">
                     <span class="font-semibold text-slate-700">Cliente / Receptor *</span>
-                    <button 
-                      type="button"
-                      (click)="openNewCustomerModal()"
-                      class="text-emerald-700 hover:text-emerald-800 font-semibold text-[11px] flex items-center space-x-1 cursor-pointer">
-                      <mat-icon class="text-xs">person_add</mat-icon>
-                      <span>+ Nuevo Cliente</span>
-                    </button>
+                   
                   </div>
 
                   <div class="flex items-center gap-1.5">
@@ -603,10 +619,10 @@ import { DecimalPipe } from '@angular/common';
                   </div>
 
                   @if (selectedCustomer(); as cust) {
-                    <div class="flex items-center justify-between text-[10px] text-slate-500 mt-1 px-1">
+                    <!-- <div class="flex items-center justify-between text-[10px] text-slate-500 mt-1 px-1">
                       <span class="font-mono font-semibold text-slate-700">{{ cust.taxId }}</span>
                       <span class="truncate max-w-[180px] text-slate-400">{{ cust.email || cust.phone || cust.customerType }}</span>
-                    </div>
+                    </div> -->
                   }
                 </div>
 
@@ -628,7 +644,7 @@ import { DecimalPipe } from '@angular/common';
               <div class="grid grid-cols-2 gap-3">
                 <div>
                   <span class="block font-semibold text-slate-700 mb-1">Validez Hasta *</span>
-                  <input #expDate type="date" value="2026-09-15" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl" />
+                  <input #expDate type="date" [value]="today" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl" />
                 </div>
                 <div>
                   <span class="block font-semibold text-slate-700 mb-1">Notas Comerciales</span>
@@ -638,20 +654,23 @@ import { DecimalPipe } from '@angular/common';
 
               <!-- Products Builder -->
               <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-                <span class="font-bold text-slate-700 uppercase tracking-wider block text-[11px]">Agregar Producto</span>
+                
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-2">
                   <div class="md:col-span-2">
+                    <span class="font-bold text-slate-700 uppercase tracking-wider block text-[11px]">Agregar Producto</span>
                     <select #prodSel class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg">
-                      @for (p of stateService.products(); track p.id) {
+                      @for (p of filteredProducts(); track p.id) {
                         @let pVal = stateService.getProductPriceByLevel(p, selectedPriceLevel());
                         <option [value]="p.id">{{ p.name }} - \${{ pVal  | number: '1.2-2' }}</option>
                       }
                     </select>
                   </div>
                   <div>
+                    <span class="font-bold text-slate-700 uppercase tracking-wider block text-[11px]">Cantidad</span>
                     <input #qtySel type="number" min="1" value="2" placeholder="Cant" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg font-mono" />
                   </div>
                   <div>
+                    <span class="font-bold text-slate-700 uppercase tracking-wider block text-[11px]">Descuento</span>
                     <input #discSel type="number" min="0" max="50" value="0" placeholder="Desc %" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg font-mono" />
                   </div>
                 </div>
@@ -835,11 +854,16 @@ import { DecimalPipe } from '@angular/common';
   `
 })
 export default class QuotesComponent {
+
+  selectedBcvRateId = signal<string>('usd');
   stateService = inject(ErpStateService);
   authService = inject(AuthService);
   shortcutService = inject(KeyboardShortcutsService);
 
   showNewQuoteModal = signal<boolean>(false);
+
+  //select warehouse
+  selectedWarehouse = signal<string>(this.stateService.warehouses()[0]?.id || '');
 
   // Active quote for print modal
   activeQuoteForPrint = signal<Quote | null>(null);
@@ -856,7 +880,7 @@ export default class QuotesComponent {
   // Conversion to Fiscal Invoice Modal Signals
   showConversionModal = signal<boolean>(false);
   selectedQuoteForConversion = signal<Quote | null>(null);
-  conversionWarehouseId = signal<string>('wh-01');
+  conversionWarehouseId = signal<string>('');
   conversionPaymentCurrency = signal<CurrencyCode>('USD');
   conversionPaymentMethod = signal<PaymentMethod>('TRANSFERENCIA');
   conversionPaymentRef = signal<string>('');
@@ -867,6 +891,9 @@ export default class QuotesComponent {
   // Active Invoice Modal for viewing & printing
   activeInvoiceForModal = signal<Invoice | null>(null);
 
+  customers = computed(() => this.stateService.customers());
+  today: string = new Date().toISOString();
+
   constructor() {
     effect(() => {
       const action = this.shortcutService.lastExecutedAction();
@@ -876,16 +903,29 @@ export default class QuotesComponent {
     });
   }
 
-  selectedCustomerId = signal<string>(this.stateService.customers()[0]?.id || '');
-  selectedCustomer = computed(() => this.stateService.customers().find(c => c.id === this.selectedCustomerId()));
+  selectedCustomerId = signal<string>(this.customers()[0]?.id || '');
+  selectedCustomer = computed(() => this.customers().find(c => c.id === this.selectedCustomerId()));
   selectedPriceLevel = signal<PriceLevelKey>('price1');
   quoteItems = signal<{ productId: string; quantity: number; discountPercent: number }[]>([]);
 
   selectedConversionCustomer = computed(() => {
     const q = this.selectedQuoteForConversion();
     if (!q) return null;
-    return this.stateService.customers().find(c => c.id === q.customerId || c.taxId === q.customerTaxId);
+    return this.customers().find(c => c.id === q.customerId || c.taxId === q.customerTaxId);
   });
+
+  filteredProducts = computed(() => {
+      const wh = this.selectedWarehouse();
+  
+      return this.stateService.products().filter(prod => {
+        // Warehouse
+        const matchesWh = wh === '' || 
+          (prod.primaryWarehouseId === wh) ||
+          prod.itemType === 'SERVICE' || prod.stockByWarehouse.some(s => s.warehouseId === wh && s.quantity > 0);
+  
+        return matchesWh;
+      });
+    });
 
   conversionCalculations = computed(() => {
     const quote = this.selectedQuoteForConversion();
@@ -945,7 +985,7 @@ export default class QuotesComponent {
 
       return {
         ...it,
-        productName: it.productName || prod?.name || 'Producto',
+        name: it.name || prod?.name || 'Producto',
         productSku: it.sku || prod?.sku || 'SKU-000',
         lineGross,
         lineDisc,
@@ -1007,19 +1047,24 @@ export default class QuotesComponent {
       return;
     }
 
-    const res = this.stateService.createCustomer({
+    const cleanTaxId = this.newCustomerTaxId().trim().toUpperCase();
+    const existing = this.customers().find(c => c.taxId.toUpperCase() === cleanTaxId);
+    if (existing) {
+      this.stateService.notify('error', 'Cliente Existente', `Ya existe un cliente registrado con el documento ${cleanTaxId} (${existing.name}).`);
+      return; 
+    }
+
+    this.stateService.createCustomer({
       taxId: this.newCustomerTaxId().trim(),
       name: this.newCustomerName().trim(),
       email: this.newCustomerEmail().trim(),
       phone: this.newCustomerPhone().trim(),
       address: this.newCustomerAddress().trim(),
       customerType: this.newCustomerType()
+    }).subscribe(costumer => {
+        this.selectedCustomerId.set(costumer.id);
+        this.showNewCustomerModal.set(false);
     });
-
-    if (res.success && res.customer) {
-      this.selectedCustomerId.set(res.customer.id);
-      this.showNewCustomerModal.set(false);
-    }
   }
 
   getStatusBadgeClass(status: Quote['status']): string {
@@ -1132,17 +1177,27 @@ export default class QuotesComponent {
 
   submitQuote(expDate: string, notes: string) {
     if (this.quoteItems().length === 0) return;
-
+    const customer = this.stateService.customers().find(c => c.id === this.selectedCustomerId());
+    if (!customer) return;
     this.stateService.createQuote(
       this.selectedCustomerId(),
       this.quoteItems(),
-      expDate || '2026-09-15',
+      expDate || this.today,
       notes,
-      this.selectedPriceLevel()
-    );
+      this.selectedPriceLevel(),
+      this.selectedWarehouse(),
+      this.selectedBcvRateId()
+    ).subscribe({
+      next: (res) => {
+        console.log('Quote created successfully:', res);
+        this.showNewQuoteModal.set(false);
+        this.quoteItems.set([]);
+      },
+      error: (err) => {
+        console.error('Error creating quote:', err);
+      }
+    });
 
-    this.quoteItems.set([]);
-    this.showNewQuoteModal.set(false);
   }
 
   // Open Printable / PDF Document
@@ -1164,18 +1219,21 @@ export default class QuotesComponent {
 
     let itemsText = '';
     quote.items.forEach(item => {
-      itemsText += `• ${item.quantity}x ${item.productName}: $${(item.total || 0).toFixed(2)}\n`;
+      itemsText += `• ${item.quantity}x ${item.name}: $${Number((item.total || 0)).toFixed(2)}\n`;
     });
+
+    const issueDateFormatted = quote.issueDate ? quote.issueDate.substring(0, 10) : 'N/A';
+    const validUntilFormatted = quote.validUntil ? quote.validUntil.substring(0, 10) : 'N/A';
 
     const msg = 
       `*PRESUPUESTO COMERCIAL - ${company.legalName}*\n` +
       `*Cotización Nº:* ${quote.quoteNumber}\n` +
       `*Cliente:* ${quote.customerName} (${quote.customerTaxId})\n` +
-      `*Fecha:* ${quote.date.substring(0, 10)} | *Válido hasta:* ${quote.expirationDate}\n\n` +
+      `*Fecha:* ${issueDateFormatted} | *Válido hasta:* ${validUntilFormatted}\n\n` +
       `*Detalle de Artículos:*\n` +
       itemsText + `\n` +
-      `*Total Cotizado:* $${quote.total.toFixed(2)} USD\n` +
-      `*Contravalor Oficial BCV:* Bs. ${totalBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Tasa: Bs. ${bcvRate.toFixed(2)})\n\n` +
+      `*Total Cotizado:* $${Number(quote.total).toFixed(2)} USD\n` +
+      `*Contravalor Oficial BCV:* Bs. ${totalBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Tasa: Bs. ${Number(bcvRate).toFixed(2)})\n\n` +
       (quote.notes ? `*Condiciones:* ${quote.notes}\n\n` : '') +
       `_Quedamos atentos a su confirmación para proceder con el despacho y facturación fiscal._`;
 
@@ -1202,7 +1260,7 @@ export default class QuotesComponent {
 
     let itemsText = '';
     quote.items.forEach(item => {
-      itemsText += `- ${item.quantity}x ${item.productName}: $${(item.total || 0).toFixed(2)}\r\n`;
+      itemsText += `- ${item.quantity}x ${item.name}: $${Number((item.total || 0)).toFixed(2)}\r\n`;
     });
 
     const subject = encodeURIComponent(`Presupuesto Comercial ${quote.quoteNumber} - ${company.legalName}`);
@@ -1210,14 +1268,14 @@ export default class QuotesComponent {
       `Estimado/a ${quote.customerName},\r\n\r\n` +
       `Adjuntamos el presupuesto comercial solicitado:\r\n\r\n` +
       `Número: ${quote.quoteNumber}\r\n` +
-      `Fecha: ${quote.date.substring(0, 10)}\r\n` +
-      `Válido hasta: ${quote.expirationDate}\r\n\r\n` +
+      `Fecha: ${quote.date ? quote.date.substring(0, 10) : 'N/A'}\r\n` +
+      `Válido hasta: ${quote.validUntil ? quote.validUntil.substring(0, 10) : 'N/A'}\r\n\r\n` +
       `Artículos incluidos:\r\n` +
       itemsText + `\r\n` +
-      `Subtotal: $${(quote.subtotal || 0).toFixed(2)}\r\n` +
-      `IVA Estimado: $${(quote.taxTotal || 0).toFixed(2)}\r\n` +
-      `TOTAL USD: $${quote.total.toFixed(2)}\r\n` +
-      `TOTAL OFICIAL BS: Bs. ${totalBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Tasa BCV: Bs. ${bcvRate.toFixed(2)})\r\n\r\n` +
+      `Subtotal: $${Number((quote.subtotal || 0)).toFixed(2)}\r\n` +
+      `IVA Estimado: $${Number((quote.taxTotal || 0)).toFixed(2)}\r\n` +
+      `TOTAL USD: $${Number(quote.total).toFixed(2)}\r\n` +
+      `TOTAL OFICIAL BS: Bs. ${totalBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Tasa BCV: Bs. ${Number(bcvRate).toFixed(2)})\r\n\r\n` +
       `Quedamos a su disposición para cualquier consulta.\r\n\r\n` +
       `Atentamente,\r\n` +
       `${company.legalName}\r\n` +

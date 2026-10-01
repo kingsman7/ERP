@@ -254,7 +254,7 @@ export interface Customer {
   id: string;
   taxId: string; // RFC / RUT / DNI
   name: string;
-  email: string;
+  email?: string;
   phone: string;
   address: string;
   customerType: 'EMPRESA' | 'PERSONA_NATURAL' | 'FINAL_CONSUMIDOR';
@@ -263,7 +263,7 @@ export interface Customer {
 export interface InvoiceItem {
   productId: string;
   sku: string;
-  productName: string;
+  name: string;
   unit: string;
   quantity: number;
   unitPrice: number;
@@ -387,16 +387,19 @@ export interface Quote {
   id: string;
   quoteNumber: string; // e.g. "COT-2026-015"
   customerId: string;
+  warehouseId: string;
+  issueDate: string;
+  validUntil?: string;
   customerName: string;
   customerTaxId: string;
   date: string;
-  expirationDate: string;
   status: 'BORRADOR' | 'ENVIADO' | 'APROBADO' | 'CONVERTIDO_A_FACTURA' | 'ENVIADO_A_DESPACHO' | 'DESPACHADO' | 'RECHAZADO';
   items: InvoiceItem[];
   baseCurrency?: CurrencyCode;
   bcvRate?: number;
   priceLevelApplied?: PriceLevelKey;
   subtotal: number;
+  discountGlobalPercent?: number; // Descuento global a la cotización
   discountTotal: number;
   taxDetails?: InvoiceTaxDetails;
   taxTotal: number;
@@ -406,6 +409,8 @@ export interface Quote {
   dispatchedGuideNumber?: string;
   notes?: string;
   createdBy: string;
+  sellerName: string;
+  convertedInvoiceId?: string;
 }
 
 // ============================================================================

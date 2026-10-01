@@ -145,6 +145,11 @@ export class ApiService {
       catchError(() => of([]))
     );
   }
+
+  createCustomer(customer: Partial<Customer>): Observable<Customer> {
+    return this.http.post<Customer>(`${this.baseUrl}/customers`, customer);
+  }
+
   createStockAdjustment(payload: StockAdjustmentPayload): Observable<StockAdjustmentResponse> {
     return this.http.post<StockAdjustmentResponse>(`${this.baseUrl}/adjustments`, payload);
   }
@@ -193,6 +198,7 @@ export class ApiService {
   }
 
   createQuote(quote: Partial<Quote>): Observable<Quote> {
+    console.log('createQuote called with:', quote);
     return this.http.post<Quote>(`${this.baseUrl}/quotes`, quote);
   }
 

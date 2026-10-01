@@ -191,7 +191,7 @@ export function exportSalesToCsv(
     const paymentRef = primaryPayment?.reference || 'N/A';
 
     const itemsSummary = (inv.items || [])
-      .map(i => `${i.quantity}x ${i.productName} ($${i.unitPrice.toFixed(2)})`)
+      .map(i => `${i.quantity}x ${i.name} ($${i.unitPrice.toFixed(2)})`)
       .join(' | ');
 
     const totalVes = inv.totalVes || (inv.total * (inv.bcvRate || bcvRate));
@@ -279,7 +279,7 @@ export function exportSaleItemLinesToCsv(
         inv.customerTaxId,
         inv.status,
         item.sku,
-        item.productName,
+        item.name,
         item.unit || 'UND',
         item.quantity,
         item.priceLevel || inv.priceLevelApplied || 'price1',

@@ -34,7 +34,7 @@ export interface CustomerReceivableItem {
 export interface DetailItemRow {
   id: string;
   productId: string;
-  productName: string;
+  name: string;
   sku: string;
   quantity: number;
   unitPrice: number;
@@ -1606,7 +1606,7 @@ export interface DetailItemRow {
                     <tbody class="divide-y divide-slate-100 font-medium text-slate-700">
                       @for (item of getInvoiceItems(selectedCxcDetailInvoice(), selectedCxcItem()); track item.id) {
                         <tr class="hover:bg-slate-50/60">
-                          <td class="py-2.5 px-3 font-semibold text-slate-900">{{ item.productName }}</td>
+                          <td class="py-2.5 px-3 font-semibold text-slate-900">{{ item.name }}</td>
                           <td class="py-2.5 px-3 font-mono text-[11px] text-slate-500">{{ item.sku }}</td>
                           <td class="py-2.5 px-3 text-right font-mono">{{ item.quantity }}</td>
                           <td class="py-2.5 px-3 text-right font-mono">\${{ item.unitPrice  | number: '1.2-2' }}</td>
@@ -2469,7 +2469,7 @@ export default class TreasuryComponent {
       return inv.items.map((it, idx) => ({
         id: it.productId || `item-${idx}`,
         productId: it.productId,
-        productName: it.productName,
+        name: it.name,
         sku: it.sku,
         quantity: it.quantity,
         unitPrice: it.unitPrice,
@@ -2484,7 +2484,7 @@ export default class TreasuryComponent {
       {
         id: 'item-01',
         productId: 'prod-def',
-        productName: 'Facturación de Bienes / Servicios Comerciales',
+        name: 'Facturación de Bienes / Servicios Comerciales',
         sku: 'SRV-001',
         quantity: 1,
         unitPrice: base,

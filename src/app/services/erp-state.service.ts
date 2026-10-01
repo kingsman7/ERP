@@ -159,8 +159,9 @@ export class ErpStateService {
   }
 
   private loadQuotes(): Observable<boolean> {
-    return forkJoin({ quotes: this.apiService.getQuotes(), customers: this.apiService.getCustomers() }).pipe(
-      tap(({ quotes, customers }) => { this.quotes.set(quotes); this.customers.set(customers); }), map(() => true)
+    return forkJoin({ quotes: this.apiService.getQuotes(), customers: this.apiService.getCustomers(), 
+      products: this.apiService.getProducts(), warehouses: this.apiService.getWarehouses() }).pipe(
+      tap(({ quotes, customers, products, warehouses }) => { this.quotes.set(quotes); this.customers.set(customers); this.products.set(products); this.warehouses.set(warehouses); }), map(() => true)
     );
   }
 
@@ -250,8 +251,8 @@ export class ErpStateService {
 
   // BCV Official Exchange Rate Engine
   readonly bcvState = signal<BcvExchangeRateState>({
-    usdRate: 36.50,
-    eurRate: 39.80,
+    usdRate: 860.18,
+    eurRate: 976.84,
     origin: 'API_BCV',
     lastSync: '2026-08-18 08:00:00',
     isSyncing: false,
@@ -583,7 +584,7 @@ export class ErpStateService {
       status: 'EMITIDA',
       baseCurrency: 'USD',
       paymentCurrency: 'USD',
-      bcvRate: 36.50,
+      bcvRate: 860.18,
       eurRate: 39.80,
       rateOrigin: 'API_BCV',
       priceLevelApplied: 'price1',
@@ -591,7 +592,7 @@ export class ErpStateService {
         {
           productId: 'prod-01',
           sku: 'ELE-TAL-750',
-          productName: 'Taladro Percutor Industrial 750W 1/2"',
+          name: 'Taladro Percutor Industrial 750W 1/2"',
           unit: 'UND',
           quantity: 3,
           unitPrice: 78.90,
@@ -641,7 +642,7 @@ export class ErpStateService {
       status: 'EMITIDA',
       baseCurrency: 'USD',
       paymentCurrency: 'USD',
-      bcvRate: 36.50,
+      bcvRate: 860.18,
       eurRate: 39.80,
       rateOrigin: 'API_BCV',
       priceLevelApplied: 'price1',
@@ -649,7 +650,7 @@ export class ErpStateService {
         {
           productId: 'prod-05',
           sku: 'ILU-LED-50W',
-          productName: 'Reflector LED Industrial Exterior IP65 50W 6500K',
+          name: 'Reflector LED Industrial Exterior IP65 50W 6500K',
           unit: 'UND',
           quantity: 4,
           unitPrice: 38.00,
@@ -689,120 +690,7 @@ export class ErpStateService {
     }
   ]);
 
-  readonly quotes = signal<Quote[]>([
-    {
-      id: 'quot-01',
-      quoteNumber: 'COT-2026-015',
-      customerId: 'cust-04',
-      customerName: 'Inversiones Horizonte & Asociados',
-      customerTaxId: 'B-99120485-6',
-      date: '2026-08-17 10:15:00',
-      expirationDate: '2026-08-31',
-      status: 'APROBADO',
-      baseCurrency: 'USD',
-      bcvRate: 36.50,
-      priceLevelApplied: 'price2',
-      items: [
-        {
-          productId: 'prod-02',
-          sku: 'RED-CAT6-305',
-          productName: 'Bobina Cable Red UTP Cat6 100% Cobre 305m',
-          unit: 'UND',
-          quantity: 4,
-          unitPrice: 118.00,
-          costPrice: 85.00,
-          priceLevel: 'price2',
-          discountPercent: 5,
-          isTaxExempt: false,
-          taxRate: 0.16,
-          subtotal: 448.40,
-          taxAmount: 71.74,
-          total: 520.14
-        },
-        {
-          productId: 'prod-04',
-          sku: 'ELE-DIS-20A',
-          productName: 'Disyuntor Termomagnético Bipolar 20A 10kA',
-          unit: 'UND',
-          quantity: 15,
-          unitPrice: 12.30,
-          costPrice: 6.80,
-          priceLevel: 'price2',
-          discountPercent: 0,
-          isTaxExempt: false,
-          taxRate: 0.16,
-          subtotal: 184.50,
-          taxAmount: 29.52,
-          total: 214.02
-        }
-      ],
-      subtotal: 632.90,
-      discountTotal: 23.60,
-      taxDetails: {
-        taxableBase: 632.90,
-        exemptBase: 0,
-        ivaPercent: 16.0,
-        ivaAmount: 101.26,
-        appliesIgtf: false,
-        igtfPercent: 3.0,
-        igtfBase: 0,
-        igtfAmount: 0
-      },
-      taxTotal: 101.26,
-      total: 734.16,
-      totalVes: 26796.84,
-      notes: 'Cotización con Precio 2 (Mayorista) sujeta a disponibilidad de stock en Almacén Central. Entrega inmediata.',
-      createdBy: 'Carlos Mendoza'
-    },
-    {
-      id: 'quot-02',
-      quoteNumber: 'COT-2026-016',
-      customerId: 'cust-01',
-      customerName: 'Constructora San Martín S.A.C.',
-      customerTaxId: 'B-77492019-3',
-      date: '2026-08-18 08:10:00',
-      expirationDate: '2026-09-01',
-      status: 'ENVIADO',
-      baseCurrency: 'USD',
-      bcvRate: 36.50,
-      priceLevelApplied: 'price1',
-      items: [
-        {
-          productId: 'prod-03',
-          sku: 'PIN-LAT-04L',
-          productName: 'Pintura Látex Super Lavable Blanco Nieve 4L',
-          unit: 'LT',
-          quantity: 20,
-          unitPrice: 28.50,
-          costPrice: 14.20,
-          priceLevel: 'price1',
-          discountPercent: 8,
-          isTaxExempt: false,
-          taxRate: 0.16,
-          subtotal: 524.40,
-          taxAmount: 83.90,
-          total: 608.30
-        }
-      ],
-      subtotal: 524.40,
-      discountTotal: 45.60,
-      taxDetails: {
-        taxableBase: 524.40,
-        exemptBase: 0,
-        ivaPercent: 16.0,
-        ivaAmount: 83.90,
-        appliesIgtf: false,
-        igtfPercent: 3.0,
-        igtfBase: 0,
-        igtfAmount: 0
-      },
-      taxTotal: 83.90,
-      total: 608.30,
-      totalVes: 22202.95,
-      notes: 'Descuento especial por volumen de obra.',
-      createdBy: 'Alejandro Morales (Admin)'
-    }
-  ]);
+  readonly quotes = signal<Quote[]>([]);
 
   readonly dispatchGuides = signal<DispatchGuide[]>([
     {
@@ -1626,7 +1514,7 @@ export class ErpStateService {
           amountUsd: 1000.00,
           amountVes: 36500.00,
           currencyPaid: 'USD',
-          bcvRate: 36.50,
+          bcvRate: 860.18,
           paymentMethod: 'TRANSFERENCIA',
           bankAccountId: 'bank-03',
           bankAccountName: 'Banesco Panamá',
@@ -1673,7 +1561,7 @@ export class ErpStateService {
       amountUsd: 274.57,
       amountVes: 10021.81,
       currency: 'VES',
-      bcvRate: 36.50,
+      bcvRate: 860.18,
       paymentMethod: 'TRANSFERENCIA',
       referenceNumber: 'TRF-BBVA-90812',
       entityType: 'CLIENTE',
@@ -1697,7 +1585,7 @@ export class ErpStateService {
       amountUsd: 1000.00,
       amountVes: 36500.00,
       currency: 'USD',
-      bcvRate: 36.50,
+      bcvRate: 860.18,
       paymentMethod: 'TRANSFERENCIA',
       referenceNumber: 'TRF-PA-89012',
       entityType: 'PROVEEDOR',
@@ -1722,7 +1610,7 @@ export class ErpStateService {
 
   // Clientes con cuentas por cobrar (facturas con saldo pendiente)
   readonly customerReceivables = computed(() => {
-    const rate = this.bcvState().usdRate || 36.50;
+    const rate = this.bcvState().usdRate || 860.18;
     const invs = this.invoices().filter(inv => inv.status === 'EMITIDA');
     
     return invs.map(inv => {
@@ -2250,7 +2138,7 @@ export class ErpStateService {
         credit: newPO.total
       }
     ];
-    debugger
+    
     return this.apiService.createPurchaseOrder(newPO).pipe(
       switchMap((response) => forkJoin({
         inventory: this.loadRouteData('inventory'),
@@ -2645,7 +2533,7 @@ export class ErpStateService {
       invoiceItems.push({
         productId: prod.id,
         sku: prod.sku,
-        productName: prod.name,
+        name: prod.name,
         unit: prod.unit,
         quantity: item.quantity,
         unitPrice,
@@ -4386,26 +4274,11 @@ export class ErpStateService {
     phone?: string;
     address?: string;
     customerType?: 'EMPRESA' | 'PERSONA_NATURAL' | 'FINAL_CONSUMIDOR';
-  }): { success: boolean; customer?: Customer; message?: string } {
-    if (!data.taxId || data.taxId.trim().length < 3) {
-      return { success: false, message: 'El Documento / RIF / Cédula es obligatorio.' };
-    }
-    if (!data.name || data.name.trim().length < 2) {
-      return { success: false, message: 'La Razón Social o Nombre del cliente es obligatorio.' };
-    }
+  }): Observable<Customer> {
 
     const cleanTaxId = data.taxId.trim().toUpperCase();
-    const existing = this.customers().find(c => c.taxId.toUpperCase() === cleanTaxId);
-    if (existing) {
-      return { 
-        success: false, 
-        message: `Ya existe un cliente registrado con el documento ${cleanTaxId} (${existing.name}).`, 
-        customer: existing 
-      };
-    }
 
-    const newCustomer: Customer = {
-      id: 'cust-' + Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 6),
+    const newCustomer: Omit<Customer, 'id'> = {
       taxId: cleanTaxId,
       name: data.name.trim(),
       email: data.email ? data.email.trim() : '',
@@ -4414,18 +4287,28 @@ export class ErpStateService {
       customerType: data.customerType || 'EMPRESA'
     };
 
-    this.customers.update(custs => [newCustomer, ...custs]);
-    this.logAudit(
-      'CREATE_CUSTOMER',
-      'SALES',
-      `Nuevo Cliente: ${newCustomer.name}`,
-      `Registro de nuevo cliente / receptor fiscal ${newCustomer.name} (${newCustomer.taxId}).`,
-      null,
-      newCustomer as unknown as Record<string, unknown>
+    return this.apiService.createCustomer(newCustomer).pipe(
+      tap({
+        next: saved => {
+        this.customers.update(custs => [saved, ...custs.filter(item => item.id !== saved.id)]);
+        this.logAudit(
+          'CREATE_CUSTOMER',
+          'SALES',
+          `Nuevo Cliente: ${saved.name}`,
+          `Registro de nuevo cliente / receptor fiscal ${saved.name} (${saved.taxId}).`,
+          null,
+          saved as unknown as Record<string, unknown>
+        );
+        this.notify('success', 'Cliente Registrado', `Cliente ${saved.name} (${saved.taxId}) registrado con éxito.`);
+        this.saveState();
+      },
+        error: (error) => {
+          this.notify('error', 'Cliente no creado', 'El backend rechazó el registro del cliente y no se guardó en el state.');
+          console.error('Error creando cliente:', error);
+        }
+      }),
+      
     );
-    this.notify('success', 'Cliente Registrado', `Cliente ${newCustomer.name} (${newCustomer.taxId}) registrado con éxito.`);
-    this.saveState();
-    return { success: true, customer: newCustomer };
   }
 
   // Create Quote Helper
@@ -4434,15 +4317,19 @@ export class ErpStateService {
     items: { productId: string; quantity: number; discountPercent?: number; priceLevel?: PriceLevelKey }[],
     expirationDate: string,
     notes?: string,
-    priceLevel: PriceLevelKey = 'price1'
-  ): { success: boolean; quoteNumber?: string } {
+    priceLevel: PriceLevelKey = 'price1',
+    warehouseId? :any,
+    bcvRateId?: string
+  ): Observable<Quote> {
+
     const user = this.authService.currentUser();
     const customer = this.customers().find(c => c.id === customerId);
-    if (!customer || items.length === 0) return { success: false };
+    
+    if (!customer || items.length === 0) of(null);
 
     const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
     const quoteNumber = 'COT-2026-' + (this.quotes().length + 17).toString().padStart(3, '0');
-    const bcv = this.bcvState();
+    const bcv = bcvRateId === 'usd' ? this.bcvState().usdRate : this.bcvState().eurRate;
     const previousQuotes = [...this.quotes()];
 
     let subtotal = 0;
@@ -4478,7 +4365,7 @@ export class ErpStateService {
       quoteItems.push({
         productId: prod.id,
         sku: prod.sku,
-        productName: prod.name,
+        name: prod.name,
         unit: prod.unit,
         quantity: it.quantity,
         unitPrice,
@@ -4494,7 +4381,7 @@ export class ErpStateService {
     });
 
     const grandTotal = Number((subtotal + taxTotal).toFixed(2));
-    const totalVes = Number((grandTotal * bcv.usdRate).toFixed(2));
+    const totalVes = Number((grandTotal * bcv).toFixed(2));
 
     const taxDetails: InvoiceTaxDetails = {
       taxableBase: Number(grossTaxableBase.toFixed(2)),
@@ -4506,18 +4393,16 @@ export class ErpStateService {
       igtfBase: 0,
       igtfAmount: 0
     };
-
-    const newQuote: Quote = {
-      id: 'quot-' + Date.now(),
+    const newQuote: Omit<Quote, 'id'> = {
       quoteNumber,
-      customerId: customer.id,
-      customerName: customer.name,
-      customerTaxId: customer.taxId,
+      customerId,
+      customerName: customer?.name ?? '',
+      customerTaxId: customer?.taxId ?? '',
       date: nowStr,
-      expirationDate,
+      validUntil: new Date(expirationDate).toISOString(),
       status: 'BORRADOR',
       baseCurrency: 'USD',
-      bcvRate: bcv.usdRate,
+      bcvRate: bcv,
       priceLevelApplied: priceLevel,
       items: quoteItems,
       subtotal: Number(subtotal.toFixed(2)),
@@ -4527,26 +4412,26 @@ export class ErpStateService {
       total: grandTotal,
       totalVes,
       notes,
-      createdBy: user.name
+      createdBy: user.name,
+      warehouseId,
+      sellerName: user.name,
+      issueDate: new Date().toISOString(),
     };
-
-    this.apiService.createQuote(newQuote).pipe(
-      tap(saved => {
-        this.quotes.update(qs => [saved, ...qs.filter(item => item.id !== newQuote.id)]);
-        this.logAudit('CREATE_QUOTE', 'SALES', `Nuevo Presupuesto ${saved.quoteNumber}`, `Cotización creada...`, null, saved as unknown as Record<string, unknown>);
-        this.notify('success', 'Presupuesto Creado', `Cotización ${saved.quoteNumber} generada.`);
-        this.saveState();
-      }),
-      catchError((error) => {
-        this.quotes.set(previousQuotes);
-        this.notify('error', 'Presupuesto no creado', 'El backend rechazó la creación del presupuesto y el state fue revertido.');
-        console.error('Error creando presupuesto:', error);
-        this.saveState();
-        return of(null);
+    return this.apiService.createQuote(newQuote).pipe(
+      tap({
+        next: saved => {
+          console.log(saved)
+          this.quotes.update(qs => [saved, ...qs.filter(item => item.id !== saved.id)]);
+          this.logAudit('CREATE_QUOTE', 'SALES', `Nuevo Presupuesto ${saved.quoteNumber}`, `Cotización creada...`, null, saved as unknown as Record<string, unknown>);
+          this.notify('success', 'Presupuesto Creado', `Cotización ${saved.quoteNumber} generada.`);
+          this.saveState();
+        },
+        error: (err) => {
+          this.quotes.set(previousQuotes);
+          this.notify('error', 'Presupuesto no creado', 'El backend rechazó la creación del presupuesto y el state fue revertido.');
+        }
       })
-    ).subscribe();
-
-    return { success: true, quoteNumber };
+    );
   }
 
   // Update Quote Status Helper (BORRADOR, ENVIADO, APROBADO, RECHAZADO)
@@ -4696,7 +4581,7 @@ export class ErpStateService {
     const bank = this.bankAccounts().find(b => b.id === data.bankAccountId);
     if (!bank) return { success: false, message: 'Cuenta bancaria o de caja no encontrada.' };
 
-    const rate = inv.bcvRate || this.bcvState().usdRate || 36.50;
+    const rate = inv.bcvRate || this.bcvState().usdRate || 860.18;
     const amountUsd = Number(data.amountUsd.toFixed(2));
     const amountVes = data.amountVes ? Number(data.amountVes.toFixed(2)) : Number((amountUsd * rate).toFixed(2));
     const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
@@ -4840,7 +4725,7 @@ export class ErpStateService {
     const bank = this.bankAccounts().find(b => b.id === data.bankAccountId);
     if (!bank) return { success: false, message: 'Cuenta bancaria o de caja no encontrada.' };
 
-    const rate = this.bcvState().usdRate || 36.50;
+    const rate = this.bcvState().usdRate || 860.18;
     const amountUsd = Number(data.amountUsd.toFixed(2));
     const amountVes = data.amountVes ? Number(data.amountVes.toFixed(2)) : Number((amountUsd * rate).toFixed(2));
 
@@ -4997,7 +4882,7 @@ export class ErpStateService {
     const supplier = this.suppliers().find(s => s.id === data.supplierId);
     if (!supplier) return { success: false, message: 'Proveedor no encontrado.' };
 
-    const rate = this.bcvState().usdRate || 36.50;
+    const rate = this.bcvState().usdRate || 860.18;
     const totalAmountUsd = Number(data.totalAmountUsd.toFixed(2));
     const totalAmountVes = Number((totalAmountUsd * rate).toFixed(2));
     const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
@@ -5072,7 +4957,7 @@ export class ErpStateService {
 
   // 4. Crear o Actualizar Cuenta Bancaria / Caja
   createBankAccount(data: Omit<BankAccount, 'id' | 'updatedAt' | 'balanceUsd' | 'balanceVes'>): BankAccount {
-    const rate = this.bcvState().usdRate || 36.50;
+    const rate = this.bcvState().usdRate || 860.18;
     const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
     const balanceUsd = data.currency === 'VES' ? Number((data.balance / rate).toFixed(2)) : data.balance;
     const balanceVes = data.currency === 'VES' ? data.balance : Number((data.balance * rate).toFixed(2));
@@ -5104,7 +4989,7 @@ export class ErpStateService {
     const target = this.bankAccounts().find(b => b.id === id);
     if (!target) return { success: false, message: 'Cuenta bancaria no encontrada.' };
 
-    const rate = this.bcvState().usdRate || 36.50;
+    const rate = this.bcvState().usdRate || 860.18;
     const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
 
     this.bankAccounts.update(accs =>
@@ -5151,7 +5036,7 @@ export class ErpStateService {
 
     if (!source || !dest) return { success: false, message: 'Cuentas bancarias no encontradas.' };
 
-    const rate = this.bcvState().usdRate || 36.50;
+    const rate = this.bcvState().usdRate || 860.18;
     const amountUsd = Number(data.amountUsd.toFixed(2));
     const amountVes = Number((amountUsd * rate).toFixed(2));
 

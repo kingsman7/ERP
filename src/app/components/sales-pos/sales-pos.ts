@@ -1346,18 +1346,16 @@ export default class SalesPosComponent {
       return;
     }
 
-    const res = this.stateService.createCustomer({
+    this.stateService.createCustomer({
       taxId: this.newCustomerTaxId().trim(),
       name: this.newCustomerName().trim(),
       email: this.newCustomerEmail().trim(),
       phone: this.newCustomerPhone().trim(),
       address: this.newCustomerAddress().trim(),
       customerType: this.newCustomerType()
+    }).subscribe(customer => {
+        this.selectedCustomerId.set(customer.id);
+        this.showNewCustomerModal.set(false);
     });
-
-    if (res.success && res.customer) {
-      this.selectedCustomerId.set(res.customer.id);
-      this.showNewCustomerModal.set(false);
-    }
   }
 }

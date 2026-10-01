@@ -2,12 +2,12 @@ import { Component, ChangeDetectionStrategy, input, output, inject, computed } f
 import { MatIconModule } from '@angular/material/icon';
 import { Quote } from '../../models/erp.models';
 import { ErpStateService } from '../../services/erp-state.service';
-import { DecimalPipe } from '@angular/common';
+import { DecimalPipe, DatePipe } from '@angular/common';
 
 @Component({
   selector: 'app-quote-print-modal',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatIconModule, DecimalPipe],
+  imports: [MatIconModule, DecimalPipe, DatePipe],
   template: `
     <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
       <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
@@ -68,8 +68,8 @@ import { DecimalPipe } from '@angular/common';
               <span class="text-[10px] font-bold text-violet-700 uppercase tracking-widest block">Presupuesto / Cotización</span>
               <p class="font-mono text-xl font-black text-slate-900">{{ quote().quoteNumber }}</p>
               <div class="text-[11px] text-slate-500 space-y-0.5 pt-1">
-                <div>Fecha Emisión: <strong class="text-slate-800">{{ quote().date }}</strong></div>
-                <div>Válido Hasta: <strong class="text-slate-800">{{ quote().expirationDate }}</strong></div>
+                <div>Fecha Emisión: <strong class="text-slate-800">{{ quote().issueDate | date: 'dd-M-yyyy' }}</strong></div>
+                <div>Válido Hasta: <strong class="text-slate-800">{{ quote().validUntil | date: 'dd-M-yyyy' }}</strong></div>
                 <div>Estado: <strong class="uppercase text-violet-700">{{ quote().status.replace(/_/g, ' ') }}</strong></div>
               </div>
             </div>
@@ -79,9 +79,9 @@ import { DecimalPipe } from '@angular/common';
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-200">
             <div class="space-y-1">
               <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Datos del Cliente / Receptor</span>
-              <p class="font-bold text-slate-900 text-sm">{{ quote().customerName }}</p>
-              <p class="font-mono text-slate-700 font-semibold">RIF/CI: {{ quote().customerTaxId }}</p>
               @if (customer(); as cust) {
+              @if (cust.name) { <p class="font-bold text-slate-900 text-sm">{{ cust.name }}</p> }
+              @if (cust.taxId) { <p class="font-mono text-slate-700 font-semibold">RIF/CI: {{ cust.taxId }}</p> }
                 @if (cust.address) { <p class="text-slate-600">{{ cust.address }}</p> }
                 @if (cust.phone || cust.email) { <p class="text-slate-500">{{ cust.phone }} {{ cust.email ? '• ' + cust.email : '' }}</p> }
               }
@@ -90,8 +90,10 @@ import { DecimalPipe } from '@angular/common';
             <div class="sm:text-right space-y-1 sm:border-l sm:border-slate-200 sm:pl-4">
               <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Condiciones Comerciales</span>
               <p class="text-slate-700">Moneda Base: <strong class="text-slate-900 font-bold">Dólares Americanos (USD)</strong></p>
-              <p class="text-slate-700">Tasa Oficial BCV: <strong class="font-mono font-bold text-slate-900">Bs. {{ (quote().bcvRate || stateService.bcvState().usdRate)  | number: '1.2-2' }}</strong></p>
-              <p class="text-slate-700">Nivel de Precio: <strong class="font-mono uppercase text-violet-700">{{ quote().priceLevelApplied || 'price1' }}</strong></p>
+              <p class="text-slate-700">Porcentaje de descuento: <strong class="text-slate-900 font-bold">{{ quote().discountGlobalPercent | number: '1.2-2' }}%</strong></p>
+              
+              <!-- <p class="text-slate-700">Tasa Oficial BCV: <strong class="font-mono font-bold text-slate-900">Bs. {{ (quote().bcvRate || stateService.bcvState().usdRate)  | number: '1.2-2' }}</strong></p>
+              <p class="text-slate-700">Nivel de Precio: <strong class="font-mono uppercase text-violet-700">{{ quote().priceLevelApplied || 'price1' }}</strong></p> -->
               @if (quote().notes) {
                 <p class="text-slate-500 italic pt-1 text-[11px]">Notas: "{{ quote().notes }}"</p>
               }
@@ -115,7 +117,7 @@ import { DecimalPipe } from '@angular/common';
                 @for (item of quote().items; track item.productId) {
                   <tr class="hover:bg-slate-50/50">
                     <td class="py-2 px-3 font-mono font-semibold text-slate-600">{{ item.sku || 'SKU' }}</td>
-                    <td class="py-2 px-3 font-medium text-slate-900">{{ item.productName }}</td>
+                    <td class="py-2 px-3 font-medium text-slate-900">{{ item.name }}</td>
                     <td class="py-2 px-3 text-right font-mono font-bold text-slate-800">{{ item.quantity }} {{ item.unit || 'UND' }}</td>
                     <td class="py-2 px-3 text-right font-mono text-slate-700">\${{ (item.unitPrice || 0)  | number: '1.2-2' }}</td>
                     <td class="py-2 px-3 text-right font-mono text-slate-500">
@@ -141,26 +143,43 @@ import { DecimalPipe } from '@angular/common';
               <p class="text-slate-600">
                 • Esta cotización no reserva mercancía en almacén hasta su confirmación y facturación.
               </p>
+              <p class="text-slate-600">
+                • El cargo del 3% por concepto de IGTF aplica exclusivamente si el pago es procesado en divisas en efectivo o métodos no electrónicos de acuerdo a la Providencia SNAT/2022/00013
+              </p>
+              <p class="text-slate-600">
+                • Todos los precios están sujetos a cambios sin previo aviso.
+              </p>
+              <p class="text-slate-600">
+                •  DOCUMENTO SIN VALOR COMERCIAL — NO VÁLIDO COMO FACTURA 
+              </p>
             </div>
 
             <div class="w-full sm:w-72 p-4 bg-slate-900 text-white rounded-2xl space-y-2">
               <div class="flex justify-between text-slate-300">
-                <span>Subtotal Neto:</span>
+                <span>Sub-Total (Base Imponible):</span>
                 <span class="font-mono">\${{ (quote().subtotal || 0)  | number: '1.2-2' }}</span>
               </div>
               <div class="flex justify-between text-slate-300">
                 <span>IVA Estimado (16%):</span>
                 <span class="font-mono">\${{ (quote().taxTotal || 0)  | number: '1.2-2' }}</span>
               </div>
+              <div class="flex justify-between text-slate-300">
+                <span>Descuento Global ({{ quote().discountGlobalPercent | number: '1.2-2' }}%):</span>
+                <span class="font-mono">\${{ (quote().discountTotal || 0)  | number: '1.2-2' }}</span>
+              </div>
+              <div class="flex justify-between text-slate-300">
+                <span> IGTF (3%): (Solo pagos en divisas/efectivo)</span>
+                <span class="font-mono">\${{ (quote().total || 0) * 0.03 | number: '1.2-2' }}</span>
+              </div>
               <div class="pt-2 border-t border-slate-700 space-y-1">
                 <div class="flex justify-between items-baseline">
                   <span class="font-bold text-slate-200">TOTAL (USD):</span>
-                  <span class="font-mono font-black text-lg text-emerald-400">\${{ quote().total  | number: '1.2-2' }}</span>
+                  <span class="font-mono font-black text-lg text-emerald-400">\${{ totalUSD(quote().total) }}</span>
                 </div>
                 <div class="flex justify-between items-baseline text-[11px]">
                   <span class="text-slate-400">TOTAL ESTIMADO BS:</span>
                   <span class="font-mono font-bold text-slate-200">
-                    Bs. {{ (quote().totalVes || (quote().total * (quote().bcvRate || stateService.bcvState().usdRate))).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+                    Bs. {{ (quote().totalVes || (quote().total * (quote().bcvRate || stateService.bcvState().usdRate))) | number: '1.2-2' }}
                   </span>
                 </div>
               </div>
@@ -215,12 +234,20 @@ import { DecimalPipe } from '@angular/common';
 })
 export class QuotePrintModal {
   quote = input.required<Quote>();
+  
   closeModal = output<void>();
-
   stateService = inject(ErpStateService);
   company = computed(() => this.stateService.companyProfile());
-  customer = computed(() => this.stateService.customers().find(c => c.id === this.quote().customerId || c.taxId === this.quote().customerTaxId));
-
+  customer = computed(() => this.stateService.customers().find(c => c.id === this.quote().customerId));
+  
+  ngOnInit() {
+    console.log('quote', this.quote());
+  }
+  
+  totalUSD(arg0: number): string|number {
+    const total = Number(arg0);
+    return Number(total + (total * 0.03)).toFixed(2);
+  }
   printDoc() {
     window.print();
   }

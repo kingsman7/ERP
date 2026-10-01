@@ -29,7 +29,7 @@ const invoice: Invoice & {
   subtotal: 200, discountTotal: 0, taxTotal: 38, total: 238, totalVes: 8687, totalEur: 218.09,
   taxDetails: { taxableBase: 200, exemptBase: 0, ivaPercent: 16, ivaAmount: 32, appliesIgtf: true, igtfPercent: 3, igtfBase: 200, igtfAmount: 6 },
   withholdingIvaPercent: 75, withholdingIvaAmount: 24, withholdingIslrPercent: 2, withholdingIslrAmount: 4, withholdingIslrNature: 'Honorarios',
-  items: [{ productId: 'product-1', sku: 'SKU-1', productName: 'Producto Demo', unit: 'UND', quantity: 2, unitPrice: 100, costPrice: 40, discountPercent: 0, taxRate: 0.16, subtotal: 200, taxAmount: 32, total: 232 }],
+  items: [{ productId: 'product-1', sku: 'SKU-1', name: 'Producto Demo', unit: 'UND', quantity: 2, unitPrice: 100, costPrice: 40, discountPercent: 0, taxRate: 0.16, subtotal: 200, taxAmount: 32, total: 232 }],
   payments: [{ method: 'EFECTIVO_USD', amount: 200, currency: 'USD', reference: 'ref-1' }], sellerId: 'seller-1', sellerName: 'Caja principal', digitalSeal: 'seal-1',
 };
 
