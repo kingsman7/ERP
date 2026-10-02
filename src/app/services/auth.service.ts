@@ -3,6 +3,7 @@ import { User, RoleConfig, UserRole, AuthUser } from '../models/erp.models';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { catchError, map, Observable, of, tap } from 'rxjs';
 import { AuditService } from './audit.servie';
+import { Router } from '@angular/router';
 
 export const SYSTEM_ROLES: RoleConfig[] = [
   {
@@ -100,6 +101,7 @@ export class AuthService {
   readonly isAuthenticated = this.isAuthenticatedSignal.asReadonly();
   readonly authInitialized = this.authInitializedSignal.asReadonly();
   readonly lastAuthFailure = this.lastAuthFailureSignal.asReadonly();
+  private router = inject(Router);
 
   readonly currentRoleConfig = computed(() => {
     const role = this.currentUserSignal().role;
@@ -118,6 +120,14 @@ export class AuthService {
       }),
       catchError(() => of([]))
     );
+  }
+
+  createUser(user: User): Observable<User> {
+    return this.http.post<User>(`${this.baseUrl}/users`, user)
+  }
+
+  updateUserApi(id: string, user: Partial<User>): Observable<User> {
+    return this.http.put<User>(`${this.baseUrl}/users/${id}`, user);
   }
 
   readonly roles = SYSTEM_ROLES;
@@ -264,19 +274,25 @@ export class AuthService {
   }
 
   logout(): void {
-    this.currentUserSignal.set(UNAUTHENTICATED_USER);
-    this.tokenSignal.set('');
-    this.isAuthenticatedSignal.set(false);
-    this.clearPersistedSession();
-
-    this.http.post(`${this.baseUrl}/auth/logout`, {}, {
+    this.http.post<{ success: boolean }>(`${this.baseUrl}/auth/logout`, {}, {
       withCredentials: true
-    }).subscribe({
-      next: () => undefined,
-      error: (err) => {
-        console.error('Error during logout:', err);
+    }).subscribe(
+      {
+        next: ({success}) => {
+          if(success) {
+            this.tokenSignal.set('');
+            this.isAuthenticatedSignal.set(false);
+            this.clearPersistedSession();
+            this.currentUserSignal.set(null as unknown as User);
+            this.sessionExpired.set(false);
+            this.router.navigate(['/login']);
+          }
+        },
+        error: (err) => {
+          console.error('Error during logout:', err);
+        }
       }
-    });
+    );
   }
 
   setAuthenticated(authenticated: boolean): void {
@@ -301,7 +317,7 @@ export class AuthService {
     newUser: Omit<User, 'id'>, 
     temporaryPassword?: string, 
     mustChangePassword: boolean = true
-  ): User {
+  ): Observable<User> {
     const id = `usr-${Date.now().toString().slice(-6)}`;
     const user: User = {
       ...newUser,
@@ -314,29 +330,31 @@ export class AuthService {
       temporaryPasswordSetAt: new Date().toISOString().replace('T', ' ').substring(0, 19)
     };
 
-    this.usersSignal.update(list => {
-      const updatedList = [user, ...list];
-      return updatedList;
-    });
-    return user;
-  }
-
-  updateUser(id: string, updates: Partial<User>): void {
-    this.usersSignal.update(list => {
-      const updatedList = list.map(u => {
-        if (u.id === id) {
-          const updated = { ...u, ...updates };
-          if (this.currentUserSignal().id === id) {
-            this.currentUserSignal.set(updated);
-          }
-          return updated;
+    return this.createUser(user).pipe(
+      tap({
+        next: createdUser => {
+          this.usersSignal.update(users => [createdUser, ...users.filter(u => u.id !== createdUser.id)]);
+        },
+        error: (error) => {
+          console.error('Error creating user', error);
         }
-        return u;
-      });
-      return updatedList;
-    });
+      })
+    );
   }
 
+  updateUser(id: string, updates: Partial<User>): Observable<User> {
+    return this.updateUserApi(id, updates).pipe(
+      tap({
+      next: updatedUser => {
+        this.usersSignal.update(users => users.map(u => u.id === updatedUser.id ? { ...u, ...updates } : u));
+      },
+      error: error => {
+        console.error('Error updating user', error);
+      }
+      })
+    );
+  }
+    
   updateCurrentUserAvatar(avatarUrl: string): Observable<void> {
     const user = this.currentUserSignal();
     if (!this.isAuthenticatedSignal() || !user.id) {

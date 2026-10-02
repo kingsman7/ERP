@@ -198,7 +198,6 @@ export class ApiService {
   }
 
   createQuote(quote: Partial<Quote>): Observable<Quote> {
-    console.log('createQuote called with:', quote);
     return this.http.post<Quote>(`${this.baseUrl}/quotes`, quote);
   }
 

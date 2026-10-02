@@ -1,5 +1,5 @@
 import { Component, ChangeDetectionStrategy, inject, signal, computed, output, effect } from '@angular/core';
-import { ReactiveFormsModule, FormsModule } from '@angular/forms';
+import { ReactiveFormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { ErpStateService } from '../../services/erp-state.service';
 import { AuthService } from '../../services/auth.service';
@@ -23,10 +23,18 @@ interface CartItem {
   priceLevel: PriceLevelKey;
 }
 
+export interface SplitPaymentLine {
+  id: string;
+  method: PaymentMethod;
+  currency: CurrencyCode;
+  amount: number;
+  reference?: string;
+}
+
 @Component({
   selector: 'app-sales-pos',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, FormsModule, MatIconModule, DecimalPipe],
+  imports: [ReactiveFormsModule, MatIconModule, DecimalPipe],
   template: `
     <div class="space-y-4 pb-12">
       
@@ -274,143 +282,211 @@ interface CartItem {
 
           </div>
 
-          <!-- Right Column: Cart, Customer & Multi-Currency Payment (5 cols) -->
+          <!-- Right Column: Cart / Items Details Card + Fiscal Settlement & Multi-Currency Payment Card (5 cols) -->
           <div class="lg:col-span-5 space-y-3">
             
-            <!-- Cart Box -->
-            <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs flex flex-col h-[590px]">
+            <!-- ======================================================== -->
+            <!-- CARD 1: DETALLE DE PRODUCTOS Y CANTIDADES (Renglones) -->
+            <!-- ======================================================== -->
+            <div class="bg-white rounded-2xl border border-slate-200/90 shadow-xs flex flex-col overflow-hidden">
               
-              <!-- Customer Selector Header -->
-              <div class="p-3.5 border-b border-slate-100 bg-slate-50/50 rounded-t-2xl space-y-2">
-                <div class="flex items-center justify-between">
-                  <div class="flex items-center space-x-1.5">
-                    <mat-icon class="text-slate-500 text-base">person</mat-icon>
-                    <span class="text-xs font-semibold text-slate-800">Cliente / Receptor Fiscal</span>
+              <!-- Card 1 Header: Title, Item Count & Clear Action -->
+              <div class="p-3 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                  <div class="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                    <mat-icon class="text-base">shopping_cart</mat-icon>
                   </div>
+                  <div>
+                    <span class="text-xs font-bold text-slate-900 block leading-tight">Renglones de Factura</span>
+                    <span class="text-[10px] text-slate-500 font-medium">Detalle de productos y cantidades</span>
+                  </div>
+                </div>
+
+                <div class="flex items-center space-x-2">
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                    {{ cartItems().length }} ítems ({{ cartTotalUnits() }} und)
+                  </span>
+                  @if (cartItems().length > 0) {
+                    <button 
+                      type="button" 
+                      (click)="clearCart()"
+                      title="Vaciar carrito de compras"
+                      class="text-[10px] font-bold text-rose-600 hover:text-rose-800 hover:bg-rose-50 px-1.5 py-0.5 rounded transition-colors flex items-center space-x-0.5 cursor-pointer">
+                      <mat-icon class="text-xs">delete_sweep</mat-icon>
+                      <span>Vaciar</span>
+                    </button>
+                  }
+                </div>
+              </div>
+
+              <!-- Customer Selector -->
+              <div class="p-3 border-b border-slate-100 bg-white space-y-1.5">
+                <div class="flex items-center justify-between">
+                  <span class="text-[11px] font-bold text-slate-700 flex items-center space-x-1">
+                    <mat-icon class="text-xs text-slate-400">person</mat-icon>
+                    <span>Cliente / Receptor Fiscal:</span>
+                  </span>
                   <button 
                     type="button"
                     (click)="openNewCustomerModal()"
                     title="Registrar nuevo cliente en el catálogo"
-                    class="px-2 py-0.5 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-[11px] font-bold flex items-center space-x-1 transition-colors cursor-pointer shadow-2xs">
+                    class="px-2 py-0.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-[10px] font-bold flex items-center space-x-1 transition-colors cursor-pointer border border-emerald-200/80">
                     <mat-icon class="text-xs">person_add</mat-icon>
                     <span>+ Nuevo Cliente</span>
                   </button>
                 </div>
 
-                <div class="flex items-center gap-1.5">
-                  <select 
-                    [value]="selectedCustomerId()"
-                    (change)="selectedCustomerId.set($any($event.target).value)"
-                    class="flex-1 px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-emerald-500">
-                    @for (c of stateService.customers(); track c.id) {
-                      <option [value]="c.id">{{ c.name }} ({{ c.taxId }})</option>
-                    }
-                  </select>
-                  <button
-                    type="button"
-                    (click)="openNewCustomerModal()"
-                    title="Registrar nuevo cliente en el catálogo"
-                    class="p-1.5 bg-white border border-slate-200 hover:border-emerald-500 hover:text-emerald-700 rounded-xl text-slate-600 transition-colors cursor-pointer shrink-0">
-                    <mat-icon class="text-base">person_add</mat-icon>
-                  </button>
-                </div>
+                <select 
+                  [value]="selectedCustomerId()"
+                  (change)="selectedCustomerId.set($any($event.target).value)"
+                  class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:bg-white">
+                  @for (c of stateService.customers(); track c.id) {
+                    <option [value]="c.id">{{ c.name }} ({{ c.taxId }})</option>
+                  }
+                </select>
 
                 @if (selectedCustomer(); as cust) {
-                  <div class="flex items-center justify-between text-[10px] text-slate-500 px-0.5 pt-0.5 border-t border-slate-100/60">
-                    <span class="font-mono font-semibold text-slate-700">{{ cust.taxId }}</span>
-                    <span class="truncate max-w-[200px] text-slate-400">{{ cust.email || cust.phone || cust.customerType }}</span>
+                  <div class="flex items-center justify-between text-[10px] text-slate-500 px-0.5 pt-0.5">
+                    <span class="font-mono font-bold text-slate-700">{{ cust.taxId }}</span>
+                    <span class="truncate max-w-[220px] text-slate-400">{{ cust.email || cust.phone || cust.customerType }}</span>
                   </div>
                 }
               </div>
 
-              <!-- Cart Item List -->
-              <div class="flex-1 overflow-y-auto p-3 space-y-2">
+              <!-- Cart Products List: Clearly Visible with direct number input & controls -->
+              <div class="min-h-[170px] max-h-[380px] overflow-y-auto p-3 space-y-2.5">
                 @for (item of cartItems(); track item.product.id) {
-                  <div class="p-2.5 rounded-xl bg-slate-50/70 border border-slate-100 hover:border-slate-200 transition-all flex items-center justify-between gap-2">
+                  <div class="p-2.5 rounded-xl bg-slate-50/90 border border-slate-200/80 hover:border-slate-300 transition-all flex flex-col space-y-1.5 shadow-2xs">
                     
-                    <div class="flex-1 min-w-0">
-                      <div class="flex items-center space-x-1.5 flex-wrap">
-                        <span class="text-xs font-semibold text-slate-900 truncate">{{ item.product.name }}</span>
-                        @if (item.product.itemType === 'SERVICE') {
-                          <span class="text-[9px] bg-violet-100 text-violet-800 px-1 py-0.2 rounded font-bold">SERVICIO</span>
-                        }
-                        @if (item.product.isTaxExempt) {
-                          <span class="text-[9px] bg-amber-100 text-amber-800 px-1 py-0.2 rounded font-bold">EXENTO</span>
-                        }
+                    <!-- Row Top: Name, SKU, Badges & Remove -->
+                    <div class="flex items-start justify-between gap-2">
+                      <div class="min-w-0 flex-1">
+                        <div class="flex items-center space-x-1.5 flex-wrap gap-y-0.5">
+                          <span class="text-xs font-bold text-slate-900 leading-snug">{{ item.product.name }}</span>
+                          @if (item.product.itemType === 'SERVICE') {
+                            <span class="text-[9px] bg-violet-100 text-violet-800 px-1.5 py-0.2 rounded font-bold">SERVICIO</span>
+                          }
+                          @if (item.product.isTaxExempt) {
+                            <span class="text-[9px] bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded font-bold">EXENTO</span>
+                          } @else {
+                            <span class="text-[9px] bg-slate-200 text-slate-700 px-1 py-0.2 rounded font-medium">IVA 16%</span>
+                          }
+                        </div>
+                        <div class="flex items-center space-x-2 mt-0.5 text-[10px] text-slate-400 font-mono">
+                          <span>SKU: {{ item.product.sku }}</span>
+                          <span>•</span>
+                          <span>\${{ getItemUnitPrice(item)  | number: '1.2-2' }} / {{ item.product.unit || 'UND' }}</span>
+                          <span>(Bs. {{ (getItemUnitPrice(item) * stateService.bcvState().usdRate)  | number: '1.2-2' }})</span>
+                        </div>
                       </div>
-                      <div class="flex items-center space-x-2 mt-0.5 text-[11px] text-slate-500">
-                        <span class="font-mono">\${{ getItemUnitPrice(item)  | number: '1.2-2' }} / {{ item.product.unit || 'UND' }}</span>
-                        <span>•</span>
-                        <span class="font-mono text-emerald-700">Bs. {{ (getItemUnitPrice(item) * stateService.bcvState().usdRate)  | number: '1.2-2' }}</span>
-                      </div>
+
+                      <button 
+                        type="button" 
+                        (click)="removeItem(item.product.id)" 
+                        title="Quitar producto de la factura"
+                        class="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer shrink-0">
+                        <mat-icon class="text-sm">delete_outline</mat-icon>
+                      </button>
                     </div>
 
-                    <!-- Quantity Controls -->
-                    <div class="flex items-center space-x-1">
-                      <button 
-                        (click)="decreaseQty(item.product.id)"
-                        class="w-6 h-6 rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 flex items-center justify-center font-bold text-xs">
-                        -
-                      </button>
-                      <span class="font-mono font-bold text-xs px-1.5">{{ item.quantity }}</span>
-                      <button 
-                        (click)="increaseQty(item.product.id)"
-                        class="w-6 h-6 rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 flex items-center justify-center font-bold text-xs">
-                        +
-                      </button>
-                    </div>
+                    <!-- Row Bottom: Direct Quantity Controls + Line Subtotal -->
+                    <div class="flex items-center justify-between pt-1 border-t border-slate-200/50">
+                      
+                      <!-- Quantity input and +/- buttons -->
+                      <div class="flex items-center space-x-1 bg-white border border-slate-200 rounded-lg p-0.5 shadow-2xs">
+                        <button 
+                          type="button" 
+                          (click)="decreaseQty(item.product.id)"
+                          title="Restar 1"
+                          class="w-6 h-6 rounded hover:bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-xs cursor-pointer">
+                          -
+                        </button>
+                        <input 
+                          type="number" 
+                          min="1" 
+                          max="9999"
+                          [value]="item.quantity"
+                          (change)="updateItemQty(item.product.id, $any($event.target).value)"
+                          title="Editar cantidad directamente"
+                          class="w-10 text-center font-mono font-bold text-xs py-0.5 text-slate-900 border-x border-slate-100 focus:outline-none focus:bg-emerald-50/50" />
+                        <button 
+                          type="button" 
+                          (click)="increaseQty(item.product.id)"
+                          title="Sumar 1"
+                          class="w-6 h-6 rounded hover:bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-xs cursor-pointer">
+                          +
+                        </button>
+                      </div>
 
-                    <!-- Item Subtotal -->
-                    <div class="text-right min-w-[65px]">
-                      <span class="font-mono font-bold text-xs text-slate-900 block">
-                        \${{ getItemSubtotal(item)  | number: '1.2-2' }}
-                      </span>
-                      <button 
-                        (click)="removeItem(item.product.id)"
-                        class="text-[10px] text-rose-500 hover:text-rose-700 underline">
-                        Quitar
-                      </button>
+                      <!-- Line Subtotal Amount in USD and VES -->
+                      <div class="text-right">
+                        <span class="font-mono font-bold text-xs text-slate-900 block">
+                          \${{ getItemSubtotal(item)  | number: '1.2-2' }}
+                        </span>
+                        <span class="font-mono text-[10px] text-emerald-700 block">
+                          Bs. {{ (getItemSubtotal(item) * stateService.bcvState().usdRate)  | number: '1.2-2' }}
+                        </span>
+                      </div>
+
                     </div>
 
                   </div>
                 } @empty {
-                  <div class="h-full flex flex-col items-center justify-center text-slate-400 text-xs py-8">
-                    <mat-icon class="text-4xl text-slate-300 mb-1">shopping_basket</mat-icon>
-                    <p class="font-medium">El carrito de compras está vacío</p>
-                    <p class="text-[11px] text-slate-400">Escanee códigos de barras o seleccione del catálogo</p>
+                  <div class="h-36 flex flex-col items-center justify-center text-slate-400 text-xs py-6">
+                    <mat-icon class="text-3xl text-slate-300 mb-1">shopping_basket</mat-icon>
+                    <p class="font-medium">No hay productos en la factura</p>
+                    <p class="text-[10px] text-slate-400">Escanee códigos o seleccione del catálogo a la izquierda</p>
                   </div>
                 }
               </div>
 
-              <!-- Cart Calculations & Tax Summary -->
-              <div class="p-3.5 border-t border-slate-100 bg-slate-50/50 space-y-2 text-xs">
-                
-                <!-- Fiscal Regime & IGTF Indicator -->
-                <div class="px-2.5 py-1.5 rounded-xl border flex items-center justify-between text-[11px]"
-                  [class.bg-indigo-50]="stateService.companyProfile().isSpecialTaxpayer"
-                  [class.border-indigo-200]="stateService.companyProfile().isSpecialTaxpayer"
-                  [class.bg-slate-100]="!stateService.companyProfile().isSpecialTaxpayer"
-                  [class.border-slate-200]="!stateService.companyProfile().isSpecialTaxpayer">
-                  <div class="flex items-center space-x-1.5 truncate">
-                    <mat-icon class="text-xs" [class.text-indigo-600]="stateService.companyProfile().isSpecialTaxpayer" [class.text-slate-500]="!stateService.companyProfile().isSpecialTaxpayer">
-                      {{ stateService.companyProfile().isSpecialTaxpayer ? 'verified_user' : 'storefront' }}
-                    </mat-icon>
-                    <span class="truncate font-semibold" [class.text-indigo-900]="stateService.companyProfile().isSpecialTaxpayer" [class.text-slate-700]="!stateService.companyProfile().isSpecialTaxpayer">
-                      {{ stateService.companyProfile().isSpecialTaxpayer ? 'Sujeto Pasivo Especial SENIAT' : 'Contribuyente Ordinario' }}
-                    </span>
-                  </div>
-                  <button 
-                    (click)="toggleCompanyFiscalSpecial()" 
-                    title="Alternar estado fiscal entre Sujeto Pasivo Especial y Ordinario"
-                    class="text-[10px] font-bold underline px-1.5 py-0.5 rounded transition-colors cursor-pointer"
-                    [class.text-indigo-700]="stateService.companyProfile().isSpecialTaxpayer"
-                    [class.hover:bg-indigo-100]="stateService.companyProfile().isSpecialTaxpayer"
-                    [class.text-slate-600]="!stateService.companyProfile().isSpecialTaxpayer"
-                    [class.hover:bg-slate-200]="!stateService.companyProfile().isSpecialTaxpayer">
-                    {{ stateService.companyProfile().isSpecialTaxpayer ? 'Cambiar a Ordinario' : 'Cambiar a Especial' }}
-                  </button>
+              <!-- Card 1 Footer: Immediate Subtotal Reference -->
+              <div class="p-2.5 bg-slate-100/70 border-t border-slate-200/80 flex items-center justify-between text-xs">
+                <span class="text-slate-600 font-medium">Subtotal Renglones ({{ cartTotalUnits() }} und):</span>
+                <div class="text-right">
+                  <span class="font-mono font-bold text-slate-900">\${{ cartSubtotalGross()  | number: '1.2-2' }}</span>
+                  <span class="text-[10px] font-mono text-slate-500 block">
+                    Bs. {{ (cartSubtotalGross() * stateService.bcvState().usdRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+                  </span>
                 </div>
+              </div>
 
+            </div>
+
+            <!-- ======================================================== -->
+            <!-- CARD 2: LIQUIDACIÓN FISCAL, COBRO Y PAGOS (SENIAT) -->
+            <!-- ======================================================== -->
+            <div class="bg-white rounded-2xl border border-slate-200/90 shadow-xs flex flex-col p-3.5 space-y-3">
+              
+              <!-- Fiscal Regime Switcher -->
+              <div class="px-2.5 py-1.5 rounded-xl border flex items-center justify-between text-[11px]"
+                [class.bg-indigo-50]="stateService.companyProfile().isSpecialTaxpayer"
+                [class.border-indigo-200]="stateService.companyProfile().isSpecialTaxpayer"
+                [class.bg-slate-100]="!stateService.companyProfile().isSpecialTaxpayer"
+                [class.border-slate-200]="!stateService.companyProfile().isSpecialTaxpayer">
+                <div class="flex items-center space-x-1.5 truncate">
+                  <mat-icon class="text-xs" [class.text-indigo-600]="stateService.companyProfile().isSpecialTaxpayer" [class.text-slate-500]="!stateService.companyProfile().isSpecialTaxpayer">
+                    {{ stateService.companyProfile().isSpecialTaxpayer ? 'verified_user' : 'storefront' }}
+                  </mat-icon>
+                  <span class="truncate font-semibold" [class.text-indigo-900]="stateService.companyProfile().isSpecialTaxpayer" [class.text-slate-700]="!stateService.companyProfile().isSpecialTaxpayer">
+                    {{ stateService.companyProfile().isSpecialTaxpayer ? 'Sujeto Pasivo Especial SENIAT' : 'Contribuyente Ordinario' }}
+                  </span>
+                </div>
+                <button 
+                  type="button"
+                  (click)="toggleCompanyFiscalSpecial()" 
+                  title="Alternar estado fiscal entre Sujeto Pasivo Especial y Ordinario"
+                  class="text-[10px] font-bold underline px-1.5 py-0.5 rounded transition-colors cursor-pointer"
+                  [class.text-indigo-700]="stateService.companyProfile().isSpecialTaxpayer"
+                  [class.hover:bg-indigo-100]="stateService.companyProfile().isSpecialTaxpayer"
+                  [class.text-slate-600]="!stateService.companyProfile().isSpecialTaxpayer"
+                  [class.hover:bg-slate-200]="!stateService.companyProfile().isSpecialTaxpayer">
+                  {{ stateService.companyProfile().isSpecialTaxpayer ? 'Cambiar a Ordinario' : 'Cambiar a Especial' }}
+                </button>
+              </div>
+
+              <!-- Itemized Taxes Breakdown -->
+              <div class="space-y-1 text-xs">
                 <div class="flex justify-between text-slate-500">
                   <span>Subtotal Bruto:</span>
                   <span class="font-mono font-medium text-slate-800">\${{ cartSubtotalGross()  | number: '1.2-2' }}</span>
@@ -441,7 +517,7 @@ interface CartItem {
                         <mat-icon class="text-xs">account_balance</mat-icon>
                         <span>Percepción IGTF 3% (Divisas / SENIAT):</span>
                       </span>
-                      <span class="block text-[9px] text-indigo-500 font-normal">Base imponible: \${{ computedTaxDetails().igtfBase  | number: '1.2-2' }}</span>
+                      <span class="block text-[9px] text-indigo-500 font-normal">Base imponible en divisas: \${{ computedTaxDetails().igtfBase  | number: '1.2-2' }}</span>
                     </div>
                     <div class="text-right">
                       <span class="font-mono font-bold text-xs">\${{ computedTaxDetails().igtfAmount  | number: '1.2-2' }}</span>
@@ -456,38 +532,59 @@ interface CartItem {
                         <span>Alícuota IGTF: <strong class="text-emerald-700">0.00% (No Aplica)</strong></span>
                       </span>
                       <span class="block text-[9px] text-slate-400">
-                        @if (!computedTaxDetails().isSpecialTaxpayer) {
-                          Emisor es Contribuyente Ordinario
-                        } @else {
-                          Exento: Pago en Bolívares / Medios Electrónicos Nacionales
-                        }
+                        Exento: Pago en Bolívares / Medios Electrónicos Nacionales
                       </span>
                     </div>
                     <span class="font-mono font-semibold text-slate-600">$0.00</span>
                   </div>
                 }
+              </div>
 
-                <!-- Totals Multi-Currency Summary -->
-                <div class="pt-2 border-t border-slate-200/80 space-y-1">
-                  <div class="flex justify-between items-baseline">
-                    <span class="font-bold text-slate-900 text-sm">TOTAL A COBRAR:</span>
-                    <div class="text-right">
-                      <span class="font-mono font-bold text-lg text-emerald-600">\${{ grandTotalUsd()  | number: '1.2-2' }}</span>
-                      <span class="block font-mono font-bold text-xs text-slate-700">
-                        Bs. {{ grandTotalVes().toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
-                      </span>
-                    </div>
+              <!-- Grand Total Summary Banner -->
+              <div class="p-3 bg-gradient-to-r from-slate-900 to-slate-800 text-white rounded-xl shadow-xs">
+                <div class="flex justify-between items-baseline">
+                  <div>
+                    <span class="text-[10px] text-slate-400 font-semibold tracking-wider uppercase block">TOTAL GENERAL FACTURA</span>
+                    <span class="text-xl font-bold font-mono text-emerald-400">\${{ grandTotalUsd()  | number: '1.2-2' }}</span>
+                  </div>
+                  <div class="text-right">
+                    <span class="text-[10px] text-slate-400 block font-mono">Equivalente BCV</span>
+                    <span class="font-mono font-bold text-sm text-white block">
+                      Bs. {{ grandTotalVes().toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+                    </span>
                   </div>
                 </div>
+              </div>
 
-                <!-- Payment Method & Currency Selector -->
-                <div class="grid grid-cols-2 gap-2 pt-2">
+              <!-- Payment Mode Switcher Tabs: Pago Único vs Pagos Mixtos SENIAT -->
+              <div class="flex items-center justify-between p-1 bg-slate-100 rounded-xl">
+                <button 
+                  type="button" 
+                  (click)="toggleMixedPayment(false)"
+                  [class]="!isMixedPayment() ? 'bg-white shadow-2xs font-bold text-slate-900' : 'text-slate-500 hover:text-slate-800 font-medium'"
+                  class="flex-1 py-1.5 text-xs rounded-lg transition-all flex items-center justify-center space-x-1 cursor-pointer">
+                  <mat-icon class="text-sm text-emerald-600">payment</mat-icon>
+                  <span>Pago Único</span>
+                </button>
+                <button 
+                  type="button" 
+                  (click)="toggleMixedPayment(true)"
+                  [class]="isMixedPayment() ? 'bg-indigo-600 text-white shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-800 font-medium'"
+                  class="flex-1 py-1.5 text-xs rounded-lg transition-all flex items-center justify-center space-x-1 cursor-pointer">
+                  <mat-icon class="text-sm">call_split</mat-icon>
+                  <span>Pagos Mixtos (SENIAT)</span>
+                </button>
+              </div>
+
+              <!-- SINGLE PAYMENT MODE -->
+              @if (!isMixedPayment()) {
+                <div class="grid grid-cols-2 gap-2 pt-0.5">
                   <div>
                     <span class="block text-[10px] font-semibold text-slate-500 mb-0.5">Moneda de Cobro</span>
                     <select 
                       [value]="selectedPaymentCurrency()"
                       (change)="onPaymentCurrencyChange($any($event.target).value)"
-                      class="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none">
+                      class="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:bg-white">
                       <option value="USD">USD ($ Dólares)</option>
                       <option value="VES">VES (Bs. Bolívares BCV)</option>
                       <option value="EUR">EUR (€ Euros)</option>
@@ -499,7 +596,7 @@ interface CartItem {
                     <select 
                       [value]="selectedPaymentMethod()"
                       (change)="onPaymentMethodChange($any($event.target).value)"
-                      class="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none">
+                      class="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:bg-white">
                       <option value="EFECTIVO_USD">Efectivo USD (Divisas)</option>
                       <option value="EFECTIVO">Efectivo Bolívares (VES)</option>
                       <option value="PAGO_MOVIL">Pago Móvil (VES)</option>
@@ -507,21 +604,287 @@ interface CartItem {
                       <option value="TARJETA_CREDITO">Tarjeta de Crédito (VES)</option>
                       <option value="TRANSFERENCIA">Transferencia Bancaria</option>
                       <option value="ZELLE">Zelle / Wire (USD)</option>
+                      <option value="CRIPTO">Criptomonedas / USDT</option>
                       <option value="CREDITO">Crédito Comercial</option>
                     </select>
                   </div>
                 </div>
 
-                <!-- Checkout Action -->
-                <button 
-                  (click)="checkout()"
-                  [disabled]="cartItems().length === 0"
-                  class="w-full mt-2 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-bold rounded-xl text-xs flex items-center justify-center space-x-1.5 shadow-sm transition-all cursor-pointer disabled:cursor-not-allowed">
-                  <mat-icon class="text-base">receipt_long</mat-icon>
-                  <span>EMITIR FACTURA FISCAL (F10)</span>
-                </button>
+                <!-- Cash Tendered & Real-Time Change / Vuelto Calculation (Multi-Currency) -->
+                <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                  <div class="flex items-center justify-between">
+                    <label for="pos-cash-tendered-input" class="text-[11px] font-bold text-slate-800 flex items-center space-x-1">
+                      <mat-icon class="text-sm text-emerald-600">payments</mat-icon>
+                      <span>Monto Pagado por Cliente:</span>
+                    </label>
+                    <button 
+                      type="button" 
+                      (click)="setExactTendered()"
+                      title="Cobro exacto sin vuelto"
+                      class="text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-lg transition-colors cursor-pointer">
+                      Paga Exacto
+                    </button>
+                  </div>
 
-              </div>
+                  <!-- Tendered Input -->
+                  <div class="relative">
+                    <span class="absolute left-3 top-2 text-xs font-bold font-mono text-slate-500">
+                      {{ selectedPaymentCurrency() === 'VES' ? 'Bs.' : (selectedPaymentCurrency() === 'EUR' ? '€' : '$') }}
+                    </span>
+                    <input 
+                      id="pos-cash-tendered-input"
+                      type="number" 
+                      step="0.01" 
+                      min="0"
+                      [value]="cashTendered() !== null ? cashTendered() : ''"
+                      (input)="onCashTenderedInput($event)"
+                      [placeholder]="currentTotalToPay().toFixed(2)"
+                      class="w-full pl-9 pr-14 py-1.5 bg-white border border-slate-200 rounded-xl text-sm font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500" />
+                    
+                    <span class="absolute right-3 top-2 text-[10px] font-semibold text-slate-400 font-mono">
+                      {{ selectedPaymentCurrency() }}
+                    </span>
+                  </div>
+
+                  <!-- Quick Denomination Buttons -->
+                  @if (cashSuggestions().length > 0) {
+                    <div class="flex items-center gap-1.5 flex-wrap pt-0.5">
+                      <span class="text-[10px] text-slate-400 font-medium">Sugerido:</span>
+                      @for (denom of cashSuggestions(); track denom) {
+                        <button 
+                          type="button" 
+                          (click)="setTenderedAmount(denom)"
+                          [class.ring-2]="cashTendered() === denom"
+                          [class.ring-emerald-600]="cashTendered() === denom"
+                          class="px-2 py-0.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-mono text-[11px] font-semibold transition-all cursor-pointer">
+                          {{ selectedPaymentCurrency() === 'VES' ? 'Bs.' : '$' }}{{ denom }}
+                        </button>
+                      }
+                    </div>
+                  }
+
+                  <!-- Live Change / Vuelto Result -->
+                  @let ch = cashChangeDetails();
+                  @if (ch.isSurplus) {
+                    <div class="p-2.5 bg-emerald-50/90 border border-emerald-200 rounded-xl text-emerald-950 space-y-1">
+                      <div class="flex items-center justify-between">
+                        <span class="font-bold text-[11px] flex items-center space-x-1 text-emerald-900">
+                          <mat-icon class="text-sm text-emerald-600">price_check</mat-icon>
+                          <span>CAMBIO / VUELTO A ENTREGAR:</span>
+                        </span>
+                        <span class="font-mono font-extrabold text-sm text-emerald-700">
+                          {{ selectedPaymentCurrency() === 'VES' ? 'Bs. ' : '$' }}{{ ch.changeInCurrency  | number: '1.2-2' }}
+                        </span>
+                      </div>
+                      
+                      <!-- Dual Currency Change Breakdown -->
+                      <div class="text-[10px] font-mono text-emerald-800/90 flex items-center justify-between pt-1 border-t border-emerald-200/60">
+                        <span>Equivalente en {{ selectedPaymentCurrency() === 'USD' ? 'Bolívares' : 'Dólares' }}:</span>
+                        @if (selectedPaymentCurrency() === 'USD') {
+                          <span class="font-bold">Bs. {{ ch.changeVes.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</span>
+                        } @else if (selectedPaymentCurrency() === 'VES') {
+                          <span class="font-bold">\${{ ch.changeUsd  | number: '1.2-2' }} USD</span>
+                        } @else {
+                          <span class="font-bold">Bs. {{ ch.changeVes  | number: '1.2-2' }} (\${{ ch.changeUsd  | number: '1.2-2' }})</span>
+                        }
+                      </div>
+                    </div>
+                  } @else if (ch.isDeficit) {
+                    <div class="p-2 bg-rose-50 border border-rose-200 rounded-xl text-rose-950 space-y-0.5">
+                      <div class="flex items-center justify-between">
+                        <span class="font-bold text-[11px] flex items-center space-x-1 text-rose-900">
+                          <mat-icon class="text-sm text-rose-600">error_outline</mat-icon>
+                          <span>MONTO INSUFICIENTE:</span>
+                        </span>
+                        <span class="font-mono font-bold text-xs text-rose-700">
+                          -{{ selectedPaymentCurrency() === 'VES' ? 'Bs. ' : '$' }}{{ ch.deficitInCurrency  | number: '1.2-2' }}
+                        </span>
+                      </div>
+                      <p class="text-[10px] text-rose-700 font-mono">
+                        Faltan: {{ selectedPaymentCurrency() === 'VES' ? 'Bs. ' : '$' }}{{ ch.deficitInCurrency | number:'1.2-2' }} 
+                        @if (selectedPaymentCurrency() === 'USD') { (Bs. {{ ch.deficitVes  | number: '1.2-2' }}) }
+                      </p>
+                    </div>
+                  } @else {
+                    <div class="p-1 bg-white border border-slate-200 rounded-lg text-center text-[10px] text-slate-500 font-medium flex items-center justify-center space-x-1">
+                      <mat-icon class="text-xs text-emerald-600">check</mat-icon>
+                      <span>Pago Exacto (Sin vuelto a devolver)</span>
+                    </div>
+                  }
+                </div>
+              } @else {
+                <!-- MIXED PAYMENTS (SENIAT SPLIT-TENDER) MODE -->
+                <div class="p-3 bg-white rounded-xl border border-indigo-200 shadow-2xs space-y-2.5">
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-1.5">
+                      <mat-icon class="text-sm text-indigo-600">account_balance_wallet</mat-icon>
+                      <span class="text-[11px] font-bold text-indigo-950">Métodos de Pago Mixtos ({{ splitPayments().length }})</span>
+                    </div>
+                    <button 
+                      type="button" 
+                      (click)="addSplitPayment()"
+                      class="text-[10px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded-lg border border-indigo-200 transition-colors flex items-center space-x-1 cursor-pointer">
+                      <mat-icon class="text-xs">add</mat-icon>
+                      <span>+ Agregar Método</span>
+                    </button>
+                  </div>
+
+                  <!-- Split Payments List -->
+                  <div class="space-y-2 max-h-[240px] overflow-y-auto pr-0.5">
+                    @for (sp of splitPayments(); track sp.id; let idx = $index) {
+                      @let isDiv = stateService.isForeignCurrencyPaymentMethod(sp.method, sp.currency);
+                      <div class="p-2.5 rounded-xl border transition-all text-xs space-y-1.5"
+                        [class.bg-indigo-50/40]="isDiv"
+                        [class.border-indigo-200]="isDiv"
+                        [class.bg-emerald-50/30]="!isDiv"
+                        [class.border-emerald-200]="!isDiv">
+                        
+                        <div class="flex items-center justify-between gap-1.5">
+                          <!-- Method Selector -->
+                          <div class="flex-1">
+                            <select 
+                              [value]="sp.method"
+                              (change)="updateSplitMethod(sp.id, $any($event.target).value)"
+                              class="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none">
+                              <option value="EFECTIVO_USD">Efectivo USD (Divisas)</option>
+                              <option value="EFECTIVO">Efectivo Bolívares (VES)</option>
+                              <option value="PAGO_MOVIL">Pago Móvil (VES)</option>
+                              <option value="PUNTO_VENTA_DEBITO">Punto de Venta Débito (VES)</option>
+                              <option value="TARJETA_CREDITO">Tarjeta de Crédito (VES)</option>
+                              <option value="TRANSFERENCIA">Transferencia Bancaria</option>
+                              <option value="ZELLE">Zelle / Wire (USD)</option>
+                              <option value="CRIPTO">Criptomonedas / USDT</option>
+                              <option value="CREDITO">Crédito Comercial</option>
+                            </select>
+                          </div>
+
+                          <!-- Currency Badge -->
+                          <span class="px-2 py-0.5 bg-white border border-slate-200 rounded-lg font-mono font-bold text-[11px]"
+                            [class.text-indigo-700]="isDiv"
+                            [class.text-emerald-700]="!isDiv">
+                            {{ sp.currency }}
+                          </span>
+
+                          <!-- Delete Row -->
+                          @if (splitPayments().length > 1) {
+                            <button 
+                              type="button" 
+                              (click)="removeSplitPayment(sp.id)" 
+                              title="Eliminar método"
+                              class="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer">
+                              <mat-icon class="text-sm">delete</mat-icon>
+                            </button>
+                          }
+                        </div>
+
+                        <div class="flex items-center justify-between gap-1.5">
+                          <!-- Amount Input -->
+                          <div class="relative flex-1">
+                            <span class="absolute left-2.5 top-1 text-xs font-bold font-mono text-slate-500">
+                              {{ sp.currency === 'VES' ? 'Bs.' : (sp.currency === 'EUR' ? '€' : '$') }}
+                            </span>
+                            <input 
+                              type="number" 
+                              step="0.01" 
+                              min="0"
+                              [value]="sp.amount"
+                              (input)="updateSplitAmount(sp.id, $any($event.target).value)"
+                              placeholder="0.00"
+                              class="w-full pl-8 pr-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+                          </div>
+
+                          <!-- Auto-cover button -->
+                          <button 
+                            type="button" 
+                            (click)="autoCoverRemaining(sp.id)"
+                            title="Ajustar monto para saldar el saldo pendiente"
+                            class="px-2 py-1 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 shrink-0 transition-colors cursor-pointer">
+                            Saldar Restante
+                          </button>
+                        </div>
+
+                        <!-- Conversion & SENIAT Badge -->
+                        <div class="flex items-center justify-between text-[10px] pt-1 border-t border-slate-200/50">
+                          <span class="text-slate-500 font-mono">
+                            @if (sp.currency === 'VES') {
+                              ≈ \${{ (sp.amount / stateService.bcvState().usdRate)  | number: '1.2-2' }} USD
+                            } @else {
+                              ≈ Bs. {{ (sp.amount * stateService.bcvState().usdRate)  | number: '1.2-2' }}
+                            }
+                          </span>
+                          <span class="px-1.5 py-0.2 rounded font-semibold text-[9px]"
+                            [class.bg-indigo-100]="isDiv"
+                            [class.text-indigo-800]="isDiv"
+                            [class.bg-emerald-100]="!isDiv"
+                            [class.text-emerald-800]="!isDiv">
+                            {{ isDiv ? 'Sujeto a IGTF 3%' : 'Exento IGTF (0%)' }}
+                          </span>
+                        </div>
+
+                      </div>
+                    }
+                  </div>
+
+                  <!-- SENIAT Mixed Summary Card -->
+                  <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1 text-xs">
+                    <div class="flex items-center justify-between text-[11px] text-slate-600">
+                      <span>Base Venta (Subtotal + IVA):</span>
+                      <span class="font-mono font-semibold">\${{ baseSaleWithIvaUsd()  | number: '1.2-2' }}</span>
+                    </div>
+                    
+                    <div class="flex items-center justify-between text-[11px] text-indigo-700">
+                      <span>Porción en Divisas (IGTF 3%):</span>
+                      <span class="font-mono font-bold">\${{ splitTaxDetails().divisasPaidUsd  | number: '1.2-2' }} ➔ +\${{ splitTaxDetails().igtfAmount  | number: '1.2-2' }}</span>
+                    </div>
+
+                    <div class="flex items-center justify-between text-[11px] text-emerald-700">
+                      <span>Porción en Bolívares (Exenta):</span>
+                      <span class="font-mono font-bold">\${{ splitTaxDetails().bolivaresPaidUsd  | number: '1.2-2' }} (Bs. {{ (splitTaxDetails().bolivaresPaidUsd * stateService.bcvState().usdRate)  | number: '1.2-2' }})</span>
+                    </div>
+
+                    <div class="flex items-center justify-between text-xs font-bold text-slate-900 border-t border-slate-200 pt-1">
+                      <span>TOTAL GENERAL FACTURA:</span>
+                      <span class="font-mono text-emerald-700 font-extrabold">\${{ grandTotalUsd()  | number: '1.2-2' }}</span>
+                    </div>
+
+                    <!-- Balance status -->
+                    @let bal = mixedBalanceDetails();
+                    @if (bal.isDeficit) {
+                      <div class="p-1.5 bg-rose-50 border border-rose-200 rounded-lg text-rose-800 flex items-center justify-between text-[11px]">
+                        <span class="font-bold flex items-center space-x-1">
+                          <mat-icon class="text-xs text-rose-600">error_outline</mat-icon>
+                          <span>Falta por cubrir:</span>
+                        </span>
+                        <span class="font-mono font-bold">\${{ bal.deficitUsd  | number: '1.2-2' }} USD (Bs. {{ bal.deficitVes  | number: '1.2-2' }})</span>
+                      </div>
+                    } @else if (bal.isSurplus) {
+                      <div class="p-1.5 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 flex items-center justify-between text-[11px]">
+                        <span class="font-bold flex items-center space-x-1">
+                          <mat-icon class="text-xs text-emerald-600">price_check</mat-icon>
+                          <span>Vuelto / Excedente:</span>
+                        </span>
+                        <span class="font-mono font-bold">\${{ bal.surplusUsd  | number: '1.2-2' }} USD (Bs. {{ bal.surplusVes  | number: '1.2-2' }})</span>
+                      </div>
+                    } @else {
+                      <div class="p-1.5 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 flex items-center justify-center space-x-1 text-[11px] font-bold">
+                        <mat-icon class="text-xs text-emerald-600">check_circle</mat-icon>
+                        <span>Pagos 100% Cuadrados y Cubiertos</span>
+                      </div>
+                    }
+                  </div>
+
+                </div>
+              }
+
+              <!-- Checkout Action Button -->
+              <button 
+                type="button"
+                (click)="checkout()"
+                [disabled]="cartItems().length === 0 || (!isMixedPayment() && cashChangeDetails().isDeficit && selectedPaymentMethod() !== 'CREDITO') || (isMixedPayment() && mixedBalanceDetails().isDeficit && !hasCreditPayment())"
+                class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-bold rounded-xl text-xs flex items-center justify-center space-x-1.5 shadow-sm transition-all cursor-pointer disabled:cursor-not-allowed">
+                <mat-icon class="text-base">receipt_long</mat-icon>
+                <span>EMITIR FACTURA FISCAL (F10)</span>
+              </button>
 
             </div>
 
@@ -955,9 +1318,20 @@ export default class SalesPosComponent {
   selectedIvaRate = signal<number>(0.16);
   globalDiscountPercent = signal<number>(0);
   manualIgtfOverride = signal<boolean | null>(null);
-  cashTendered = signal<number>(0);
+  cashTendered = signal<number | null>(null);
 
   cartItems = signal<CartItem[]>([]);
+
+  cartTotalUnits = computed(() => {
+    return this.cartItems().reduce((sum, item) => sum + item.quantity, 0);
+  });
+
+  // Mixed Payments (SENIAT Split-Tender) Signals
+  isMixedPayment = signal<boolean>(false);
+  splitPayments = signal<SplitPaymentLine[]>([
+    { id: 'sp-1', method: 'EFECTIVO_USD', currency: 'USD', amount: 0 },
+    { id: 'sp-2', method: 'PAGO_MOVIL', currency: 'VES', amount: 0 }
+  ]);
 
   // History Tab Filters
   salesSearchQuery = signal<string>('');
@@ -1059,6 +1433,69 @@ export default class SalesPosComponent {
     return this.cartItems().reduce((sum, item) => sum + this.getItemSubtotal(item), 0);
   });
 
+  baseSaleWithIvaUsd = computed(() => {
+    let taxable = 0;
+    let exempt = 0;
+    const ivaRate = this.selectedIvaRate();
+
+    for (const item of this.cartItems()) {
+      const lineSubtotal = this.getItemSubtotal(item);
+      if (item.product.isTaxExempt || item.product.taxRate === 0) {
+        exempt += lineSubtotal;
+      } else {
+        taxable += lineSubtotal;
+      }
+    }
+
+    const ivaAmount = Number((taxable * ivaRate).toFixed(2));
+    return Number((taxable + exempt + ivaAmount).toFixed(2));
+  });
+
+  splitTaxDetails = computed(() => {
+    const baseSale = this.baseSaleWithIvaUsd();
+    const bcvRate = this.stateService.bcvState().usdRate;
+    const eurRate = this.stateService.bcvState().eurRate || bcvRate;
+
+    let divisasPaidUsd = 0;
+    let bolivaresPaidUsd = 0;
+
+    for (const sp of this.splitPayments()) {
+      const isBs = this.stateService.isBolivaresPaymentMethod(sp.method, sp.currency);
+      const isDiv = this.stateService.isForeignCurrencyPaymentMethod(sp.method, sp.currency);
+
+      let amtUsd = 0;
+      if (sp.currency === 'USD') {
+        amtUsd = sp.amount;
+      } else if (sp.currency === 'VES') {
+        amtUsd = bcvRate > 0 ? (sp.amount / bcvRate) : 0;
+      } else if (sp.currency === 'EUR') {
+        amtUsd = bcvRate > 0 ? ((sp.amount * eurRate) / bcvRate) : sp.amount;
+      }
+
+      if (isBs) {
+        bolivaresPaidUsd += amtUsd;
+      } else if (isDiv || sp.currency === 'USD' || sp.currency === 'EUR') {
+        divisasPaidUsd += amtUsd;
+      } else {
+        divisasPaidUsd += amtUsd;
+      }
+    }
+
+    // Regla SENIAT: El cálculo del 3% solo se aplica sobre la porción pagada en divisas
+    const igtfBase = Number(Math.min(baseSale, divisasPaidUsd).toFixed(2));
+    const igtfAmount = Number((igtfBase * 0.03).toFixed(2));
+    const appliesIgtf = igtfAmount > 0;
+
+    return {
+      baseSale,
+      divisasPaidUsd: Number(divisasPaidUsd.toFixed(2)),
+      bolivaresPaidUsd: Number(bolivaresPaidUsd.toFixed(2)),
+      igtfBase,
+      igtfAmount,
+      appliesIgtf
+    };
+  });
+
   computedTaxDetails = computed(() => {
     let taxable = 0;
     let exempt = 0;
@@ -1075,6 +1512,24 @@ export default class SalesPosComponent {
 
     const ivaAmount = Number((taxable * ivaRate).toFixed(2));
     const isSpecialTaxpayer = this.stateService.companyProfile().isSpecialTaxpayer;
+
+    if (this.isMixedPayment()) {
+      const sTax = this.splitTaxDetails();
+      return {
+        taxableBase: Number(taxable.toFixed(2)),
+        exemptBase: Number(exempt.toFixed(2)),
+        ivaPercent: ivaRate * 100,
+        ivaAmount,
+        appliesIgtf: sTax.appliesIgtf,
+        igtfPercent: 3.0,
+        igtfBase: sTax.igtfBase,
+        igtfAmount: sTax.igtfAmount,
+        isSpecialTaxpayer,
+        isBolivares: sTax.bolivaresPaidUsd > 0 && sTax.divisasPaidUsd === 0,
+        isDivisas: sTax.divisasPaidUsd > 0
+      };
+    }
+
     const paymentMethod = this.selectedPaymentMethod();
     const paymentCurrency = this.selectedPaymentCurrency();
 
@@ -1085,8 +1540,8 @@ export default class SalesPosComponent {
     if (this.manualIgtfOverride() !== null) {
       appliesIgtf = Boolean(this.manualIgtfOverride());
     } else {
-      // SENIAT Rule: Only Special Taxpayers perceive 3% IGTF, and only on payments in foreign currencies / crypto
-      appliesIgtf = isSpecialTaxpayer && isDivisas && !isBolivares;
+      // Regla SENIAT: se le cobra a todas las personas siempre que se pague en divisas/moneda extranjera
+      appliesIgtf = isDivisas && !isBolivares;
     }
 
     const baseForIgtf = taxable + exempt + ivaAmount;
@@ -1108,6 +1563,9 @@ export default class SalesPosComponent {
   });
 
   grandTotalUsd = computed(() => {
+    if (this.isMixedPayment()) {
+      return Number((this.baseSaleWithIvaUsd() + this.splitTaxDetails().igtfAmount).toFixed(2));
+    }
     const taxes = this.computedTaxDetails();
     return Number((taxes.taxableBase + taxes.exemptBase + taxes.ivaAmount + taxes.igtfAmount).toFixed(2));
   });
@@ -1122,6 +1580,292 @@ export default class SalesPosComponent {
     const eurRate = this.stateService.bcvState().eurRate;
     return Number(((this.grandTotalUsd() * usdRate) / eurRate).toFixed(2));
   });
+
+  currentTotalToPay = computed(() => {
+    const curr = this.selectedPaymentCurrency();
+    if (curr === 'VES') {
+      return this.grandTotalVes();
+    } else if (curr === 'EUR') {
+      return this.grandTotalEur();
+    }
+    return this.grandTotalUsd();
+  });
+
+  effectiveCashTendered = computed(() => {
+    const custom = this.cashTendered();
+    if (custom !== null && !isNaN(custom) && custom >= 0) {
+      return custom;
+    }
+    return this.currentTotalToPay();
+  });
+
+  cashChangeDetails = computed(() => {
+    const total = this.currentTotalToPay();
+    const rawTendered = this.cashTendered();
+    const tendered = rawTendered !== null && !isNaN(rawTendered) ? rawTendered : total;
+    const bcvRate = this.stateService.bcvState().usdRate;
+    const eurRate = this.stateService.bcvState().eurRate || bcvRate;
+    const curr = this.selectedPaymentCurrency();
+
+    const diff = Number((tendered - total).toFixed(2));
+    const isExact = Math.abs(diff) < 0.005;
+    const isSurplus = diff > 0.005;
+    const isDeficit = diff < -0.005;
+
+    let changeInCurrency = 0;
+    let changeUsd = 0;
+    let changeVes = 0;
+
+    if (isSurplus) {
+      changeInCurrency = diff;
+      if (curr === 'USD') {
+        changeUsd = diff;
+        changeVes = Number((diff * bcvRate).toFixed(2));
+      } else if (curr === 'VES') {
+        changeVes = diff;
+        changeUsd = Number((diff / bcvRate).toFixed(2));
+      } else if (curr === 'EUR') {
+        changeVes = Number((diff * eurRate).toFixed(2));
+        changeUsd = Number((changeVes / bcvRate).toFixed(2));
+      }
+    }
+
+    let deficitInCurrency = 0;
+    let deficitUsd = 0;
+    let deficitVes = 0;
+
+    if (isDeficit) {
+      const deficit = Math.abs(diff);
+      deficitInCurrency = deficit;
+      if (curr === 'USD') {
+        deficitUsd = deficit;
+        deficitVes = Number((deficit * bcvRate).toFixed(2));
+      } else if (curr === 'VES') {
+        deficitVes = deficit;
+        deficitUsd = Number((deficit / bcvRate).toFixed(2));
+      } else if (curr === 'EUR') {
+        deficitVes = Number((deficit * eurRate).toFixed(2));
+        deficitUsd = Number((deficitVes / bcvRate).toFixed(2));
+      }
+    }
+
+    return {
+      total,
+      tendered,
+      diff,
+      isExact,
+      isSurplus,
+      isDeficit,
+      changeInCurrency,
+      changeUsd,
+      changeVes,
+      deficitInCurrency,
+      deficitUsd,
+      deficitVes
+    };
+  });
+
+  cashSuggestions = computed(() => {
+    const total = this.currentTotalToPay();
+    const curr = this.selectedPaymentCurrency();
+    if (total <= 0) return [];
+
+    if (curr === 'USD') {
+      const presets = [5, 10, 20, 50, 100];
+      const valid = presets.filter(p => p >= total);
+      if (valid.length === 0) {
+        valid.push(Math.ceil(total / 50) * 50);
+        valid.push(Math.ceil(total / 100) * 100);
+      }
+      return valid.slice(0, 4);
+    } else if (curr === 'VES') {
+      const rounded50 = Math.ceil(total / 50) * 50;
+      const rounded100 = Math.ceil(total / 100) * 100;
+      const rounded200 = Math.ceil(total / 200) * 200;
+      const set = new Set([rounded50, rounded100, rounded200]);
+      return Array.from(set).filter(v => v >= total).slice(0, 4);
+    } else {
+      const presets = [5, 10, 20, 50, 100];
+      return presets.filter(p => p >= total).slice(0, 4);
+    }
+  });
+
+  mixedBalanceDetails = computed(() => {
+    const bcvRate = this.stateService.bcvState().usdRate;
+    const eurRate = this.stateService.bcvState().eurRate || bcvRate;
+    const totalTargetUsd = this.grandTotalUsd();
+
+    let totalPaidUsd = 0;
+    for (const sp of this.splitPayments()) {
+      if (sp.currency === 'USD') {
+        totalPaidUsd += sp.amount;
+      } else if (sp.currency === 'VES') {
+        totalPaidUsd += bcvRate > 0 ? (sp.amount / bcvRate) : 0;
+      } else if (sp.currency === 'EUR') {
+        totalPaidUsd += bcvRate > 0 ? ((sp.amount * eurRate) / bcvRate) : sp.amount;
+      }
+    }
+
+    const diffUsd = Number((totalPaidUsd - totalTargetUsd).toFixed(2));
+    const isExact = Math.abs(diffUsd) < 0.01;
+    const isSurplus = diffUsd >= 0.01;
+    const isDeficit = diffUsd <= -0.01;
+
+    const deficitUsd = isDeficit ? Math.abs(diffUsd) : 0;
+    const deficitVes = Number((deficitUsd * bcvRate).toFixed(2));
+    const surplusUsd = isSurplus ? diffUsd : 0;
+    const surplusVes = Number((surplusUsd * bcvRate).toFixed(2));
+
+    return {
+      totalTargetUsd,
+      totalPaidUsd: Number(totalPaidUsd.toFixed(2)),
+      diffUsd,
+      isExact,
+      isSurplus,
+      isDeficit,
+      deficitUsd,
+      deficitVes,
+      surplusUsd,
+      surplusVes
+    };
+  });
+
+  toggleMixedPayment(isMixed: boolean) {
+    this.isMixedPayment.set(isMixed);
+    if (isMixed) {
+      const baseSale = this.baseSaleWithIvaUsd();
+      const bcvRate = this.stateService.bcvState().usdRate;
+      const currentList = this.splitPayments();
+      const totalAllocated = currentList.reduce((acc, p) => acc + (p.currency === 'VES' ? (bcvRate > 0 ? p.amount / bcvRate : 0) : p.amount), 0);
+      if (totalAllocated === 0 && baseSale > 0) {
+        const halfUsd = Number((baseSale / 2).toFixed(2));
+        const remUsd = Number((baseSale - halfUsd).toFixed(2));
+        const vesAmt = Number((remUsd * bcvRate).toFixed(2));
+        this.splitPayments.set([
+          { id: 'sp-' + Date.now() + '-1', method: 'EFECTIVO_USD', currency: 'USD', amount: halfUsd },
+          { id: 'sp-' + Date.now() + '-2', method: 'PAGO_MOVIL', currency: 'VES', amount: vesAmt }
+        ]);
+      }
+    }
+  }
+
+  addSplitPayment() {
+    const newId = 'sp-' + Date.now() + '-' + Math.random().toString(36).substring(2, 5);
+    const last = this.splitPayments().slice(-1)[0];
+    const nextMethod: PaymentMethod = (last?.currency === 'USD') ? 'PAGO_MOVIL' : 'EFECTIVO_USD';
+    const nextCurr: CurrencyCode = nextMethod === 'PAGO_MOVIL' ? 'VES' : 'USD';
+    
+    this.splitPayments.update(list => [
+      ...list,
+      { id: newId, method: nextMethod, currency: nextCurr, amount: 0 }
+    ]);
+  }
+
+  removeSplitPayment(id: string) {
+    if (this.splitPayments().length <= 1) return;
+    this.splitPayments.update(list => list.filter(sp => sp.id !== id));
+  }
+
+  updateSplitMethod(id: string, method: PaymentMethod) {
+    let curr: CurrencyCode = 'USD';
+    if (method === 'PAGO_MOVIL' || method === 'PUNTO_VENTA_DEBITO' || method === 'TARJETA_CREDITO' || method === 'EFECTIVO') {
+      curr = 'VES';
+    } else if (method === 'EFECTIVO_EUR') {
+      curr = 'EUR';
+    } else {
+      curr = 'USD';
+    }
+
+    this.splitPayments.update(list => list.map(sp => {
+      if (sp.id === id) {
+        return { ...sp, method, currency: curr };
+      }
+      return sp;
+    }));
+  }
+
+  updateSplitAmount(id: string, val: string | number) {
+    const num = typeof val === 'number' ? val : parseFloat(val);
+    const amt = isNaN(num) || num < 0 ? 0 : Number(num.toFixed(2));
+    this.splitPayments.update(list => list.map(sp => {
+      if (sp.id === id) {
+        return { ...sp, amount: amt };
+      }
+      return sp;
+    }));
+  }
+
+  autoCoverRemaining(id: string) {
+    const bcvRate = this.stateService.bcvState().usdRate;
+    const eurRate = this.stateService.bcvState().eurRate || bcvRate;
+    const targetUsd = this.grandTotalUsd();
+
+    let otherPaidUsd = 0;
+    for (const sp of this.splitPayments()) {
+      if (sp.id !== id) {
+        if (sp.currency === 'USD') otherPaidUsd += sp.amount;
+        else if (sp.currency === 'VES') otherPaidUsd += bcvRate > 0 ? (sp.amount / bcvRate) : 0;
+        else if (sp.currency === 'EUR') otherPaidUsd += bcvRate > 0 ? ((sp.amount * eurRate) / bcvRate) : sp.amount;
+      }
+    }
+
+    const remainingUsd = Math.max(0, targetUsd - otherPaidUsd);
+    this.splitPayments.update(list => list.map(sp => {
+      if (sp.id === id) {
+        let finalAmt = remainingUsd;
+        if (sp.currency === 'VES') {
+          finalAmt = Number((remainingUsd * bcvRate).toFixed(2));
+        } else if (sp.currency === 'EUR') {
+          finalAmt = Number(((remainingUsd * bcvRate) / eurRate).toFixed(2));
+        } else {
+          finalAmt = Number(remainingUsd.toFixed(2));
+        }
+        return { ...sp, amount: finalAmt };
+      }
+      return sp;
+    }));
+  }
+
+  hasCreditPayment(): boolean {
+    if (this.isMixedPayment()) {
+      return this.splitPayments().some(sp => sp.method === 'CREDITO');
+    }
+    return this.selectedPaymentMethod() === 'CREDITO';
+  }
+
+  updateItemQty(productId: string, val: string | number) {
+    const qty = typeof val === 'number' ? val : parseInt(String(val), 10);
+    if (isNaN(qty) || qty <= 0) {
+      this.removeItem(productId);
+      return;
+    }
+    this.cartItems.update(items =>
+      items.map(i => i.product.id === productId ? { ...i, quantity: qty } : i)
+    );
+  }
+
+  setExactTendered() {
+    this.cashTendered.set(this.currentTotalToPay());
+  }
+
+  setTenderedAmount(amount: number) {
+    this.cashTendered.set(Number(amount.toFixed(2)));
+  }
+
+  onCashTenderedInput(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const val = input.value.trim();
+    if (val === '') {
+      this.cashTendered.set(null);
+      return;
+    }
+    const parsed = parseFloat(val);
+    if (!isNaN(parsed) && parsed >= 0) {
+      this.cashTendered.set(parsed);
+    } else {
+      this.cashTendered.set(null);
+    }
+  }
 
   toggleCompanyFiscalSpecial() {
     const current = this.stateService.companyProfile();
@@ -1149,6 +1893,7 @@ export default class SalesPosComponent {
 
   onPaymentCurrencyChange(curr: 'USD' | 'VES' | 'EUR') {
     this.selectedPaymentCurrency.set(curr);
+    this.cashTendered.set(null); // Reset custom tendered amount on currency switch
     if (curr === 'VES' && (this.selectedPaymentMethod() === 'EFECTIVO_USD' || this.selectedPaymentMethod() === 'EFECTIVO_EUR')) {
       this.selectedPaymentMethod.set('EFECTIVO');
     } else if (curr === 'USD' && this.selectedPaymentMethod() === 'EFECTIVO') {
@@ -1240,10 +1985,83 @@ export default class SalesPosComponent {
 
   clearCart() {
     this.cartItems.set([]);
+    this.cashTendered.set(null);
   }
 
   checkout() {
     if (this.cartItems().length === 0) return;
+
+    if (this.isMixedPayment()) {
+      const bal = this.mixedBalanceDetails();
+      if (bal.isDeficit && !this.hasCreditPayment()) {
+        this.stateService.notify(
+          'warning',
+          'Monto Mixto Insuficiente',
+          `Faltan $${bal.deficitUsd.toFixed(2)} USD (Bs. ${bal.deficitVes.toFixed(2)}) por cubrir en los métodos de pago registrados.`
+        );
+        return;
+      }
+
+      const saleItems = this.cartItems().map(ci => ({
+        productId: ci.product.id,
+        quantity: ci.quantity,
+        discountPercent: ci.discountPercent,
+        priceLevel: ci.priceLevel
+      }));
+
+      const payments: PaymentRecord[] = this.splitPayments().map(sp => {
+        const isBs = this.stateService.isBolivaresPaymentMethod(sp.method, sp.currency);
+        const isDiv = this.stateService.isForeignCurrencyPaymentMethod(sp.method, sp.currency);
+        return {
+          method: sp.method,
+          amount: sp.amount,
+          currency: sp.currency,
+          reference: sp.reference || (sp.method.startsWith('EFECTIVO') ? 'CONTADO_CAJA' : 'REF-' + Math.floor(Math.random() * 90000 + 10000)),
+          isForeignCurrency: isDiv && !isBs
+        };
+      });
+
+      const sTax = this.splitTaxDetails();
+
+      const result = this.stateService.registerSaleInvoice(
+        this.selectedCustomerId(),
+        this.selectedWarehouseId(),
+        saleItems,
+        payments,
+        'FACTURA_ELECTRONICA',
+        {
+          baseCurrency: 'USD',
+          paymentCurrency: 'USD',
+          priceLevelApplied: this.selectedPriceTier(),
+          globalDiscountPercent: this.globalDiscountPercent(),
+          customIvaRate: this.selectedIvaRate(),
+          appliesIgtfManual: sTax.appliesIgtf,
+          cashTendered: bal.totalPaidUsd,
+          cashChangeDue: bal.surplusUsd > 0 ? bal.surplusUsd : 0
+        }
+      );
+
+      if (result.success && result.invoice) {
+        this.cartItems.set([]);
+        this.cashTendered.set(null);
+        this.openInvoiceView.emit(result.invoice);
+        this.emailService.checkAndTriggerReorderAlerts('SALE_POS', result.invoice.invoiceNumber);
+      }
+      return;
+    }
+
+    const changeInfo = this.cashChangeDetails();
+
+    // Prevent deficit / underpayment if not commercial credit
+    if (changeInfo.isDeficit && this.selectedPaymentMethod() !== 'CREDITO') {
+      const currSymbol = this.selectedPaymentCurrency() === 'VES' ? 'Bs. ' : (this.selectedPaymentCurrency() === 'EUR' ? '€' : '$');
+      this.stateService.notify(
+        'warning',
+        'Monto Recibido Insuficiente',
+        `El cliente entregó ${currSymbol}${changeInfo.tendered.toFixed(2)}, pero el total a cobrar es ${currSymbol}${changeInfo.total.toFixed(2)}. Faltan ${currSymbol}${changeInfo.deficitInCurrency.toFixed(2)}.`
+      );
+      return;
+    }
 
     const saleItems = this.cartItems().map(ci => ({
       productId: ci.product.id,
@@ -1278,12 +2096,15 @@ export default class SalesPosComponent {
         priceLevelApplied: this.selectedPriceTier(),
         globalDiscountPercent: this.globalDiscountPercent(),
         customIvaRate: this.selectedIvaRate(),
-        appliesIgtfManual: this.computedTaxDetails().appliesIgtf
+        appliesIgtfManual: this.computedTaxDetails().appliesIgtf,
+        cashTendered: changeInfo.tendered,
+        cashChangeDue: changeInfo.changeInCurrency
       }
     );
 
     if (result.success && result.invoice) {
       this.cartItems.set([]);
+      this.cashTendered.set(null);
       this.openInvoiceView.emit(result.invoice);
       // Trigger automatic reorder check for inventory items sold
       this.emailService.checkAndTriggerReorderAlerts('SALE_POS', result.invoice.invoiceNumber);

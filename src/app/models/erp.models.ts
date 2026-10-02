@@ -370,6 +370,12 @@ export interface Invoice {
   totalVes: number;               // Total equivalente en Bolívares (VES) a tasa BCV
   totalEur: number;               // Total equivalente en Euros (EUR)
   
+  // Cobro en Caja y Cambio / Vuelto
+  cashTendered?: number;          // Monto con el que pagó el cliente (en paymentCurrency)
+  cashChangeDue?: number;         // Vuelto / cambio a entregar al cliente (en paymentCurrency)
+  cashChangeDueVes?: number;      // Vuelto equivalente en Bolívares (VES)
+  cashChangeDueUsd?: number;      // Vuelto equivalente en Dólares ($ USD)
+  
   payments: PaymentRecord[];
   sellerId: string;
   sellerName: string;

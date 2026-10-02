@@ -1117,6 +1117,7 @@ export default class UserManagementComponent {
     this.quickResetSubmitting.set(true);
     this.authService.adminSetUserPassword(user.id, pwd).subscribe({
       next: () => {
+      this.stateService.notify('success', 'Clave temporal restablecida', 'El usuario deberá cambiarla al iniciar sesión.');
       this.stateService.logAudit(
         'USER_LOGIN',
         'AUTH',
@@ -1132,6 +1133,7 @@ export default class UserManagementComponent {
       this.closeQuickResetModal();
       },
       error: () => {
+        this.stateService.notify('error', 'Error al restablecer clave', 'No fue posible restablecer la clave temporal. Verifica tus permisos e inténtalo nuevamente.');
         this.quickResetSubmitting.set(false);
         this.quickResetError.set('No fue posible restablecer la clave. Verifica tus permisos e inténtalo nuevamente.');
       }
@@ -1193,14 +1195,17 @@ export default class UserManagementComponent {
     this.userFormError.set(null);
 
     if (!isEdit) {
+            
+      ;
       const tempPass = formVal.temporaryPassword || '';
       if (tempPass.length < 12 || tempPass.length > 128) {
         this.userFormError.set('La clave temporal debe contener entre 12 y 128 caracteres.');
         return;
       }
     }
-
+;
     if (isEdit && userId) {
+      ;
       const updates: Partial<User> = {
         name: formVal.name!,
         email: formVal.email!,
@@ -1209,17 +1214,19 @@ export default class UserManagementComponent {
         phone: formVal.phone || undefined,
         status: formVal.status as 'ACTIVO' | 'INACTIVO'
       };
-
+;
       const shouldResetPassword = !!formVal.resetPassword;
       const temporaryPassword = formVal.temporaryPassword || '';
       if (shouldResetPassword) {
+        ;
         if (temporaryPassword.length < 12 || temporaryPassword.length > 128) {
           this.userFormError.set('La clave temporal debe contener entre 12 y 128 caracteres.');
           return;
         }
       }
-
+;
       if (shouldResetPassword) {
+        ;
         this.isSavingUser.set(true);
         this.authService.adminSetUserPassword(userId, temporaryPassword).subscribe({
           next: () => {
@@ -1234,36 +1241,53 @@ export default class UserManagementComponent {
             this.userFormError.set('No fue posible restablecer la clave. Verifica tus permisos e inténtalo nuevamente.');
           }
         });
-        return;
+        
       }
-
-      this.authService.updateUser(userId, updates);
-      this.logUserUpdate(formVal, false);
+;
+      this.authService.updateUser(userId, updates).subscribe({
+        next: () => {
+          this.logUserUpdate(formVal, false);
+          this.stateService.notify('success', 'Usuario actualizado', 'Los datos del usuario se actualizaron correctamente.');
+          this.closeUserModal();
+        },
+        error: (error) => {
+          this.stateService.notify('error', 'Error al actualizar usuario', 'No fue posible actualizar los datos del usuario. Verifica tus permisos e inténtalo nuevamente.');
+          console.error('Error updating user', error);
+        }
+      });
     } else {
+      ;
       const tempPass = formVal.temporaryPassword?.trim() || 'Temp2026*';
-      const created = this.authService.addUser({
+      this.authService.addUser({
         name: formVal.name!,
         email: formVal.email!,
         role: formVal.role as UserRole,
         department: formVal.department || undefined,
         phone: formVal.phone || undefined,
         status: formVal.status as 'ACTIVO' | 'INACTIVO'
-      }, tempPass, formVal.mustChangePassword ?? true);
-
-      this.stateService.logAudit(
-        'USER_LOGIN',
-        'AUTH',
-        `Nuevo usuario registrado: ${created.name}`,
-        `Se creó la cuenta ${created.email} con rol asignado ${created.role} y clave temporal manual creada por el Administrador.`,
-        undefined,
-        { id: created.id, name: created.name, email: created.email, role: created.role, mustChangePassword: created.mustChangePassword },
-        undefined,
-        true,
-        'SECURITY_ROLE'
-      );
+      }, tempPass, formVal.mustChangePassword ?? true)
+      .subscribe({
+        next: (created) => {
+          this.stateService.notify('success', 'Usuario creado', 'El nuevo usuario se creó correctamente.');
+          this.closeUserModal();
+          this.stateService.logAudit(
+            'USER_LOGIN',
+            'AUTH',
+            `Nuevo usuario registrado: ${created.name}`,
+            `Se creó la cuenta ${created.email} con rol asignado ${created.role} y clave temporal manual creada por el Administrador.`,
+            undefined,
+            { id: created.id, name: created.name, email: created.email, role: created.role, mustChangePassword: created.mustChangePassword },
+            undefined,
+            true,
+            'SECURITY_ROLE'
+          );
+        },
+        error: (error) => {
+          this.stateService.notify('error', 'Error al crear usuario', 'No fue posible crear el nuevo usuario. Verifica tus permisos e inténtalo nuevamente.');
+          console.error('Error creating user', error);
+        }
+      });
     }
-
-    this.closeUserModal();
   }
 
   private logUserUpdate(formVal: typeof this.userForm.value, passwordReset: boolean): void {

@@ -16,7 +16,6 @@ export type NavTab =
   | 'treasury'
   | 'accounting'
   | 'cash-closing'
-  | 'users'
   | 'audit-log'
   | 'backups'
   | 'manual'
@@ -251,21 +250,6 @@ export type NavTab =
             <mat-icon class="text-rose-400 text-lg">payments</mat-icon>
             <span class="font-medium">Cierre de Caja (Z)</span>
           </div>
-        </button>
-        }
-
-        @if (canAccess('security:manage')) {
-        <button 
-          (click)="selectTab('users')"
-          [class]="activeTab() === 'users' ? 'bg-indigo-600/15 text-indigo-400 font-semibold border-l-4 border-indigo-500 rounded-r-lg' : 'hover:bg-slate-800/90 text-slate-300 rounded-lg'"
-          class="w-full flex items-center justify-between px-3.5 py-2 text-xs transition-all duration-150 text-left">
-          <div class="flex items-center space-x-3">
-            <mat-icon class="text-indigo-400 text-lg">manage_accounts</mat-icon>
-            <span class="font-medium">Gestión de Usuarios (RBAC)</span>
-          </div>
-          <span class="px-1.5 py-0.5 text-[9px] font-mono rounded bg-slate-800 text-indigo-300">
-            {{ authService.users().length }}
-          </span>
         </button>
         }
 

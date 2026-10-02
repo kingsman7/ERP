@@ -68,8 +68,37 @@ export class ErpStateService {
   readonly inventoryLoading = signal(false);
   readonly inventoryError = signal<string | null>(null);
 
+  readonly sidebarPinned = signal<boolean>(true);
+  readonly sidebarOpen = signal<boolean>(true);
+  readonly mobileSidebarOpen = signal<boolean>(false);
+
   constructor() {
     this.clearBackendCollections();
+  }
+
+  toggleSidebarPin() {
+    const next = !this.sidebarPinned();
+    this.sidebarPinned.set(next);
+    if (!next) {
+      this.sidebarOpen.set(false);
+    } else {
+      this.sidebarOpen.set(true);
+    }
+    if (typeof window !== 'undefined' && window.localStorage) {
+      localStorage.setItem('saludlab_sidebar_pinned', String(next));
+    }
+  }
+
+  toggleSidebarCollapse() {
+    this.sidebarOpen.update(v => !v);
+  }
+
+  toggleMobileSidebar() {
+    this.mobileSidebarOpen.update(v => !v);
+  }
+
+  closeMobileSidebar() {
+    this.mobileSidebarOpen.set(false);
   }
 
   loadInventory(): Observable<boolean> {
@@ -153,8 +182,8 @@ export class ErpStateService {
   }
 
   private loadSales(): Observable<boolean> {
-    return forkJoin({ invoices: this.apiService.getInvoices(), customers: this.apiService.getCustomers() }).pipe(
-      tap(({ invoices, customers }) => { this.invoices.set(invoices); this.customers.set(customers); }), map(() => true)
+    return forkJoin({ invoices: this.apiService.getInvoices(), customers: this.apiService.getCustomers(), products: this.apiService.getProducts(), warehouses: this.apiService.getWarehouses() }).pipe(
+      tap(({ invoices, customers, products, warehouses }) => { this.invoices.set(invoices); this.customers.set(customers); this.products.set(products); this.warehouses.set(warehouses); }), map(() => true)
     );
   }
 
@@ -2456,6 +2485,8 @@ export class ErpStateService {
       dispatchGuideNumbers?: string[];
       dispatchControlNumbers?: string[];
       deliveryOrderNumbers?: string[];
+       cashTendered?: number;
+      cashChangeDue?: number;
     }
   ): { success: boolean; invoiceNumber?: string; message?: string; invoice?: Invoice } {
     const user = this.authService.currentUser();
@@ -2644,6 +2675,26 @@ export class ErpStateService {
       igtfAmount
     };
 
+    // Calculate cash tendered and multi-currency change / vuelto
+    const tendered = options?.cashTendered !== undefined ? Number(options.cashTendered.toFixed(2)) : undefined;
+    const changeDue = options?.cashChangeDue !== undefined ? Number(options.cashChangeDue.toFixed(2)) : undefined;
+    let cashChangeDueUsd: number | undefined = undefined;
+    let cashChangeDueVes: number | undefined = undefined;
+
+    if (changeDue !== undefined && changeDue > 0) {
+      if (paymentCurrency === 'USD') {
+        cashChangeDueUsd = changeDue;
+        cashChangeDueVes = Number((changeDue * bcv.usdRate).toFixed(2));
+      } else if (paymentCurrency === 'VES') {
+        cashChangeDueVes = changeDue;
+        cashChangeDueUsd = Number((changeDue / bcv.usdRate).toFixed(2));
+      } else if (paymentCurrency === 'EUR') {
+        const eurRate = bcv.eurRate || bcv.usdRate;
+        cashChangeDueVes = Number((changeDue * eurRate).toFixed(2));
+        cashChangeDueUsd = Number((cashChangeDueVes / bcv.usdRate).toFixed(2));
+      }
+    }
+
     const newInvoice: Invoice = {
       id: 'inv-' + Date.now(),
       invoiceNumber,
@@ -2669,6 +2720,7 @@ export class ErpStateService {
       total: grandTotalUsd,
       totalVes,
       totalEur,
+      cashTendered: tendered,
       payments,
       sellerId: user.id,
       sellerName: user.name,

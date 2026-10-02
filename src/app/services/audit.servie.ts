@@ -9,10 +9,10 @@ export class AuditService {
   private baseUrl = "/api/audit";
 
   getLogs(params?: { limit?: number; module?: string; isCritical?: boolean }) {
-    const queryParams: any = {};
-    if (params?.limit) queryParams.limit = params.limit;
-    if (params?.module) queryParams.module = params.module;
-    if (params?.isCritical !== undefined) queryParams.isCritical = params.isCritical;
+    const queryParams: Record<string, string | number | boolean> = {};
+    if (params?.limit) queryParams['limit'] = params.limit;
+    if (params?.module) queryParams['module'] = params.module;
+    if (params?.isCritical !== undefined) queryParams['isCritical'] = params.isCritical;
     return this.http.get(`${this.baseUrl}/logs`, 
       { params: queryParams }
     );
@@ -22,13 +22,13 @@ export class AuditService {
     return this.http.get(`${this.baseUrl}/logs/${id}`);
   }
 
-  createLog(data: any) {
+  createLog(data: Record<string, unknown>) {
     return this.http.post(`${this.baseUrl}/logs`, data);
   }
 
   getNotifications(isRead?: boolean) {
-    const queryParams: any = {};
-    if (isRead !== undefined) queryParams.isRead = isRead;
+    const queryParams: Record<string, string | number | boolean> = {};
+    if (isRead !== undefined) queryParams['isRead'] = isRead;
     return this.http.get(`${this.baseUrl}/notifications`, 
       { params: queryParams }
     );
@@ -38,7 +38,7 @@ export class AuditService {
     return this.http.put(`${this.baseUrl}/notifications/${id}/read`, {});
   }
   
-  createNotification(data: any) {
+  createNotification(data: Record<string, unknown>) {
     return this.http.post(`${this.baseUrl}/notifications`, data);
   }
 
