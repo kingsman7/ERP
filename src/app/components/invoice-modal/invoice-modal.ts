@@ -123,7 +123,7 @@ type InvoiceWithWithholdings = Invoice & {
                   <tr>
                     <td class="py-2 font-mono text-slate-500 text-[11px]">{{ item.sku }}</td>
                     <td class="py-2 font-medium text-slate-900">
-                      {{ item.productName }}
+                      {{ item.name }}
                       @if (item.discountPercent > 0) {
                         <span class="text-[10px] text-emerald-600 font-mono ml-1">(-{{ item.discountPercent }}%)</span>
                       }

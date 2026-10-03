@@ -2487,6 +2487,7 @@ export class ErpStateService {
       deliveryOrderNumbers?: string[];
        cashTendered?: number;
       cashChangeDue?: number;
+      creditChangeAsAdvance?: boolean;
     }
   ): { success: boolean; invoiceNumber?: string; message?: string; invoice?: Invoice } {
     const user = this.authService.currentUser();

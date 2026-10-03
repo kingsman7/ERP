@@ -350,6 +350,20 @@ export interface SplitPaymentLine {
                     <span class="font-mono font-bold text-slate-700">{{ cust.taxId }}</span>
                     <span class="truncate max-w-[220px] text-slate-400">{{ cust.email || cust.phone || cust.customerType }}</span>
                   </div>
+                  @if (customerAdvanceBalanceUsd() > 0) {
+                    <div class="flex items-center justify-between mt-1 px-2 py-1 rounded-lg bg-amber-50 border border-amber-200 text-[10px]">
+                      <span class="flex items-center space-x-1 text-amber-900 font-semibold">
+                        <mat-icon class="text-xs text-amber-600">savings</mat-icon>
+                        <span>Saldo a favor: \${{ customerAdvanceBalanceUsd() | number: '1.2-2' }} (Bs. {{ cust.advanceBalanceVes | number: '1.2-2' }})</span>
+                      </span>
+                      <button
+                        type="button"
+                        (click)="applyAdvanceBalance()"
+                        class="px-2 py-0.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold border border-amber-300 cursor-pointer">
+                        Aplicar a esta venta
+                      </button>
+                    </div>
+                  }
                 }
               </div>
 
@@ -688,6 +702,26 @@ export interface SplitPaymentLine {
                           <span class="font-bold">Bs. {{ ch.changeVes  | number: '1.2-2' }} (\${{ ch.changeUsd  | number: '1.2-2' }})</span>
                         }
                       </div>
+                      <!-- Acreditar vuelto como saldo a favor -->
+                      @if (canUseAdvanceBalance()) {
+                        <label class="flex items-start space-x-2 pt-1.5 border-t border-emerald-200/60 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            [checked]="creditChangeAsAdvance()"
+                            (change)="creditChangeAsAdvance.set($any($event.target).checked)"
+                            class="mt-0.5 accent-emerald-600" />
+                          <span class="text-[10px] text-emerald-900">
+                            <span class="font-bold">El cliente no quiere el vuelto: acreditar como saldo a favor</span>
+                            @if (creditChangeAsAdvance()) {
+                              <span class="block font-mono text-emerald-700">Nuevo saldo: \${{ projectedAdvanceBalanceUsd() | number: '1.2-2' }} USD</span>
+                            }
+                          </span>
+                        </label>
+                      } @else {
+                        <p class="text-[10px] text-emerald-800/80 pt-1 border-t border-emerald-200/60">
+                          Seleccione un cliente identificado para poder acreditar el vuelto como saldo a favor.
+                        </p>
+                      }
                     </div>
                   } @else if (ch.isDeficit) {
                     <div class="p-2 bg-rose-50 border border-rose-200 rounded-xl text-rose-950 space-y-0.5">
@@ -755,6 +789,9 @@ export interface SplitPaymentLine {
                               <option value="ZELLE">Zelle / Wire (USD)</option>
                               <option value="CRIPTO">Criptomonedas / USDT</option>
                               <option value="CREDITO">Crédito Comercial</option>
+                              @if (canUseAdvanceBalance() && (customerAdvanceBalanceUsd() > 0 || sp.method === 'SALDO_A_FAVOR')) {
+                                <option value="SALDO_A_FAVOR">Saldo a favor (USD)</option>
+                              }
                             </select>
                           </div>
 
@@ -847,6 +884,13 @@ export interface SplitPaymentLine {
                       <span class="font-mono text-emerald-700 font-extrabold">\${{ grandTotalUsd()  | number: '1.2-2' }}</span>
                     </div>
 
+                    @if (advanceExceedsBalance()) {
+                      <div class="p-1.5 bg-rose-50 border border-rose-200 rounded-lg text-rose-800 text-[11px] font-bold flex items-center space-x-1">
+                        <mat-icon class="text-xs text-rose-600">error_outline</mat-icon>
+                        <span>El saldo a favor aplicado (\${{ advanceLinesUsd() | number: '1.2-2' }}) excede el disponible (\${{ customerAdvanceBalanceUsd() | number: '1.2-2' }})</span>
+                      </div>
+                    }
+
                     <!-- Balance status -->
                     @let bal = mixedBalanceDetails();
                     @if (bal.isDeficit) {
@@ -865,6 +909,25 @@ export interface SplitPaymentLine {
                         </span>
                         <span class="font-mono font-bold">\${{ bal.surplusUsd  | number: '1.2-2' }} USD (Bs. {{ bal.surplusVes  | number: '1.2-2' }})</span>
                       </div>
+                      @if (canUseAdvanceBalance()) {
+                        <label class="flex items-start space-x-2 px-1 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            [checked]="creditChangeAsAdvance()"
+                            (change)="creditChangeAsAdvance.set($any($event.target).checked)"
+                            class="mt-0.5 accent-emerald-600" />
+                          <span class="text-[10px] text-emerald-900">
+                            <span class="font-bold">El cliente no quiere el vuelto: acreditar como saldo a favor</span>
+                            @if (creditChangeAsAdvance()) {
+                              <span class="block font-mono text-emerald-700">Nuevo saldo: \${{ projectedAdvanceBalanceUsd() | number: '1.2-2' }} USD</span>
+                            }
+                          </span>
+                        </label>
+                      } @else {
+                        <p class="text-[10px] text-emerald-800/80 px-1">
+                          Seleccione un cliente identificado para poder acreditar el vuelto como saldo a favor.
+                        </p>
+                      }
                     } @else {
                       <div class="p-1.5 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 flex items-center justify-center space-x-1 text-[11px] font-bold">
                         <mat-icon class="text-xs text-emerald-600">check_circle</mat-icon>
@@ -880,7 +943,7 @@ export interface SplitPaymentLine {
               <button 
                 type="button"
                 (click)="checkout()"
-                [disabled]="cartItems().length === 0 || (!isMixedPayment() && cashChangeDetails().isDeficit && selectedPaymentMethod() !== 'CREDITO') || (isMixedPayment() && mixedBalanceDetails().isDeficit && !hasCreditPayment())"
+                [disabled]="cartItems().length === 0 || (!isMixedPayment() && cashChangeDetails().isDeficit && selectedPaymentMethod() !== 'CREDITO') || (isMixedPayment() && mixedBalanceDetails().isDeficit && !hasCreditPayment()) || advanceExceedsBalance()"
                 class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-bold rounded-xl text-xs flex items-center justify-center space-x-1.5 shadow-sm transition-all cursor-pointer disabled:cursor-not-allowed">
                 <mat-icon class="text-base">receipt_long</mat-icon>
                 <span>EMITIR FACTURA FISCAL (F10)</span>
@@ -1320,6 +1383,9 @@ export default class SalesPosComponent {
   manualIgtfOverride = signal<boolean | null>(null);
   cashTendered = signal<number | null>(null);
 
+  // Saldo a favor: el cajero marca esto cuando el cliente no quiere el vuelto
+  creditChangeAsAdvance = signal<boolean>(false);
+
   cartItems = signal<CartItem[]>([]);
 
   cartTotalUnits = computed(() => {
@@ -1460,6 +1526,7 @@ export default class SalesPosComponent {
     let bolivaresPaidUsd = 0;
 
     for (const sp of this.splitPayments()) {
+      if (sp.method === 'SALDO_A_FAVOR') continue; // no genera IGTF
       const isBs = this.stateService.isBolivaresPaymentMethod(sp.method, sp.currency);
       const isDiv = this.stateService.isForeignCurrencyPaymentMethod(sp.method, sp.currency);
 
@@ -1540,8 +1607,8 @@ export default class SalesPosComponent {
     if (this.manualIgtfOverride() !== null) {
       appliesIgtf = Boolean(this.manualIgtfOverride());
     } else {
-      // Regla SENIAT: se le cobra a todas las personas siempre que se pague en divisas/moneda extranjera
-      appliesIgtf = isDivisas && !isBolivares;
+      // SENIAT Rule: Only Special Taxpayers perceive 3% IGTF, and only on payments in foreign currencies / crypto
+      appliesIgtf = isSpecialTaxpayer && isDivisas && !isBolivares;
     }
 
     const baseForIgtf = taxable + exempt + ivaAmount;
@@ -1729,6 +1796,70 @@ export default class SalesPosComponent {
       surplusVes
     };
   });
+
+  // ── Saldo a favor ────────────────────────────────────────────────────────────
+
+  /** Saldo disponible del cliente seleccionado (USD es la fuente de verdad). */
+  customerAdvanceBalanceUsd = computed(() => Number(this.selectedCustomer()?.advanceBalanceUsd ?? 0));
+
+  /** El saldo a favor requiere un cliente identificado (no consumidor final). */
+  canUseAdvanceBalance = computed(() => {
+    const c = this.selectedCustomer();
+    return !!c && c.customerType !== 'FINAL_CONSUMIDOR';
+  });
+
+  /** Suma en USD de las líneas SALDO_A_FAVOR (solo existen en pago mixto). */
+  advanceLinesUsd = computed(() =>
+    this.isMixedPayment()
+      ? this.splitPayments().filter(sp => sp.method === 'SALDO_A_FAVOR').reduce((sum, sp) => sum + sp.amount, 0)
+      : 0
+  );
+
+  advanceExceedsBalance = computed(() => this.advanceLinesUsd() > this.customerAdvanceBalanceUsd() + 0.005);
+
+  /** Vuelto actual en USD, tanto en pago simple como mixto. */
+  currentSurplusUsd = computed(() =>
+    this.isMixedPayment() ? this.mixedBalanceDetails().surplusUsd : this.cashChangeDetails().changeUsd
+  );
+
+  /** true solo si hay vuelto, el cliente es válido y el cajero marcó la casilla. */
+  shouldCreditChange = computed(() =>
+    this.creditChangeAsAdvance() && this.canUseAdvanceBalance() && this.currentSurplusUsd() > 0
+  );
+
+  /** Saldo del cliente después de esta venta (para mostrarlo antes de cobrar). */
+  projectedAdvanceBalanceUsd = computed(() =>
+    Number((
+      this.customerAdvanceBalanceUsd()
+      - this.advanceLinesUsd()
+      + (this.shouldCreditChange() ? this.currentSurplusUsd() : 0)
+    ).toFixed(2))
+  );
+
+  /** Pasa a pago mixto y precarga una línea de saldo a favor (menor entre saldo y total). */
+  applyAdvanceBalance() {
+    if (!this.canUseAdvanceBalance()) return;
+    const totalUsd = this.grandTotalUsd();
+    const useUsd = Number(Math.min(this.customerAdvanceBalanceUsd(), totalUsd).toFixed(2));
+    if (useUsd <= 0) return;
+
+    const stamp = Date.now();
+    const lines: SplitPaymentLine[] = [
+      { id: 'sp-' + stamp + '-adv', method: 'SALDO_A_FAVOR', currency: 'USD', amount: useUsd }
+    ];
+    const remainingUsd = Number((totalUsd - useUsd).toFixed(2));
+    if (remainingUsd > 0.005) {
+      const rate = this.stateService.bcvState().usdRate;
+      lines.push({
+        id: 'sp-' + stamp + '-rest',
+        method: 'PAGO_MOVIL',
+        currency: 'VES',
+        amount: Number((remainingUsd * rate).toFixed(2))
+      });
+    }
+    this.isMixedPayment.set(true);
+    this.splitPayments.set(lines);
+  }
 
   toggleMixedPayment(isMixed: boolean) {
     this.isMixedPayment.set(isMixed);
@@ -2016,8 +2147,8 @@ export default class SalesPosComponent {
           method: sp.method,
           amount: sp.amount,
           currency: sp.currency,
-          reference: sp.reference || (sp.method.startsWith('EFECTIVO') ? 'CONTADO_CAJA' : 'REF-' + Math.floor(Math.random() * 90000 + 10000)),
-          isForeignCurrency: isDiv && !isBs
+          reference: sp.reference || (sp.method === 'SALDO_A_FAVOR' ? 'SALDO_A_FAVOR' : sp.method.startsWith('EFECTIVO') ? 'CONTADO_CAJA' : 'REF-' + Math.floor(Math.random() * 90000 + 10000)),
+          isForeignCurrency: isDiv && !isBs && sp.method !== 'SALDO_A_FAVOR'
         };
       });
 
@@ -2037,13 +2168,16 @@ export default class SalesPosComponent {
           customIvaRate: this.selectedIvaRate(),
           appliesIgtfManual: sTax.appliesIgtf,
           cashTendered: bal.totalPaidUsd,
-          cashChangeDue: bal.surplusUsd > 0 ? bal.surplusUsd : 0
+          // Si el vuelto se acredita como saldo a favor, no se entrega nada en caja
+          cashChangeDue: this.shouldCreditChange() ? 0 : (bal.surplusUsd > 0 ? bal.surplusUsd : 0),
+          creditChangeAsAdvance: this.shouldCreditChange()
         }
       );
 
       if (result.success && result.invoice) {
         this.cartItems.set([]);
         this.cashTendered.set(null);
+        this.creditChangeAsAdvance.set(false);
         this.openInvoiceView.emit(result.invoice);
         this.emailService.checkAndTriggerReorderAlerts('SALE_POS', result.invoice.invoiceNumber);
       }
@@ -2098,13 +2232,16 @@ export default class SalesPosComponent {
         customIvaRate: this.selectedIvaRate(),
         appliesIgtfManual: this.computedTaxDetails().appliesIgtf,
         cashTendered: changeInfo.tendered,
-        cashChangeDue: changeInfo.changeInCurrency
+        // Si el vuelto se acredita como saldo a favor, no se entrega nada en caja
+        cashChangeDue: this.shouldCreditChange() ? 0 : changeInfo.changeInCurrency,
+        creditChangeAsAdvance: this.shouldCreditChange()
       }
     );
 
     if (result.success && result.invoice) {
       this.cartItems.set([]);
       this.cashTendered.set(null);
+      this.creditChangeAsAdvance.set(false);
       this.openInvoiceView.emit(result.invoice);
       // Trigger automatic reorder check for inventory items sold
       this.emailService.checkAndTriggerReorderAlerts('SALE_POS', result.invoice.invoiceNumber);

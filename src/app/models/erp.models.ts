@@ -257,6 +257,9 @@ export interface Customer {
   email?: string;
   phone: string;
   address: string;
+  advanceBalanceVes?: number;
+  advanceBalanceUsd?: number;
+  advanceBalanceEur?: number;
   customerType: 'EMPRESA' | 'PERSONA_NATURAL' | 'FINAL_CONSUMIDOR';
 }
 
@@ -286,6 +289,7 @@ export type PaymentMethod =
   | 'TARJETA_CREDITO' 
   | 'TRANSFERENCIA' 
   | 'ZELLE' 
+  | 'SALDO_A_FAVOR'
   | 'CREDITO';
 
 export interface CompanyFiscalProfile {
