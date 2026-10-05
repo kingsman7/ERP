@@ -1132,7 +1132,7 @@ export default class QuotesComponent {
     }
   }
 
-  confirmAndIssueFiscalInvoice() {
+  async confirmAndIssueFiscalInvoice() {
     const calc = this.conversionCalculations();
     if (!calc || !calc.quote) return;
 
@@ -1148,15 +1148,18 @@ export default class QuotesComponent {
       }
     ];
 
-    const result = this.stateService.convertQuoteToInvoice(calc.quote.id, {
-      warehouseId: this.conversionWarehouseId(),
-      payments: paymentRecords,
-      paymentCurrency: this.conversionPaymentCurrency(),
-      invoiceType: this.conversionInvoiceType(),
-      appliesIgtfManual: this.conversionManualIgtf()
-    });
-
-    this.isSubmittingConversion.set(false);
+    let result: Awaited<ReturnType<ErpStateService['convertQuoteToInvoice']>>;
+    try {
+      result = await this.stateService.convertQuoteToInvoice(calc.quote.id, {
+        warehouseId: this.conversionWarehouseId(),
+        payments: paymentRecords,
+        paymentCurrency: this.conversionPaymentCurrency(),
+        invoiceType: this.conversionInvoiceType(),
+        appliesIgtfManual: this.conversionManualIgtf()
+      });
+    } finally {
+      this.isSubmittingConversion.set(false);
+    }
 
     if (result.success) {
       this.closeConversionModal();

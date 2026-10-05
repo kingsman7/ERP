@@ -107,9 +107,9 @@ export interface SplitPaymentLine {
               </span>
               <div class="flex flex-col">
                 <div class="flex items-center space-x-1.5 font-mono font-bold text-slate-800 text-[11px]">
-                  <span>USD: Bs. {{ stateService.bcvState().usdRate  | number: '1.2-2' }}</span>
+                  <span>USD: Bs. {{ stateService.bcvState().usdRate | number:'1.2-2' }}</span>
                   <span class="text-slate-300">|</span>
-                  <span>EUR: Bs. {{ stateService.bcvState().eurRate.toFixed(2) }}</span>
+                  <span>EUR: Bs. {{ stateService.bcvState().eurRate | number:'1.2-2' }}</span>
                 </div>
                 <span class="text-[9px] text-slate-400">
                   {{ stateService.bcvState().origin === 'API_BCV' ? 'BCV Oficial ' + stateService.bcvState().bcvOfficialDate : 'Tasa Manual' }}
@@ -127,16 +127,20 @@ export interface SplitPaymentLine {
 
             @if (activeSalesTab() === 'pos') {
               <!-- Warehouse Selector -->
-              <div class="flex items-center space-x-1 bg-slate-50 border border-slate-200/80 rounded-xl px-2.5 py-1.5">
-                <mat-icon class="text-slate-400 text-sm">store</mat-icon>
-                <select 
-                  [value]="selectedWarehouseId()"
-                  (change)="selectedWarehouseId.set($any($event.target).value)"
-                  class="bg-transparent font-medium text-slate-800 focus:outline-none text-xs">
-                  @for (wh of stateService.warehouses(); track wh.id) {
-                    <option [value]="wh.id">{{ wh.name }}</option>
-                  }
-                </select>
+              <div class="flex items-center space-x-1.5 bg-slate-50 border border-slate-200/80 rounded-xl px-2.5 py-1">
+                <mat-icon class="text-emerald-600 text-sm">store</mat-icon>
+                <div class="flex flex-col">
+                  <span class="text-[9px] uppercase font-bold text-slate-400 leading-none">Almacén / Despacho</span>
+                  <select 
+                    [value]="selectedWarehouseId()"
+                    (change)="onWarehouseChange($any($event.target).value)"
+                    class="bg-transparent font-bold text-slate-800 focus:outline-none text-xs cursor-pointer">
+                    @for (wh of stateService.warehouses(); track wh.id) {
+                      <option [value]="wh.id">{{ wh.name }}</option>
+                    }
+                    <option value="ALL">🌐 Todos los Almacenes</option>
+                  </select>
+                </div>
               </div>
 
               <!-- Price Tier Master Switch -->
@@ -210,15 +214,63 @@ export interface SplitPaymentLine {
                   <mat-icon class="absolute left-1.5 top-1.5 text-slate-400 text-sm">search</mat-icon>
                 </div>
               </div>
+
+              <!-- Dedicated Warehouse Filter Bar -->
+              <div class="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs flex-wrap">
+                <!-- Current Active Warehouse Indicator -->
+                <div class="flex items-center space-x-1.5 bg-emerald-50/80 border border-emerald-200/80 rounded-lg px-2.5 py-1">
+                  <mat-icon class="text-xs text-emerald-600">warehouse</mat-icon>
+                  <span class="text-[11px] font-semibold text-emerald-950">
+                    Almacén: <strong class="text-emerald-800">{{ selectedWarehouseName() }}</strong>
+                  </span>
+                  <span class="text-[10px] font-mono font-bold bg-emerald-200/70 text-emerald-900 px-1.5 py-0.2 rounded-full">
+                    {{ filteredCatalog().length }} disp.
+                  </span>
+                </div>
+
+                <!-- Warehouse Stock Filter Modes -->
+                <div class="flex items-center space-x-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200/70">
+                  <button 
+                    type="button"
+                    (click)="warehouseFilterMode.set('STOCK_AVAILABLE')"
+                    title="Mostrar solo productos con stock disponible en este almacén"
+                    [class]="warehouseFilterMode() === 'STOCK_AVAILABLE' ? 'bg-white text-emerald-700 font-bold shadow-2xs' : 'text-slate-600 hover:text-slate-900'"
+                    class="px-2 py-0.5 rounded text-[11px] flex items-center space-x-1 transition-all cursor-pointer">
+                    <mat-icon class="text-[13px]">check_circle</mat-icon>
+                    <span>Con Stock</span>
+                  </button>
+                  <button 
+                    type="button"
+                    (click)="warehouseFilterMode.set('IN_WAREHOUSE')"
+                    title="Mostrar todos los productos registrados en este almacén (incluso si stock es 0)"
+                    [class]="warehouseFilterMode() === 'IN_WAREHOUSE' ? 'bg-white text-emerald-700 font-bold shadow-2xs' : 'text-slate-600 hover:text-slate-900'"
+                    class="px-2 py-0.5 rounded text-[11px] flex items-center space-x-1 transition-all cursor-pointer">
+                    <mat-icon class="text-[13px]">inventory_2</mat-icon>
+                    <span>Todo el Almacén</span>
+                  </button>
+                  <button 
+                    type="button"
+                    (click)="warehouseFilterMode.set('ALL')"
+                    title="Mostrar catálogo completo sin filtrar por almacén"
+                    [class]="warehouseFilterMode() === 'ALL' ? 'bg-white text-emerald-700 font-bold shadow-2xs' : 'text-slate-600 hover:text-slate-900'"
+                    class="px-2 py-0.5 rounded text-[11px] flex items-center space-x-1 transition-all cursor-pointer">
+                    <mat-icon class="text-[13px]">public</mat-icon>
+                    <span>Todo Catálogo</span>
+                  </button>
+                </div>
+              </div>
             </div>
 
             <!-- Product Quick Grid -->
             <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-[520px] overflow-y-auto p-1">
               @for (product of filteredCatalog(); track product.id) {
+                @let whStock = getProductWarehouseStock(product);
                 <button 
                   type="button"
                   (click)="addToCart(product)"
-                  class="text-left bg-white p-3 rounded-2xl border border-slate-200/80 hover:border-emerald-500/60 hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group">
+                  [title]="product.itemType !== 'SERVICE' && whStock <= 0 ? 'Sin stock en ' + selectedWarehouseName() : 'Agregar ' + product.name"
+                  class="text-left bg-white p-3 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between group"
+                  [class]="product.itemType !== 'SERVICE' && whStock <= 0 ? 'border-rose-200 bg-rose-50/20 opacity-80 hover:border-rose-400' : 'border-slate-200/80 hover:border-emerald-500/60 hover:shadow-md'">
                   
                   <div class="w-full">
                     <div class="flex items-start justify-between">
@@ -246,37 +298,60 @@ export interface SplitPaymentLine {
                         {{ selectedPriceTierLabel() }}
                       </span>
                       <span class="text-sm font-mono font-bold text-slate-900">
-                        \${{ getAppliedProductPrice(product)  | number: '1.2-2'  }}
+                        \${{ getAppliedProductPrice(product) | number:'1.2-2' }}
                       </span>
                       <span class="text-[10px] font-mono text-emerald-700 block">
-                        Bs. {{ (getAppliedProductPrice(product) * stateService.bcvState().usdRate)  | number: '1.2-2'  }}
+                        Bs. {{ (getAppliedProductPrice(product) * stateService.bcvState().usdRate) | number:'1.2-2' }}
                       </span>
                     </div>
 
                     <div class="text-right">
                       @if (product.itemType === 'SERVICE') {
                         <span class="text-[10px] font-mono font-semibold block text-violet-700 bg-violet-50 px-1 rounded">
-                          {{ product.unit }} (Ilimitado)
+                          {{ product.unit }} (Servicio)
                         </span>
                       } @else {
                         <span 
-                          class="text-[10px] font-mono font-medium block"
-                          [class]="product.totalStock <= product.minStock ? 'text-rose-600 font-bold' : 'text-slate-500'">
-                          Stock: {{ product.totalStock }}
+                          class="text-[10px] font-mono font-bold block"
+                          [class]="whStock <= 0 ? 'text-rose-600 bg-rose-50 px-1 rounded' : (whStock <= product.minStock ? 'text-amber-700' : 'text-emerald-700')">
+                          {{ selectedWarehouseId() === 'ALL' ? 'Stock Total:' : 'Stock Almacén:' }} {{ whStock }} {{ product.unit || 'UND' }}
                         </span>
+                        @if (selectedWarehouseId() !== 'ALL') {
+                          <span class="text-[9px] font-mono text-slate-400 block">
+                            Global: {{ product.totalStock }}
+                          </span>
+                        }
                       }
                       <span 
-                        class="p-1 rounded-lg bg-emerald-50 text-emerald-700 group-hover:bg-emerald-600 group-hover:text-white transition-colors inline-flex items-center justify-center">
-                        <mat-icon class="text-base">add_shopping_cart</mat-icon>
+                        class="p-1 rounded-lg transition-colors inline-flex items-center justify-center mt-1"
+                        [class]="product.itemType !== 'SERVICE' && whStock <= 0 ? 'bg-rose-100 text-rose-700 group-hover:bg-rose-600 group-hover:text-white' : 'bg-emerald-50 text-emerald-700 group-hover:bg-emerald-600 group-hover:text-white'">
+                        <mat-icon class="text-base">{{ product.itemType !== 'SERVICE' && whStock <= 0 ? 'block' : 'add_shopping_cart' }}</mat-icon>
                       </span>
                     </div>
                   </div>
 
                 </button>
               } @empty {
-                <div class="col-span-full py-12 text-center text-slate-400 bg-white rounded-2xl border border-slate-200 text-xs">
-                  <mat-icon class="text-3xl text-slate-300 mb-1">search_off</mat-icon>
-                  <p>No se encontraron productos disponibles con los filtros actuales.</p>
+                <div class="col-span-full py-10 px-4 text-center bg-white rounded-2xl border border-dashed border-slate-200 text-xs">
+                  <mat-icon class="text-4xl text-slate-300 mb-1">storefront</mat-icon>
+                  <p class="font-bold text-slate-700">No hay productos disponibles en {{ selectedWarehouseName() }}</p>
+                  <p class="text-[11px] text-slate-400 mt-1 max-w-md mx-auto">
+                    No se encontraron productos con existencias en este almacén para la búsqueda o categoría seleccionada.
+                  </p>
+                  <div class="flex items-center justify-center space-x-2 mt-3">
+                    <button 
+                      type="button"
+                      (click)="warehouseFilterMode.set('ALL')"
+                      class="px-2.5 py-1 text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition-colors cursor-pointer">
+                      Ver catálogo global
+                    </button>
+                    <button 
+                      type="button"
+                      (click)="selectedCategoryFilter.set('ALL'); searchQuery.set('')"
+                      class="px-2.5 py-1 text-[11px] bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-colors cursor-pointer">
+                      Restablecer filtros
+                    </button>
+                  </div>
                 </div>
               }
             </div>
@@ -359,9 +434,9 @@ export interface SplitPaymentLine {
                         <div class="text-[11px] leading-tight">
                           <span class="font-bold text-emerald-950">Saldo a Favor disponible:</span>
                           <div class="font-mono text-xs font-extrabold text-emerald-700">
-                            \${{ cust.advanceBalanceUsd  | number: '1.2-2'  }} USD
+                            \${{ cust.advanceBalanceUsd | number:'1.2-2' }} USD
                             <span class="text-[10px] font-normal text-emerald-800">
-                              (Bs. {{ (cust.advanceBalanceUsd * stateService.bcvState().usdRate)  | number: '1.2-2'  }})
+                              (Bs. {{ (cust.advanceBalanceUsd * stateService.bcvState().usdRate) | number:'1.2-2' }})
                             </span>
                           </div>
                         </div>
@@ -401,9 +476,23 @@ export interface SplitPaymentLine {
                         <div class="flex items-center space-x-2 mt-0.5 text-[10px] text-slate-400 font-mono">
                           <span>SKU: {{ item.product.sku }}</span>
                           <span>•</span>
-                          <span>\${{ getItemUnitPrice(item)  | number: '1.2-2'  }} / {{ item.product.unit || 'UND' }}</span>
-                          <span>(Bs. {{ (getItemUnitPrice(item) * stateService.bcvState().usdRate)  | number: '1.2-2'  }})</span>
+                          <span>\${{ getItemUnitPrice(item) | number:'1.2-2' }} / {{ item.product.unit || 'UND' }}</span>
+                          <span>(Bs. {{ (getItemUnitPrice(item) * stateService.bcvState().usdRate) | number:'1.2-2' }})</span>
                         </div>
+                        @if (item.product.itemType !== 'SERVICE') {
+                          @let curWhStock = getProductWarehouseStock(item.product);
+                          <div class="flex items-center space-x-1.5 mt-0.5 text-[10px]">
+                            <span class="text-slate-500">En {{ selectedWarehouseName() }}:</span>
+                            <span class="font-mono font-bold" [class]="item.quantity > curWhStock ? 'text-rose-600 bg-rose-100 px-1 rounded' : 'text-emerald-700'">
+                              {{ curWhStock }} {{ item.product.unit || 'UND' }}
+                            </span>
+                            @if (item.quantity > curWhStock) {
+                              <span class="text-[9px] font-bold text-rose-700 bg-rose-100 px-1 py-0.2 rounded">
+                                ¡Excede stock disponible!
+                              </span>
+                            }
+                          </div>
+                        }
                       </div>
 
                       <button 
@@ -447,10 +536,10 @@ export interface SplitPaymentLine {
                       <!-- Line Subtotal Amount in USD and VES -->
                       <div class="text-right">
                         <span class="font-mono font-bold text-xs text-slate-900 block">
-                          \${{ getItemSubtotal(item)  | number: '1.2-2'  }}
+                          \${{ getItemSubtotal(item) | number:'1.2-2' }}
                         </span>
                         <span class="font-mono text-[10px] text-emerald-700 block">
-                          Bs. {{ (getItemSubtotal(item) * stateService.bcvState().usdRate)  | number: '1.2-2'  }}
+                          Bs. {{ (getItemSubtotal(item) * stateService.bcvState().usdRate) | number:'1.2-2' }}
                         </span>
                       </div>
 
@@ -470,7 +559,7 @@ export interface SplitPaymentLine {
               <div class="p-2.5 bg-slate-100/70 border-t border-slate-200/80 flex items-center justify-between text-xs">
                 <span class="text-slate-600 font-medium">Subtotal Renglones ({{ cartTotalUnits() }} und):</span>
                 <div class="text-right">
-                  <span class="font-mono font-bold text-slate-900">\${{ cartSubtotalGross()  | number: '1.2-2'  }}</span>
+                  <span class="font-mono font-bold text-slate-900">\${{ cartSubtotalGross() | number:'1.2-2' }}</span>
                   <span class="text-[10px] font-mono text-slate-500 block">
                     Bs. {{ (cartSubtotalGross() * stateService.bcvState().usdRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
                   </span>
@@ -515,24 +604,24 @@ export interface SplitPaymentLine {
               <div class="space-y-1 text-xs">
                 <div class="flex justify-between text-slate-500">
                   <span>Subtotal Bruto:</span>
-                  <span class="font-mono font-medium text-slate-800">\${{ cartSubtotalGross()  | number: '1.2-2'  }}</span>
+                  <span class="font-mono font-medium text-slate-800">\${{ cartSubtotalGross() | number:'1.2-2' }}</span>
                 </div>
 
                 @if (computedTaxDetails().exemptBase > 0) {
                   <div class="flex justify-between text-amber-700">
                     <span>Base Exenta (0% IVA):</span>
-                    <span class="font-mono font-medium">\${{ computedTaxDetails().exemptBase  | number: '1.2-2'  }}</span>
+                    <span class="font-mono font-medium">\${{ computedTaxDetails().exemptBase | number:'1.2-2' }}</span>
                   </div>
                 }
 
                 <div class="flex justify-between text-slate-500">
                   <span>Base Gravable (IVA {{ (selectedIvaRate() * 100).toFixed(0) }}%):</span>
-                  <span class="font-mono font-medium text-slate-800">\${{ computedTaxDetails().taxableBase  | number: '1.2-2'  }}</span>
+                  <span class="font-mono font-medium text-slate-800">\${{ computedTaxDetails().taxableBase | number:'1.2-2' }}</span>
                 </div>
 
                 <div class="flex justify-between text-slate-500">
                   <span>Impuesto IVA Liquidado:</span>
-                  <span class="font-mono font-medium text-slate-800">\${{ computedTaxDetails().ivaAmount  | number: '1.2-2'  }}</span>
+                  <span class="font-mono font-medium text-slate-800">\${{ computedTaxDetails().ivaAmount | number:'1.2-2' }}</span>
                 </div>
 
                 <!-- IGTF Alert & SENIAT Status -->
@@ -543,11 +632,11 @@ export interface SplitPaymentLine {
                         <mat-icon class="text-xs">account_balance</mat-icon>
                         <span>Percepción IGTF 3% (Divisas / SENIAT):</span>
                       </span>
-                      <span class="block text-[9px] text-indigo-500 font-normal">Base imponible en divisas: \${{ computedTaxDetails().igtfBase  | number: '1.2-2'  }}</span>
+                      <span class="block text-[9px] text-indigo-500 font-normal">Base imponible en divisas: \${{ computedTaxDetails().igtfBase | number:'1.2-2' }}</span>
                     </div>
                     <div class="text-right">
-                      <span class="font-mono font-bold text-xs">\${{ computedTaxDetails().igtfAmount  | number: '1.2-2'  }}</span>
-                      <span class="block text-[9px] text-indigo-600 font-mono">Bs. {{ (computedTaxDetails().igtfAmount * stateService.bcvState().usdRate)  | number: '1.2-2'  }}</span>
+                      <span class="font-mono font-bold text-xs">\${{ computedTaxDetails().igtfAmount | number:'1.2-2' }}</span>
+                      <span class="block text-[9px] text-indigo-600 font-mono">Bs. {{ (computedTaxDetails().igtfAmount * stateService.bcvState().usdRate) | number:'1.2-2' }}</span>
                     </div>
                   </div>
                 } @else {
@@ -571,7 +660,7 @@ export interface SplitPaymentLine {
                 <div class="flex justify-between items-baseline">
                   <div>
                     <span class="text-[10px] text-slate-400 font-semibold tracking-wider uppercase block">TOTAL GENERAL FACTURA</span>
-                    <span class="text-xl font-bold font-mono text-emerald-400">\${{ grandTotalUsd()  | number: '1.2-2'  }}</span>
+                    <span class="text-xl font-bold font-mono text-emerald-400">\${{ grandTotalUsd() | number:'1.2-2' }}</span>
                   </div>
                   <div class="text-right">
                     <span class="text-[10px] text-slate-400 block font-mono">Equivalente BCV</span>
@@ -700,7 +789,7 @@ export interface SplitPaymentLine {
                           <span>CAMBIO / VUELTO A ENTREGAR:</span>
                         </span>
                         <span class="font-mono font-extrabold text-sm text-emerald-700">
-                          {{ selectedPaymentCurrency() === 'VES' ? 'Bs. ' : '$' }}{{ ch.changeInCurrency  | number: '1.2-2'  }}
+                          {{ selectedPaymentCurrency() === 'VES' ? 'Bs. ' : '$' }}{{ ch.changeInCurrency | number:'1.2-2' }}
                         </span>
                       </div>
                       
@@ -710,9 +799,9 @@ export interface SplitPaymentLine {
                         @if (selectedPaymentCurrency() === 'USD') {
                           <span class="font-bold">Bs. {{ ch.changeVes.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</span>
                         } @else if (selectedPaymentCurrency() === 'VES') {
-                          <span class="font-bold">\${{ ch.changeUsd  | number: '1.2-2'  }} USD</span>
+                          <span class="font-bold">\${{ ch.changeUsd | number:'1.2-2' }} USD</span>
                         } @else {
-                          <span class="font-bold">Bs. {{ ch.changeVes  | number: '1.2-2'  }} (\${{ ch.changeUsd  | number: '1.2-2'  }})</span>
+                          <span class="font-bold">Bs. {{ ch.changeVes | number:'1.2-2' }} (\${{ ch.changeUsd | number:'1.2-2' }})</span>
                         }
                       </div>
 
@@ -731,7 +820,7 @@ export interface SplitPaymentLine {
                                 <span>¿Sin cambio físico? Guardar vuelto como Saldo a Favor</span>
                               </div>
                               <p class="text-[10px] text-emerald-800 mt-0.5">
-                                Acreditar <strong>\${{ ch.changeUsd  | number: '1.2-2'  }} USD (Bs. {{ ch.changeVes  | number: '1.2-2'  }})</strong> a la cuenta de <strong>{{ cust.name }}</strong> ({{ cust.taxId }}) para sus futuras compras.
+                                Acreditar <strong>\${{ ch.changeUsd | number:'1.2-2' }} USD (Bs. {{ ch.changeVes | number:'1.2-2' }})</strong> a la cuenta de <strong>{{ cust.name }}</strong> ({{ cust.taxId }}) para sus futuras compras.
                               </p>
                             </div>
                           </label>
@@ -751,7 +840,7 @@ export interface SplitPaymentLine {
                           <span>MONTO INSUFICIENTE:</span>
                         </span>
                         <span class="font-mono font-bold text-xs text-rose-700">
-                          -{{ selectedPaymentCurrency() === 'VES' ? 'Bs. ' : '$' }}{{ ch.deficitInCurrency  | number: '1.2-2'  }}
+                          -{{ selectedPaymentCurrency() === 'VES' ? 'Bs. ' : '$' }}{{ ch.deficitInCurrency | number:'1.2-2' }}
                         </span>
                       </div>
                       <p class="text-[10px] text-rose-700 font-mono">
@@ -862,9 +951,9 @@ export interface SplitPaymentLine {
                         <div class="flex items-center justify-between text-[10px] pt-1 border-t border-slate-200/50">
                           <span class="text-slate-500 font-mono">
                             @if (sp.currency === 'VES') {
-                              ≈ \${{ (sp.amount / stateService.bcvState().usdRate)  | number: '1.2-2'  }} USD
+                              ≈ \${{ (sp.amount / stateService.bcvState().usdRate) | number:'1.2-2' }} USD
                             } @else {
-                              ≈ Bs. {{ (sp.amount * stateService.bcvState().usdRate)  | number: '1.2-2'  }}
+                              ≈ Bs. {{ (sp.amount * stateService.bcvState().usdRate) | number:'1.2-2' }}
                             }
                           </span>
                           <span class="px-1.5 py-0.2 rounded font-semibold text-[9px]"
@@ -884,22 +973,22 @@ export interface SplitPaymentLine {
                   <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1 text-xs">
                     <div class="flex items-center justify-between text-[11px] text-slate-600">
                       <span>Base Venta (Subtotal + IVA):</span>
-                      <span class="font-mono font-semibold">\${{ baseSaleWithIvaUsd()  | number: '1.2-2'  }}</span>
+                      <span class="font-mono font-semibold">\${{ baseSaleWithIvaUsd() | number:'1.2-2' }}</span>
                     </div>
                     
                     <div class="flex items-center justify-between text-[11px] text-indigo-700">
                       <span>Porción en Divisas (IGTF 3%):</span>
-                      <span class="font-mono font-bold">\${{ splitTaxDetails().divisasPaidUsd  | number: '1.2-2'  }} ➔ +\${{ splitTaxDetails().igtfAmount  | number: '1.2-2'  }}</span>
+                      <span class="font-mono font-bold">\${{ splitTaxDetails().divisasPaidUsd | number:'1.2-2' }} ➔ +\${{ splitTaxDetails().igtfAmount | number:'1.2-2' }}</span>
                     </div>
 
                     <div class="flex items-center justify-between text-[11px] text-emerald-700">
                       <span>Porción en Bolívares (Exenta):</span>
-                      <span class="font-mono font-bold">\${{ splitTaxDetails().bolivaresPaidUsd  | number: '1.2-2'  }} (Bs. {{ (splitTaxDetails().bolivaresPaidUsd * stateService.bcvState().usdRate)  | number: '1.2-2'  }})</span>
+                      <span class="font-mono font-bold">\${{ splitTaxDetails().bolivaresPaidUsd | number:'1.2-2' }} (Bs. {{ (splitTaxDetails().bolivaresPaidUsd * stateService.bcvState().usdRate) | number:'1.2-2' }})</span>
                     </div>
 
                     <div class="flex items-center justify-between text-xs font-bold text-slate-900 border-t border-slate-200 pt-1">
                       <span>TOTAL GENERAL FACTURA:</span>
-                      <span class="font-mono text-emerald-700 font-extrabold">\${{ grandTotalUsd()  | number: '1.2-2'  }}</span>
+                      <span class="font-mono text-emerald-700 font-extrabold">\${{ grandTotalUsd() | number:'1.2-2' }}</span>
                     </div>
 
                     <!-- Balance status -->
@@ -910,7 +999,7 @@ export interface SplitPaymentLine {
                           <mat-icon class="text-xs text-rose-600">error_outline</mat-icon>
                           <span>Falta por cubrir:</span>
                         </span>
-                        <span class="font-mono font-bold">\${{ bal.deficitUsd  | number: '1.2-2'  }} USD (Bs. {{ bal.deficitVes  | number: '1.2-2'  }})</span>
+                        <span class="font-mono font-bold">\${{ bal.deficitUsd | number:'1.2-2' }} USD (Bs. {{ bal.deficitVes | number:'1.2-2' }})</span>
                       </div>
                     } @else if (bal.isSurplus) {
                       <div class="space-y-1.5">
@@ -919,7 +1008,7 @@ export interface SplitPaymentLine {
                             <mat-icon class="text-xs text-emerald-600">price_check</mat-icon>
                             <span>Vuelto / Excedente:</span>
                           </span>
-                          <span class="font-mono font-bold">\${{ bal.surplusUsd  | number: '1.2-2'  }} USD (Bs. {{ bal.surplusVes  | number: '1.2-2'  }})</span>
+                          <span class="font-mono font-bold">\${{ bal.surplusUsd | number:'1.2-2' }} USD (Bs. {{ bal.surplusVes | number:'1.2-2' }})</span>
                         </div>
 
                         @if (selectedCustomer(); as cust) {
@@ -932,7 +1021,7 @@ export interface SplitPaymentLine {
                             <div class="flex-1 leading-tight text-emerald-950">
                               <span class="font-bold flex items-center space-x-1">
                                 <mat-icon class="text-xs text-emerald-700">account_balance_wallet</mat-icon>
-                                <span>Guardar excedente (\${{ bal.surplusUsd  | number: '1.2-2'  }}) como Saldo a Favor</span>
+                                <span>Guardar excedente (\${{ bal.surplusUsd | number:'1.2-2' }}) como Saldo a Favor</span>
                               </span>
                               <span class="text-[10px] text-emerald-700 block mt-0.5">Se acreditará a {{ cust.name }} ({{ cust.taxId }}).</span>
                             </div>
@@ -978,7 +1067,7 @@ export interface SplitPaymentLine {
             
             <div class="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-xs">
               <span class="text-[11px] font-medium text-slate-500 block">Total Facturado ($ USD)</span>
-              <p class="text-lg font-bold font-mono text-emerald-700 mt-0.5">\${{ totalFilteredUsd()  | number: '1.2-2'  }}</p>
+              <p class="text-lg font-bold font-mono text-emerald-700 mt-0.5">\${{ totalFilteredUsd() | number:'1.2-2' }}</p>
               <span class="text-[10px] text-slate-400 font-mono">
                 Bs. {{ totalFilteredVes().toLocaleString('es-VE', { minimumFractionDigits: 2 }) }}
               </span>
@@ -986,13 +1075,13 @@ export interface SplitPaymentLine {
 
             <div class="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-xs">
               <span class="text-[11px] font-medium text-slate-500 block">Total IVA Recaudado ($)</span>
-              <p class="text-lg font-bold font-mono text-slate-900 mt-0.5">\${{ totalFilteredIvaUsd()  | number: '1.2-2'  }}</p>
+              <p class="text-lg font-bold font-mono text-slate-900 mt-0.5">\${{ totalFilteredIvaUsd() | number:'1.2-2' }}</p>
               <span class="text-[10px] text-slate-400">Débito fiscal IVA 16%</span>
             </div>
 
             <div class="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-xs">
               <span class="text-[11px] font-medium text-slate-500 block">Percepción IGTF 3% ($)</span>
-              <p class="text-lg font-bold font-mono text-indigo-900 mt-0.5">\${{ totalFilteredIgtfUsd()  | number: '1.2-2'  }}</p>
+              <p class="text-lg font-bold font-mono text-indigo-900 mt-0.5">\${{ totalFilteredIgtfUsd() | number:'1.2-2' }}</p>
               <span class="text-[10px] text-slate-400">Cobros en efectivo / divisas</span>
             </div>
 
@@ -1125,27 +1214,27 @@ export interface SplitPaymentLine {
                       <!-- Currency & BCV -->
                       <td class="py-3 px-3 text-[11px]">
                         <span class="font-bold text-slate-800">{{ inv.paymentCurrency }}</span>
-                        <span class="block text-[10px] text-slate-400 font-mono">Tasa: {{ inv.bcvRate  | number: '1.2-2'  }}</span>
+                        <span class="block text-[10px] text-slate-400 font-mono">Tasa: {{ inv.bcvRate | number:'1.2-2' }}</span>
                       </td>
 
                       <!-- Subtotal -->
                       <td class="py-3 px-3 text-right font-mono text-slate-700">
-                        \${{ inv.subtotal  | number: '1.2-2'  }}
+                        \${{ inv.subtotal | number:'1.2-2' }}
                       </td>
 
                       <!-- IVA -->
                       <td class="py-3 px-3 text-right font-mono text-slate-700">
-                        \${{ (inv.taxDetails.ivaAmount || 0)  | number: '1.2-2'  }}
+                        \${{ (inv.taxDetails.ivaAmount || 0) | number:'1.2-2' }}
                       </td>
 
                       <!-- IGTF -->
                       <td class="py-3 px-3 text-right font-mono" [class.text-indigo-700]="(inv.taxDetails.igtfAmount || 0) > 0">
-                        \${{ (inv.taxDetails.igtfAmount || 0)  | number: '1.2-2'  }}
+                        \${{ (inv.taxDetails.igtfAmount || 0) | number:'1.2-2' }}
                       </td>
 
                       <!-- Total USD -->
                       <td class="py-3 px-3 text-right font-mono font-bold text-emerald-700 text-sm">
-                        \${{ inv.total  | number: '1.2-2'  }}
+                        \${{ inv.total | number:'1.2-2' }}
                       </td>
 
                       <!-- Total VES -->
@@ -1220,7 +1309,7 @@ export interface SplitPaymentLine {
                 </button>
               </div>
 
-              <span>Total acumulado en vista: <strong class="font-mono text-slate-900">\${{ totalFilteredUsd()  | number: '1.2-2'  }}</strong> (Bs. {{ totalFilteredVes().toLocaleString('es-VE') }})</span>
+              <span>Total acumulado en vista: <strong class="font-mono text-slate-900">\${{ totalFilteredUsd() | number:'1.2-2' }}</strong> (Bs. {{ totalFilteredVes().toLocaleString('es-VE') }})</span>
             </div>
 
           </div>
@@ -1410,6 +1499,7 @@ export default class SalesPosComponent {
   }
 
   selectedWarehouseId = signal<string>(this.stateService.warehouses()[0]?.id || '');
+  warehouseFilterMode = signal<'STOCK_AVAILABLE' | 'IN_WAREHOUSE' | 'ALL'>('STOCK_AVAILABLE');
   selectedCustomerId = signal<string>(this.stateService.customers()[0]?.id || '');
   selectedCategoryFilter = signal<string>('ALL');
   searchQuery = signal<string>('');
@@ -1425,6 +1515,65 @@ export default class SalesPosComponent {
   saveChangeAsCustomerCredit = signal<boolean>(false);
 
   cartItems = signal<CartItem[]>([]);
+
+  selectedWarehouseName = computed(() => {
+    const id = this.selectedWarehouseId();
+    if (!id || id === 'ALL') return 'Todos los Almacenes';
+    const wh = this.stateService.warehouses().find(w => w.id === id);
+    return wh ? wh.name : 'Almacén Principal';
+  });
+
+  getProductWarehouseStock(product: Product, warehouseId?: string): number {
+    if (!product) return 0;
+    const isService = product.itemType === 'SERVICE' || product.unit === 'HRA' || product.unit === 'SRV' || product.unit === 'GLB';
+    if (isService) {
+      return 9999;
+    }
+    const whId = warehouseId || this.selectedWarehouseId();
+    if (!whId || whId === 'ALL') {
+      return product.totalStock;
+    }
+    const entry = product.stockByWarehouse?.find(s => s.warehouseId === whId);
+    return entry ? entry.quantity : 0;
+  }
+
+  isProductInSelectedWarehouse(product: Product, warehouseId?: string): boolean {
+    if (!product) return false;
+    const isService = product.itemType === 'SERVICE' || product.unit === 'HRA' || product.unit === 'SRV' || product.unit === 'GLB';
+    if (isService) return true;
+    const whId = warehouseId || this.selectedWarehouseId();
+    if (!whId || whId === 'ALL') return true;
+    const entry = product.stockByWarehouse?.find(s => s.warehouseId === whId);
+    const qty = entry ? entry.quantity : 0;
+    const isPrimary = product.primaryWarehouseId === whId;
+    return isPrimary || !!entry || qty > 0;
+  }
+
+  onWarehouseChange(newWhId: string) {
+    this.selectedWarehouseId.set(newWhId);
+    const whName = newWhId === 'ALL' ? 'Todos los Almacenes' : (this.stateService.warehouses().find(w => w.id === newWhId)?.name || 'Almacén');
+
+    if (newWhId !== 'ALL' && this.cartItems().length > 0) {
+      const itemsExceedingStock = this.cartItems().filter(item => {
+        const isSrv = item.product.itemType === 'SERVICE' || item.product.unit === 'HRA' || item.product.unit === 'SRV' || item.product.unit === 'GLB';
+        if (isSrv) return false;
+        const stock = this.getProductWarehouseStock(item.product, newWhId);
+        return item.quantity > stock;
+      });
+
+      if (itemsExceedingStock.length > 0) {
+        this.stateService.notify(
+          'warning',
+          'Atención: Stock en ' + whName,
+          `${itemsExceedingStock.length} producto(s) en su factura superan el stock disponible en ${whName}.`
+        );
+      } else {
+        this.stateService.notify('info', 'Almacén Seleccionado', `Mostrando productos para facturar desde: ${whName}`);
+      }
+    } else if (newWhId === 'ALL') {
+      this.stateService.notify('info', 'Catálogo Global', 'Mostrando productos de todos los almacenes.');
+    }
+  }
 
   cartTotalUnits = computed(() => {
     return this.cartItems().reduce((sum, item) => sum + item.quantity, 0);
@@ -1454,10 +1603,49 @@ export default class SalesPosComponent {
   filteredCatalog = computed(() => {
     const cat = this.selectedCategoryFilter();
     const q = this.searchQuery().toLowerCase().trim();
+    const whId = this.selectedWarehouseId();
+    const mode = this.warehouseFilterMode();
+
     return this.stateService.products().filter(p => {
-      const matchCat = cat === 'ALL' || p.category === cat;
-      const matchQ = !q || p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q) || p.barcode.includes(q);
-      return matchCat && matchQ && p.status === 'ACTIVE';
+      if (p.status !== 'ACTIVE') return false;
+
+      // 1. Text Search Filter (Name, SKU, Barcode)
+      if (q) {
+        const matchQ = p.name.toLowerCase().includes(q) || 
+                       p.sku.toLowerCase().includes(q) || 
+                       p.barcode.includes(q);
+        if (!matchQ) return false;
+      }
+
+      // 2. Category Filter
+      if (cat !== 'ALL') {
+        const matchCat = p.category === cat || (p.categories && p.categories.includes(cat));
+        if (!matchCat) return false;
+      }
+
+      // 3. Services are universally available
+      const isService = p.itemType === 'SERVICE' || p.unit === 'HRA' || p.unit === 'SRV' || p.unit === 'GLB';
+      if (isService) {
+        return true;
+      }
+
+      // 4. Warehouse Filtering
+      if (whId === 'ALL' || mode === 'ALL') {
+        return true;
+      }
+
+      const whStock = this.getProductWarehouseStock(p, whId);
+
+      if (mode === 'STOCK_AVAILABLE') {
+        return whStock > 0;
+      }
+
+      if (mode === 'IN_WAREHOUSE') {
+        const isAssigned = p.primaryWarehouseId === whId || p.stockByWarehouse?.some(s => s.warehouseId === whId);
+        return isAssigned || whStock > 0;
+      }
+
+      return true;
     });
   });
 
@@ -1564,7 +1752,6 @@ export default class SalesPosComponent {
     let bolivaresPaidUsd = 0;
 
     for (const sp of this.splitPayments()) {
-     // if (sp.method === 'SALDO_A_FAVOR') continue; // no genera IGTF
       const isBs = this.stateService.isBolivaresPaymentMethod(sp.method, sp.currency);
       const isDiv = this.stateService.isForeignCurrencyPaymentMethod(sp.method, sp.currency);
 
@@ -1646,7 +1833,7 @@ export default class SalesPosComponent {
       appliesIgtf = Boolean(this.manualIgtfOverride());
     } else {
       // Regla SENIAT: se le cobra a todas las personas siempre que se pague en divisas/moneda extranjera
-       appliesIgtf = isSpecialTaxpayer && isDivisas && !isBolivares;
+      appliesIgtf = isSpecialTaxpayer && isDivisas && !isBolivares;
     }
 
     const baseForIgtf = taxable + exempt + ivaAmount;
@@ -1944,6 +2131,22 @@ export default class SalesPosComponent {
       this.removeItem(productId);
       return;
     }
+    const item = this.cartItems().find(i => i.product.id === productId);
+    if (item) {
+      const isService = item.product.itemType === 'SERVICE' || item.product.unit === 'HRA' || item.product.unit === 'SRV' || item.product.unit === 'GLB';
+      const whStock = this.getProductWarehouseStock(item.product);
+      if (!isService && qty > whStock) {
+        this.stateService.notify(
+          'warning',
+          'Límite de Stock',
+          `Stock disponible en ${this.selectedWarehouseName()}: ${whStock}. Se ajustó la cantidad.`
+        );
+        this.cartItems.update(items =>
+          items.map(i => i.product.id === productId ? { ...i, quantity: Math.max(1, whStock) } : i)
+        );
+        return;
+      }
+    }
     this.cartItems.update(items =>
       items.map(i => i.product.id === productId ? { ...i, quantity: qty } : i)
     );
@@ -2109,6 +2312,29 @@ export default class SalesPosComponent {
   }
 
   addToCart(product: Product) {
+    const isService = product.itemType === 'SERVICE' || product.unit === 'HRA' || product.unit === 'SRV' || product.unit === 'GLB';
+    const whStock = this.getProductWarehouseStock(product);
+    const existing = this.cartItems().find(i => i.product.id === product.id);
+    const currentQtyInCart = existing ? existing.quantity : 0;
+
+    if (!isService && whStock <= 0) {
+      this.stateService.notify(
+        'warning',
+        'Sin Existencias',
+        `"${product.name}" no tiene stock disponible en ${this.selectedWarehouseName()}.`
+      );
+      return;
+    }
+
+    if (!isService && currentQtyInCart + 1 > whStock) {
+      this.stateService.notify(
+        'warning',
+        'Límite de Stock',
+        `Solo hay ${whStock} unidades de "${product.name}" disponibles en ${this.selectedWarehouseName()}.`
+      );
+      return;
+    }
+
     this.cartItems.update(items => {
       const existingIndex = items.findIndex(i => i.product.id === product.id);
       if (existingIndex > -1) {
@@ -2133,6 +2359,18 @@ export default class SalesPosComponent {
   }
 
   increaseQty(productId: string) {
+    const item = this.cartItems().find(i => i.product.id === productId);
+    if (!item) return;
+    const isService = item.product.itemType === 'SERVICE' || item.product.unit === 'HRA' || item.product.unit === 'SRV' || item.product.unit === 'GLB';
+    const whStock = this.getProductWarehouseStock(item.product);
+    if (!isService && item.quantity + 1 > whStock) {
+      this.stateService.notify(
+        'warning',
+        'Límite de Stock',
+        `Stock disponible en ${this.selectedWarehouseName()}: ${whStock}`
+      );
+      return;
+    }
     this.cartItems.update(items =>
       items.map(i => i.product.id === productId ? { ...i, quantity: i.quantity + 1 } : i)
     );
@@ -2155,7 +2393,7 @@ export default class SalesPosComponent {
     this.cashTendered.set(null);
   }
 
-  checkout() {
+  async checkout() {
     if (this.cartItems().length === 0) return;
 
     if (this.isMixedPayment()) {
@@ -2191,9 +2429,29 @@ export default class SalesPosComponent {
       const sTax = this.splitTaxDetails();
 
       const custId = this.selectedCustomerId() || this.stateService.customers()[0]?.id || 'cust-01';
-      const whId = this.selectedWarehouseId() || this.stateService.warehouses()[0]?.id || 'wh-01';
+      const whId = (this.selectedWarehouseId() && this.selectedWarehouseId() !== 'ALL')
+        ? this.selectedWarehouseId()
+        : (this.stateService.warehouses().find(w => w.isMain)?.id || this.stateService.warehouses()[0]?.id || 'wh-01');
 
-      const result = this.stateService.registerSaleInvoice(
+      const invalidItems = this.cartItems().filter(item => {
+        const isSrv = item.product.itemType === 'SERVICE' || item.product.unit === 'HRA' || item.product.unit === 'SRV' || item.product.unit === 'GLB';
+        if (isSrv) return false;
+        const stock = this.getProductWarehouseStock(item.product, whId);
+        return item.quantity > stock;
+      });
+
+      if (invalidItems.length > 0) {
+        const first = invalidItems[0];
+        const stock = this.getProductWarehouseStock(first.product, whId);
+        this.stateService.notify(
+          'warning',
+          'Stock Insuficiente en Almacén',
+          `"${first.product.name}" solo tiene ${stock} unidades disponibles en ${this.selectedWarehouseName()}. Ajuste la cantidad antes de emitir.`
+        );
+        return;
+      }
+
+      const result = await this.stateService.registerSaleInvoice(
         custId,
         whId,
         saleItems,
@@ -2263,9 +2521,29 @@ export default class SalesPosComponent {
     ];
 
     const custId = this.selectedCustomerId() || this.stateService.customers()[0]?.id || 'cust-01';
-    const whId = this.selectedWarehouseId() || this.stateService.warehouses()[0]?.id || 'wh-01';
+    const whId = (this.selectedWarehouseId() && this.selectedWarehouseId() !== 'ALL')
+      ? this.selectedWarehouseId()
+      : (this.stateService.warehouses().find(w => w.isMain)?.id || this.stateService.warehouses()[0]?.id || 'wh-01');
 
-    const result = this.stateService.registerSaleInvoice(
+    const invalidItems = this.cartItems().filter(item => {
+      const isSrv = item.product.itemType === 'SERVICE' || item.product.unit === 'HRA' || item.product.unit === 'SRV' || item.product.unit === 'GLB';
+      if (isSrv) return false;
+      const stock = this.getProductWarehouseStock(item.product, whId);
+      return item.quantity > stock;
+    });
+
+    if (invalidItems.length > 0) {
+      const first = invalidItems[0];
+      const stock = this.getProductWarehouseStock(first.product, whId);
+      this.stateService.notify(
+        'warning',
+        'Stock Insuficiente en Almacén',
+        `"${first.product.name}" solo tiene ${stock} unidades disponibles en ${this.selectedWarehouseName()}. Ajuste la cantidad antes de emitir.`
+      );
+      return;
+    }
+
+    const result = await this.stateService.registerSaleInvoice(
       custId,
       whId,
       saleItems,

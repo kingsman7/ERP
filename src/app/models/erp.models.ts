@@ -665,6 +665,15 @@ export interface DeliveryOrder {
   updatedAt: string;
 }
 
+export interface CashSessionPaymentMethodBreakdown {
+  method: PaymentMethod;
+  label: string;
+  category: 'EFECTIVO' | 'TARJETA' | 'TRANSFERENCIA' | 'DIGITAL' | 'OTRO';
+  currency: CurrencyCode;
+  amount: number;       // Monto en moneda original (ej. 330,318.43 Bs o $ 15,200.00)
+  amountUsd: number;    // Equivalente en USD ($)
+  transactionCount: number;
+}
 export interface CashRegisterSession {
   id: string;
   sessionCode: string; // e.g. "CAJA-20260818-01"
@@ -673,18 +682,36 @@ export interface CashRegisterSession {
   openDate: string;
   closeDate?: string;
   status: 'ABIERTA' | 'CERRADA';
-  initialAmount: number;
+  initialAmount: number; // Fondo inicial en USD
+  initialAmountVes?: number; // Fondo inicial en VES
   
-  // Computed collections
+  // Computed collections (Equivalente en USD)
   totalCashSales: number;
   totalCardSales: number;
   totalTransferSales: number;
   totalCreditSales: number;
   totalSales: number;
+
+  // Montos específicos por divisa y canal
+  totalCashSalesUsd?: number;
+  totalCashSalesVes?: number;
+  totalCardSalesUsd?: number;
+  totalCardSalesVes?: number;
+  totalTransferSalesUsd?: number;
+  totalTransferSalesVes?: number;
+  totalZelleSalesUsd?: number;
+  totalPagoMovilSalesVes?: number;
+  totalSalesVes?: number;
+
+  // Desglose detallado por método y moneda
+  methodBreakdowns?: CashSessionPaymentMethodBreakdown[];
   
-  // Count on closing
-  countedCashAmount?: number;
-  cashDifference?: number; // countedCashAmount - (initialAmount + totalCashSales)
+  // Count on closing (Arqueo multi-moneda)
+  countedCashAmount?: number;     // Total consolidado en USD
+  countedCashAmountUsd?: number;  // Efectivo en billetes USD contado
+  countedCashAmountVes?: number;  // Efectivo en billetes VES contado
+  cashDifference?: number;        // Diferencia en USD
+  cashDifferenceVes?: number;     // Diferencia en VES
   closingNotes?: string;
 }
 

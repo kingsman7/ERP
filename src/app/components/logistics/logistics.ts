@@ -1593,10 +1593,12 @@ export default class LogisticsComponent {
     }
   }
 
-  invoiceSingleGuide(guide: DispatchGuide) {
-    const res = this.stateService.invoiceFromDispatchGuides([guide.id]);
+  async invoiceSingleGuide(guide: DispatchGuide) {
+    const res = await this.stateService.invoiceFromDispatchGuides([guide.id]);
     if (res.success && res.invoice) {
       this.activeInvoiceForView.set(res.invoice);
+    } else if (res.message) {
+      this.stateService.notify('error', 'No se pudo emitir la factura', res.message);
     }
   }
 
@@ -1606,14 +1608,16 @@ export default class LogisticsComponent {
     );
   }
 
-  invoiceSelectedMultipleGuides() {
+  async invoiceSelectedMultipleGuides() {
     const ids = this.selectedGuideIdsForInvoice();
     if (ids.length === 0) return;
 
-    const res = this.stateService.invoiceFromDispatchGuides(ids);
+    const res = await this.stateService.invoiceFromDispatchGuides(ids);
     if (res.success && res.invoice) {
       this.selectedGuideIdsForInvoice.set([]);
       this.activeInvoiceForView.set(res.invoice);
+    } else if (res.message) {
+      this.stateService.notify('error', 'No se pudo emitir la factura', res.message);
     }
   }
 

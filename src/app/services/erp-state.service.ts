@@ -1,5 +1,5 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
-import { catchError, defer, finalize, forkJoin, map, Observable, of, switchMap, tap } from 'rxjs';
+import { catchError, defer, finalize, firstValueFrom, forkJoin, map, Observable, of, switchMap, tap } from 'rxjs';
 import {
   Product,
   ProductCategory,
@@ -51,7 +51,8 @@ import {
   CustomerPaymentReceipt,
   SupplierPaymentReceipt,
   PayableBill,
-  PayableBillStatus
+  PayableBillStatus,
+  CashSessionPaymentMethodBreakdown
 } from '../models/erp.models';
 import { AuthService } from './auth.service';
 import { ApiService } from './api.service';
@@ -2510,7 +2511,7 @@ export class ErpStateService {
     };
   }
 
-  registerSaleInvoice(
+  async registerSaleInvoice(
     customerId: string,
     warehouseId: string,
     items: { productId: string; quantity: number; discountPercent?: number; priceLevel?: PriceLevelKey }[],
@@ -2532,7 +2533,7 @@ export class ErpStateService {
       cashChangeDue?: number;
       saveChangeAsCustomerCredit?: boolean;
     }
-  ): { success: boolean; invoiceNumber?: string; message?: string; invoice?: Invoice } {
+  ): Promise<{ success: boolean; invoiceNumber?: string; message?: string; invoice?: Invoice }> {
     const user = this.authService.currentUser();
     const customer = this.customers().find(c => c.id === customerId) || this.customers()[0];
     const warehouse = this.warehouses().find(w => w.id === warehouseId) || this.warehouses()[0];
@@ -2566,7 +2567,7 @@ export class ErpStateService {
     }
 
     const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
-    const invoiceNumber = 'FAC-2026-' + (this.invoices().length + 86).toString().padStart(4, '0');
+    let invoiceNumber = '';
     const bcv = this.bcvState();
 
     const appliedLevel = options?.priceLevelApplied || 'price1';
@@ -2707,6 +2708,13 @@ export class ErpStateService {
     const grandTotalUsd = Number((netSubtotal + taxTotal).toFixed(2));
     const totalVes = Number((grandTotalUsd * bcv.usdRate).toFixed(2));
     const totalEur = Number(((grandTotalUsd * bcv.usdRate) / bcv.eurRate).toFixed(2));
+    if (payments.length === 1 && payments[0].amount <= 0) {
+      const currency = payments[0].currency || paymentCurrency;
+      payments = [{
+        ...payments[0],
+        amount: currency === 'VES' ? totalVes : currency === 'EUR' ? totalEur : grandTotalUsd
+      }];
+    }
 
     const taxDetails: InvoiceTaxDetails = {
       taxableBase: netTaxableBase,
@@ -2779,6 +2787,47 @@ export class ErpStateService {
       isStockAlreadyDeducted
     };
 
+    let createdInvoice: Pick<Invoice, 'id' | 'invoiceNumber'>;
+    try {
+      createdInvoice = await firstValueFrom(this.apiService.createInvoice({
+        customerId: customer.id,
+        warehouseId: warehouse.id,
+        invoiceDate: new Date().toISOString(),
+        type: invoiceType,
+        baseCurrency,
+        paymentCurrency,
+        priceLevelApplied: appliedLevel,
+        items: invoiceItems.map(item => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          discountPercent: item.discountPercent,
+          priceLevel: item.priceLevel || appliedLevel
+        })),
+        payments: payments.map(({ method, amount, currency, reference }) => ({ method, amount, currency, reference })),
+        sellerName: user?.name || 'Administrador / Cajero',
+        sellerId: user?.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(user.id) ? user.id : undefined,
+        creditChangeAsAdvance: options?.saveChangeAsCustomerCredit,
+        globalDiscountPercent,
+        customIvaRate: options?.customIvaRate,
+        appliesIgtfManual: options?.appliesIgtfManual,
+        isStockAlreadyDeducted,
+        dispatchGuideNumbers: options?.dispatchGuideNumbers
+      }));
+    } catch (error) {
+      const message = typeof error === 'object' && error !== null && 'error' in error
+        && typeof error.error === 'object' && error.error !== null && 'message' in error.error
+        && typeof error.error.message === 'string'
+        ? error.error.message
+        : error instanceof Error ? error.message : 'No se pudo guardar la factura en el servidor.';
+      this.notify('error', 'Error al Emitir Factura', message);
+      return { success: false, message };
+    }
+    invoiceNumber = createdInvoice.invoiceNumber;
+    newInvoice.id = createdInvoice.id;
+    newInvoice.invoiceNumber = invoiceNumber;
+    for (const movement of kardexToAdd) movement.docReference = invoiceNumber;
+
     // 1. Acreditación de vuelto como Saldo a Favor / Anticipo si fue solicitado
     if (options?.saveChangeAsCustomerCredit && cashChangeDueUsd && cashChangeDueUsd > 0) {
       newInvoice.retainedChangeAsCustomerCredit = cashChangeDueUsd;
@@ -2802,26 +2851,130 @@ export class ErpStateService {
 
     // Update Cash Session if active
     if (this.activeCashSession().status === 'ABIERTA') {
-      let cashDelta = 0;
-      let cardDelta = 0;
-      let transferDelta = 0;
-      let creditDelta = 0;
+      const bcvRate = bcv.usdRate || 36.50;
+      let cashDeltaUsd = 0;
+      let cashDeltaVes = 0;
+      let cardDeltaUsd = 0;
+      let cardDeltaVes = 0;
+      let transferDeltaUsd = 0;
+      let transferDeltaVes = 0;
+      let zelleDeltaUsd = 0;
+      let pagoMovilDeltaVes = 0;
+      let creditDeltaUsd = 0;
+
+      const currentBreakdowns: CashSessionPaymentMethodBreakdown[] = [
+        ...(this.activeCashSession().methodBreakdowns || [])
+      ];
 
       payments.forEach(p => {
-        if (p.method === 'EFECTIVO' || p.method === 'EFECTIVO_USD' || p.method === 'EFECTIVO_EUR') cashDelta += p.amount;
-        else if (p.method === 'TARJETA_CREDITO' || p.method === 'PUNTO_VENTA_DEBITO') cardDelta += p.amount;
-        else if (p.method === 'TRANSFERENCIA' || p.method === 'PAGO_MOVIL' || p.method === 'ZELLE') transferDelta += p.amount;
-        else if (p.method === 'CREDITO') creditDelta += p.amount;
+        const isVes = p.currency === 'VES';
+        const isEur = p.currency === 'EUR';
+        const amt = p.amount;
+        const amtUsd = isVes ? Number((amt / bcvRate).toFixed(2)) : (isEur ? Number(((amt * (bcv.eurRate || bcvRate)) / bcvRate).toFixed(2)) : amt);
+        const curr = p.currency || 'USD';
+
+        if (p.method === 'EFECTIVO' || p.method === 'EFECTIVO_USD' || p.method === 'EFECTIVO_EUR') {
+          if (curr === 'VES') {
+            cashDeltaVes += amt;
+          } else {
+            cashDeltaUsd += amtUsd;
+          }
+        } else if (p.method === 'TARJETA_CREDITO' || p.method === 'PUNTO_VENTA_DEBITO') {
+          if (curr === 'VES') {
+            cardDeltaVes += amt;
+          } else {
+            cardDeltaUsd += amtUsd;
+          }
+        } else if (p.method === 'ZELLE') {
+          zelleDeltaUsd += amtUsd;
+          transferDeltaUsd += amtUsd;
+        } else if (p.method === 'PAGO_MOVIL') {
+          pagoMovilDeltaVes += amt;
+          transferDeltaVes += amt;
+        } else if (p.method === 'TRANSFERENCIA') {
+          if (curr === 'VES') {
+            transferDeltaVes += amt;
+          } else {
+            transferDeltaUsd += amtUsd;
+          }
+        } else if (p.method === 'CREDITO') {
+          creditDeltaUsd += amtUsd;
+        }
+
+        // Method breakdowns
+        const existingIdx = currentBreakdowns.findIndex(b => b.method === p.method && b.currency === curr);
+        if (existingIdx >= 0) {
+          currentBreakdowns[existingIdx] = {
+            ...currentBreakdowns[existingIdx],
+            amount: Number((currentBreakdowns[existingIdx].amount + amt).toFixed(2)),
+            amountUsd: Number((currentBreakdowns[existingIdx].amountUsd + amtUsd).toFixed(2)),
+            transactionCount: currentBreakdowns[existingIdx].transactionCount + 1
+          };
+        } else {
+          let category: 'EFECTIVO' | 'TARJETA' | 'TRANSFERENCIA' | 'DIGITAL' | 'OTRO' = 'OTRO';
+          if (p.method.startsWith('EFECTIVO')) category = 'EFECTIVO';
+          else if (p.method.includes('TARJETA') || p.method.includes('PUNTO')) category = 'TARJETA';
+          else if (p.method === 'ZELLE' || p.method === 'PAGO_MOVIL' || p.method === 'TRANSFERENCIA') category = 'TRANSFERENCIA';
+
+          let label = p.method.replace(/_/g, ' ');
+          if (p.method === 'EFECTIVO_USD') label = 'Efectivo Dólares (Divisas)';
+          else if (p.method === 'EFECTIVO') label = 'Efectivo Bolívares (VES)';
+          else if (p.method === 'PUNTO_VENTA_DEBITO') label = 'Punto de Venta Débito (VES)';
+          else if (p.method === 'TARJETA_CREDITO') label = 'Tarjeta de Crédito';
+          else if (p.method === 'PAGO_MOVIL') label = 'Pago Móvil (VES)';
+          else if (p.method === 'TRANSFERENCIA') label = curr === 'VES' ? 'Transferencia Bancaria (VES)' : 'Transferencia Bancaria (USD)';
+          else if (p.method === 'ZELLE') label = 'Zelle (USD)';
+          else if (p.method === 'CRIPTO') label = 'Criptomonedas / USDT';
+          else if (p.method === 'CREDITO') label = 'Crédito Comercial';
+          else if (p.method === 'SALDO_A_FAVOR') label = 'Saldo a Favor / Anticipo';
+
+          currentBreakdowns.push({
+            method: p.method,
+            label,
+            category,
+            currency: curr,
+            amount: Number(amt.toFixed(2)),
+            amountUsd: Number(amtUsd.toFixed(2)),
+            transactionCount: 1
+          });
+        }
       });
 
-      this.activeCashSession.update(session => ({
-        ...session,
-        totalCashSales: Number((session.totalCashSales + cashDelta).toFixed(2)),
-        totalCardSales: Number((session.totalCardSales + cardDelta).toFixed(2)),
-        totalTransferSales: Number((session.totalTransferSales + transferDelta).toFixed(2)),
-        totalCreditSales: Number((session.totalCreditSales + creditDelta).toFixed(2)),
-        totalSales: Number((session.totalSales + grandTotalUsd).toFixed(2))
-      }));
+      this.activeCashSession.update(session => {
+        const newTotalCashUsd = Number(((session.totalCashSalesUsd || 0) + cashDeltaUsd).toFixed(2));
+        const newTotalCashVes = Number(((session.totalCashSalesVes || 0) + cashDeltaVes).toFixed(2));
+        const consolidatedCashUsd = Number((newTotalCashUsd + (newTotalCashVes / bcvRate)).toFixed(2));
+
+        const newTotalCardUsd = Number(((session.totalCardSalesUsd || 0) + cardDeltaUsd).toFixed(2));
+        const newTotalCardVes = Number(((session.totalCardSalesVes || 0) + cardDeltaVes).toFixed(2));
+        const consolidatedCardUsd = Number((newTotalCardUsd + (newTotalCardVes / bcvRate)).toFixed(2));
+
+        const newTotalTransferUsd = Number(((session.totalTransferSalesUsd || 0) + transferDeltaUsd).toFixed(2));
+        const newTotalTransferVes = Number(((session.totalTransferSalesVes || 0) + transferDeltaVes).toFixed(2));
+        const consolidatedTransferUsd = Number((newTotalTransferUsd + (newTotalTransferVes / bcvRate)).toFixed(2));
+
+        const newTotalSalesUsd = Number((session.totalSales + grandTotalUsd).toFixed(2));
+        const newTotalSalesVes = Number((newTotalSalesUsd * bcvRate).toFixed(2));
+
+        return {
+          ...session,
+          totalCashSales: consolidatedCashUsd,
+          totalCashSalesUsd: newTotalCashUsd,
+          totalCashSalesVes: newTotalCashVes,
+          totalCardSales: consolidatedCardUsd,
+          totalCardSalesUsd: newTotalCardUsd,
+          totalCardSalesVes: newTotalCardVes,
+          totalTransferSales: consolidatedTransferUsd,
+          totalTransferSalesUsd: newTotalTransferUsd,
+          totalTransferSalesVes: newTotalTransferVes,
+          totalZelleSalesUsd: Number(((session.totalZelleSalesUsd || 0) + zelleDeltaUsd).toFixed(2)),
+          totalPagoMovilSalesVes: Number(((session.totalPagoMovilSalesVes || 0) + pagoMovilDeltaVes).toFixed(2)),
+          totalCreditSales: Number((session.totalCreditSales + creditDeltaUsd).toFixed(2)),
+          totalSales: newTotalSalesUsd,
+          totalSalesVes: newTotalSalesVes,
+          methodBreakdowns: currentBreakdowns
+        };
+      });
     }
 
     // Atomic write
@@ -2902,7 +3055,7 @@ export class ErpStateService {
       'CREATE_INVOICE',
       'POS',
       `Emisión ${invoiceNumber} (${invoiceType} - ${paymentCurrency})`,
-      `Factura emitida a ${customer.name}. Nivel: ${appliedLevel}. Total: $${grandTotalUsd.toFixed(2)} (Bs. ${totalVes.toLocaleString('es-VE', { minimumFractionDigits: 2 })}). Tasa BCV: ${bcv.usdRate.toFixed(2)}. IGTF: ${appliesIgtf ? '3%' : '0%'}.${isStockAlreadyDeducted ? ' Amparo Guía: ' + options?.dispatchGuideNumbers?.join(', ') : ''}`,
+      `Factura emitida a ${customer.name}. Nivel: ${appliedLevel}. Total: $${Number(grandTotalUsd).toFixed(2)} (Bs. ${Number(totalVes).toLocaleString('es-VE', { minimumFractionDigits: 2 })}). Tasa BCV: ${Number(bcv.usdRate).toFixed(2)}. IGTF: ${appliesIgtf ? '3%' : '0%'}.${isStockAlreadyDeducted ? ' Amparo Guía: ' + options?.dispatchGuideNumbers?.join(', ') : ''}`,
       { cliente: customer.name, originQuote: options?.originQuoteNumber || null, tasaBcv: bcv.usdRate, nivelPrecio: appliedLevel },
       { invoiceNumber, totalUsd: grandTotalUsd, totalVes, items: auditDiff, pagos: payments, taxDetails, dispatchGuideNumbers: options?.dispatchGuideNumbers },
       { prismaTransaction: 'ATOMIC_COMPLETED' }
@@ -2920,7 +3073,7 @@ export class ErpStateService {
   // ==========================================
   // TRANSACTION 3: CONVERSIÓN RÁPIDA DE PRESUPUESTO EN FACTURA
   // ==========================================
-  convertQuoteToInvoice(
+  async convertQuoteToInvoice(
     quoteId: string,
     options?: {
       warehouseId?: string;
@@ -2932,7 +3085,7 @@ export class ErpStateService {
       globalDiscountPercent?: number;
       priceLevelApplied?: PriceLevelKey;
     }
-  ): { success: boolean; invoiceNumber?: string; invoice?: Invoice; message?: string } {
+  ): Promise<{ success: boolean; invoiceNumber?: string; invoice?: Invoice; message?: string }> {
     const quote = this.quotes().find(q => q.id === quoteId);
     if (!quote) return { success: false, message: 'Presupuesto no encontrado.' };
 
@@ -2959,7 +3112,7 @@ export class ErpStateService {
           }
         ];
 
-    const result = this.registerSaleInvoice(
+    const result = await this.registerSaleInvoice(
       quote.customerId,
       whId,
       saleItems,
@@ -3704,7 +3857,7 @@ export class ErpStateService {
    * Facturación consolidada a partir de una o varias Guías de Despacho.
    * Evita duplicidad en el descuento de inventario activando `isStockAlreadyDeducted: true`.
    */
-  invoiceFromDispatchGuides(
+  async invoiceFromDispatchGuides(
     guideIds: string[],
     options?: {
       payments?: PaymentRecord[];
@@ -3714,7 +3867,7 @@ export class ErpStateService {
       globalDiscountPercent?: number;
       priceLevelApplied?: PriceLevelKey;
     }
-  ): { success: boolean; invoiceNumber?: string; invoice?: Invoice; message?: string } {
+  ): Promise<{ success: boolean; invoiceNumber?: string; invoice?: Invoice; message?: string }> {
     const guides = this.dispatchGuides().filter(g => guideIds.includes(g.id));
     if (guides.length === 0) {
       return { success: false, message: 'No se encontraron Guías de Despacho válidas.' };
@@ -3760,7 +3913,7 @@ export class ErpStateService {
           }
         ];
 
-    const result = this.registerSaleInvoice(
+    const result = await this.registerSaleInvoice(
       customerId,
       warehouseId,
       itemsToInvoice,
@@ -3946,22 +4099,41 @@ export class ErpStateService {
   // ==========================================
   // TRANSACTION 5: CIERRE DE CAJA (Z-REPORT)
   // ==========================================
-  closeCashSession(countedCash: number, notes?: string): { success: boolean; session?: CashRegisterSession } {
+  closeCashSession(
+    countedCashUsd: number,
+    countedCashVes: number = 0,
+    notes?: string
+  ): { success: boolean; session?: CashRegisterSession } {
     const session = this.activeCashSession();
     if (session.status === 'CERRADA') {
       return { success: false };
     }
 
+    const bcvRate = this.bcvState().usdRate || 36.50;
     const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
-    const expectedCash = Number((session.initialAmount + session.totalCashSales).toFixed(2));
-    const cashDifference = Number((countedCash - expectedCash).toFixed(2));
+
+    const initialUsd = session.initialAmount || 0;
+    const initialVes = session.initialAmountVes || 0;
+    const cashSalesUsd = session.totalCashSalesUsd !== undefined ? session.totalCashSalesUsd : session.totalCashSales;
+    const cashSalesVes = session.totalCashSalesVes || 0;
+
+    const expectedCashUsd = Number((initialUsd + cashSalesUsd).toFixed(2));
+    const expectedCashVes = Number((initialVes + cashSalesVes).toFixed(2));
+
+    const totalCountedInUsd = Number((countedCashUsd + (countedCashVes / bcvRate)).toFixed(2));
+    const totalExpectedInUsd = Number((expectedCashUsd + (expectedCashVes / bcvRate)).toFixed(2));
+    const cashDifference = Number((totalCountedInUsd - totalExpectedInUsd).toFixed(2));
+    const cashDifferenceVes = Number((countedCashVes - expectedCashVes).toFixed(2));
 
     const closedSession: CashRegisterSession = {
       ...session,
       status: 'CERRADA',
       closeDate: nowStr,
-      countedCashAmount: countedCash,
+      countedCashAmount: totalCountedInUsd,
+      countedCashAmountUsd: countedCashUsd,
+      countedCashAmountVes: countedCashVes,
       cashDifference,
+      cashDifferenceVes,
       closingNotes: notes
     };
 
@@ -3972,17 +4144,17 @@ export class ErpStateService {
       'CASH_CLOSING',
       'FINANCE',
       `Cierre de Turno de Caja ${session.sessionCode}`,
-      `Cierre de caja efectuado. Total ventas: $${session.totalSales.toFixed(2)}. Diferencia de efectivo: $${cashDifference.toFixed(2)}.`,
-      { apertura: session.openDate, montoInicial: session.initialAmount, ventasTotal: session.totalSales },
-      { cierre: nowStr, efectivoContado: countedCash, diferenciaEfectivo: cashDifference, estado: 'CERRADA' }
+      `Cierre de caja efectuado. Total ventas: $${session.totalSales.toFixed(2)} (Bs. ${(session.totalSalesVes || session.totalSales * bcvRate).toFixed(2)}). Diferencia Efectivo: $${cashDifference.toFixed(2)} USD / Bs. ${cashDifferenceVes.toFixed(2)}.`,
+      { apertura: session.openDate, fondoInicialUsd: initialUsd, fondoInicialVes: initialVes, ventasTotal: session.totalSales },
+      { cierre: nowStr, contadoUsd: countedCashUsd, contadoVes: countedCashVes, diffUsd: cashDifference, diffVes: cashDifferenceVes, estado: 'CERRADA' }
     );
 
-    this.notify('success', 'Caja Cerrada', `Turno ${session.sessionCode} cerrado. Diferencia: $${cashDifference >= 0 ? '+' : ''}${cashDifference.toFixed(2)}`);
+    this.notify('success', 'Caja Cerrada', `Turno ${session.sessionCode} cerrado. Dif: $${cashDifference >= 0 ? '+' : ''}${cashDifference.toFixed(2)} / Bs. ${cashDifferenceVes >= 0 ? '+' : ''}${cashDifferenceVes.toFixed(2)}`);
     this.saveState();
     return { success: true, session: closedSession };
   }
 
-  reopenCashSession(initialAmount: number) {
+  reopenCashSession(initialAmountUsd: number, initialAmountVes: number = 0) {
     const user = this.authService.currentUser();
     const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
     const code = 'CAJA-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-' + (this.cashSessionHistory().length + 1).toString().padStart(2, '0');
@@ -3994,16 +4166,27 @@ export class ErpStateService {
       cashierName: user.name,
       openDate: nowStr,
       status: 'ABIERTA',
-      initialAmount,
+      initialAmount: initialAmountUsd,
+      initialAmountVes,
       totalCashSales: 0,
+      totalCashSalesUsd: 0,
+      totalCashSalesVes: 0,
       totalCardSales: 0,
+      totalCardSalesUsd: 0,
+      totalCardSalesVes: 0,
       totalTransferSales: 0,
+      totalTransferSalesUsd: 0,
+      totalTransferSalesVes: 0,
+      totalZelleSalesUsd: 0,
+      totalPagoMovilSalesVes: 0,
       totalCreditSales: 0,
-      totalSales: 0
+      totalSales: 0,
+      totalSalesVes: 0,
+      methodBreakdowns: []
     };
 
     this.activeCashSession.set(newSession);
-    this.notify('info', 'Caja Abierta', `Nuevo turno de caja iniciado con fondo de $${initialAmount.toFixed(2)}`);
+    this.notify('info', 'Caja Abierta', `Nuevo turno de caja iniciado con fondo de $${initialAmountUsd.toFixed(2)} y Bs. ${initialAmountVes.toFixed(2)}`);
     this.saveState();
   }
 
@@ -6102,5 +6285,3 @@ export class ErpStateService {
     }
   }
 }
-
-

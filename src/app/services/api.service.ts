@@ -1,7 +1,33 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, catchError, forkJoin, map, of, throwError } from 'rxjs';
-import { Account, AuditLog, BankAccount, BcvExchangeRateState, Bom, CashRegisterSession, CompanyFiscalProfile, CrmDeal, Customer, DeliveryOrder, DispatchGuide, Invoice, JournalEntry, KardexMovement, PayableBill, Product, ProductCategory, ProductionOrder, PurchaseOrder, Quote, Supplier, TreasuryTransaction, Warehouse } from '../models/erp.models';
+import { Account, AuditLog, BankAccount, BcvExchangeRateState, Bom, CashRegisterSession, CompanyFiscalProfile, CrmDeal, CurrencyCode, Customer, DeliveryOrder, DispatchGuide, Invoice, InvoiceItem, InvoiceTaxDetails, JournalEntry, KardexMovement, PayableBill, PaymentRecord, PriceLevelKey, Product, ProductCategory, ProductionOrder, PurchaseOrder, Quote, Supplier, TreasuryTransaction, Warehouse } from '../models/erp.models';
+
+export interface CreateInvoiceRequest {
+  customerId: string;
+  warehouseId: string;
+  invoiceDate: string;
+  type: Invoice['type'];
+  baseCurrency: CurrencyCode;
+  paymentCurrency: CurrencyCode;
+  priceLevelApplied: PriceLevelKey;
+  items: Array<{
+    productId: string;
+    quantity: number;
+    unitPrice: number;
+    discountPercent: number;
+    priceLevel: PriceLevelKey;
+  }>;
+  payments: Array<Pick<PaymentRecord, 'method' | 'amount' | 'currency' | 'reference'>>;
+  sellerName: string;
+  sellerId?: string;
+  creditChangeAsAdvance?: boolean;
+  globalDiscountPercent?: number;
+  customIvaRate?: number;
+  appliesIgtfManual?: boolean | null;
+  isStockAlreadyDeducted?: boolean;
+  dispatchGuideNumbers?: string[];
+}
 
 export interface StockAdjustmentPayload {
   productId: string;
@@ -31,6 +57,86 @@ export class ApiService {
     return {
       ...raw,
       date: raw.date ?? raw.movementDate ?? ''
+    };
+  }
+
+  private normalizeInvoice(raw: Record<string, unknown>): Invoice {
+    const number = (value: unknown) => Number(value ?? 0);
+    const text = (value: unknown) => typeof value === 'string' ? value : '';
+    const customer = raw['customer'] as { name?: unknown; taxId?: unknown } | null | undefined;
+    const rawItems = Array.isArray(raw['items']) ? raw['items'] as Record<string, unknown>[] : [];
+    const rawTaxDetails = raw['taxDetails'] as Partial<InvoiceTaxDetails> | null | undefined;
+    const taxDetails: InvoiceTaxDetails = rawTaxDetails ? {
+      taxableBase: number(rawTaxDetails.taxableBase),
+      exemptBase: number(rawTaxDetails.exemptBase),
+      ivaPercent: number(rawTaxDetails.ivaPercent),
+      ivaAmount: number(rawTaxDetails.ivaAmount),
+      appliesIgtf: Boolean(rawTaxDetails.appliesIgtf),
+      igtfPercent: number(rawTaxDetails.igtfPercent),
+      igtfBase: number(rawTaxDetails.igtfBase),
+      igtfAmount: number(rawTaxDetails.igtfAmount)
+    } : {
+      taxableBase: number(raw['taxTaxableBase']),
+      exemptBase: number(raw['taxExemptBase']),
+      ivaPercent: number(raw['taxIvaPercent']),
+      ivaAmount: number(raw['taxIvaAmount']),
+      appliesIgtf: Boolean(raw['taxAppliesIgtf']),
+      igtfPercent: number(raw['taxIgtfPercent']),
+      igtfBase: number(raw['taxIgtfBase']),
+      igtfAmount: number(raw['taxIgtfAmount'])
+    };
+    const payments = Array.isArray(raw['payments']) ? raw['payments'] as PaymentRecord[] : [];
+    const items: InvoiceItem[] = rawItems.map(item => ({
+      productId: text(item['productId']),
+      sku: text(item['sku']),
+      name: text(item['name']),
+      unit: text(item['unit']) || 'UND',
+      quantity: number(item['quantity']),
+      unitPrice: number(item['unitPrice']),
+      costPrice: number(item['costPrice']),
+      priceLevel: item['priceLevel'] as PriceLevelKey | undefined,
+      discountPercent: number(item['discountPercent']),
+      isTaxExempt: Boolean(item['isTaxExempt']),
+      taxRate: number(item['taxRate']),
+      subtotal: number(item['subtotal']),
+      taxAmount: number(item['taxAmount']),
+      total: number(item['total'])
+    }));
+
+    return {
+      id: text(raw['id']),
+      invoiceNumber: text(raw['invoiceNumber']),
+      customerId: text(raw['customerId']),
+      customerName: text(raw['customerName']) || text(customer?.name),
+      customerTaxId: text(raw['customerTaxId']) || text(customer?.taxId),
+      warehouseId: text(raw['warehouseId']),
+      date: text(raw['date']) || text(raw['invoiceDate']),
+      type: raw['type'] as Invoice['type'],
+      status: raw['status'] === 'ANULADA' ? 'ANULADA' : 'EMITIDA',
+      items,
+      baseCurrency: (raw['baseCurrency'] as CurrencyCode | undefined) || 'USD',
+      paymentCurrency: (raw['paymentCurrency'] as CurrencyCode | undefined) || 'VES',
+      bcvRate: number(raw['bcvRate']),
+      eurRate: number(raw['eurRate']),
+      rateOrigin: raw['rateOrigin'] as Invoice['rateOrigin'],
+      priceLevelApplied: (raw['priceLevelApplied'] as PriceLevelKey | undefined) || 'price1',
+      subtotal: number(raw['subtotal']),
+      discountGlobalPercent: number(raw['discountGlobalPercent']),
+      discountTotal: number(raw['discountTotal']),
+      taxDetails,
+      taxTotal: number(raw['taxTotal']),
+      total: number(raw['total']),
+      totalVes: number(raw['totalVes']),
+      totalEur: number(raw['totalEur']),
+      payments,
+      sellerId: text(raw['sellerId']),
+      sellerName: text(raw['sellerName']),
+      digitalSeal: text(raw['digitalSeal']) || undefined,
+      quoteOriginNumber: text(raw['quoteOriginNumber']) || undefined,
+      dispatchGuideNumbers: Array.isArray(raw['dispatchGuideNumbers']) ? raw['dispatchGuideNumbers'] as string[] : undefined,
+      dispatchControlNumbers: Array.isArray(raw['dispatchControlNumbers']) ? raw['dispatchControlNumbers'] as string[] : undefined,
+      deliveryOrderNumbers: Array.isArray(raw['deliveryOrderNumbers']) ? raw['deliveryOrderNumbers'] as string[] : undefined,
+      isStockAlreadyDeducted: Boolean(raw['isStockAlreadyDeducted'])
     };
   }
 
@@ -138,7 +244,8 @@ export class ApiService {
   }
 
   getInvoices(): Observable<Invoice[]> {
-    return this.http.get<Invoice[]>(`${this.baseUrl}/invoices`).pipe(
+    return this.http.get<Record<string, unknown>[]>(`${this.baseUrl}/invoices`).pipe(
+      map(invoices => invoices.map(invoice => this.normalizeInvoice(invoice))),
       catchError(() => of([]))
     );
   }
@@ -223,8 +330,8 @@ export class ApiService {
     return this.http.delete<void>(`${this.baseUrl}/products/${id}`);
   }
 
-  createInvoice(invoice: Invoice): Observable<Invoice> {
-    return this.http.post<Invoice>(`${this.baseUrl}/invoices`, invoice);
+  createInvoice(invoice: CreateInvoiceRequest): Observable<Pick<Invoice, 'id' | 'invoiceNumber'>> {
+    return this.http.post<Pick<Invoice, 'id' | 'invoiceNumber'>>(`${this.baseUrl}/invoices`, invoice);
   }
 
   getBoms(): Observable<Bom[]> {
