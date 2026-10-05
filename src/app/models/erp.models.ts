@@ -263,6 +263,19 @@ export interface Customer {
   customerType: 'EMPRESA' | 'PERSONA_NATURAL' | 'FINAL_CONSUMIDOR';
 }
 
+export interface CustomerAdvanceMovement {
+  id: string;
+  customerId: string;
+  date: string;
+  type: 'CREDIT_ADDED' | 'CREDIT_USED';
+  amountUsd: number;
+  amountVes: number;
+  originInvoiceId?: string;
+  originInvoiceNumber?: string;
+  notes: string;
+  registeredBy: string;
+}
+
 export interface InvoiceItem {
   productId: string;
   sku: string;
@@ -290,6 +303,7 @@ export type PaymentMethod =
   | 'TRANSFERENCIA' 
   | 'ZELLE' 
   | 'SALDO_A_FAVOR'
+  | 'CRIPTO'
   | 'CREDITO';
 
 export interface CompanyFiscalProfile {
@@ -373,12 +387,14 @@ export interface Invoice {
   total: number;                  // Total general en Moneda Base (USD)
   totalVes: number;               // Total equivalente en Bolívares (VES) a tasa BCV
   totalEur: number;               // Total equivalente en Euros (EUR)
-  
+
   // Cobro en Caja y Cambio / Vuelto
   cashTendered?: number;          // Monto con el que pagó el cliente (en paymentCurrency)
   cashChangeDue?: number;         // Vuelto / cambio a entregar al cliente (en paymentCurrency)
   cashChangeDueVes?: number;      // Vuelto equivalente en Bolívares (VES)
   cashChangeDueUsd?: number;      // Vuelto equivalente en Dólares ($ USD)
+  retainedChangeAsCustomerCredit?: number;    // Vuelto retenido como saldo a favor en cuenta del cliente ($ USD)
+  retainedChangeAsCustomerCreditVes?: number; // Vuelto retenido equivalente en Bolívares (VES)
   
   payments: PaymentRecord[];
   sellerId: string;

@@ -99,6 +99,10 @@ export class ApiService {
     );
   }
 
+  updateFiscalProfile(profile: Partial<CompanyFiscalProfile>): Observable<CompanyFiscalProfile> {
+    return this.http.put<CompanyFiscalProfile>(`${this.baseUrl}/fiscal/company-profile`, profile);
+  }
+
   createCategory(category: Partial<ProductCategory>): Observable<ProductCategory> {
     return this.http.post<ProductCategory>(`${this.baseUrl}/categories`, category);
   }

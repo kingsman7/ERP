@@ -18,6 +18,7 @@ import {
   PurchaseOrder,
   PurchaseOrderItem,
   Customer,
+  CustomerAdvanceMovement,
   Invoice,
   InvoiceItem,
   Quote,
@@ -228,7 +229,13 @@ export class ErpStateService {
   }
 
   private loadAudit(): Observable<boolean> {
-    return this.apiService.getAuditLogs().pipe(tap(logs => this.auditLogs.set(logs)), map(() => true));
+    return forkJoin({ 
+      logs: this.apiService.getAuditLogs(),
+      users: this.authService.loadUsersFromBackend()
+    }).pipe(
+      tap(({ logs, users }) => { this.auditLogs.set(logs) }),
+      map(() => true)
+    );
   }
 
   private loadCashSessions(): Observable<boolean> {
@@ -432,9 +439,19 @@ export class ErpStateService {
     return basePlan ? basePlan.includedTabs.includes(tab) : true;
   }
 
-  updateCompanyProfile(updated: Partial<CompanyFiscalProfile>) {
-    this.companyProfile.update(prev => ({ ...prev, ...updated }));
-    this.saveState();
+  updateCompanyProfile(updated: Partial<CompanyFiscalProfile>): Observable<CompanyFiscalProfile> {
+    return this.apiService.updateFiscalProfile(updated).pipe(
+      tap({
+        next: () => {
+          this.companyProfile.update(prev => ({ ...prev, ...updated }));
+          this.notify('success', 'Perfil Fiscal Actualizado', 'El perfil fiscal de la empresa ha sido actualizado correctamente.');
+          this.saveState();
+        },
+        error: (err) => {
+          this.notify('error', 'Error al Actualizar Perfil Fiscal', 'Ocurrió un error al actualizar el perfil fiscal de la empresa.');
+        }
+      })
+    );
   }
 
   setSpecialTaxpayerStatus(isSpecial: boolean) {
@@ -504,6 +521,29 @@ export class ErpStateService {
       phone: '+52 81 8150 3344',
       address: 'Av. Constitución 2200, Monterrey',
       customerType: 'EMPRESA'
+    }
+  ]);
+
+  readonly customerAdvanceMovements = signal<CustomerAdvanceMovement[]>([
+    {
+      id: 'adv-init-01',
+      customerId: 'cust-01',
+      date: '2026-09-28',
+      type: 'CREDIT_ADDED',
+      amountUsd: 25.00,
+      amountVes: 912.50,
+      notes: 'Vuelto retenido en caja por falta de cambio físico en efectivo de compra anterior.',
+      registeredBy: 'Admin Sistema'
+    },
+    {
+      id: 'adv-init-02',
+      customerId: 'cust-04',
+      date: '2026-09-30',
+      type: 'CREDIT_ADDED',
+      amountUsd: 15.00,
+      amountVes: 547.50,
+      notes: 'Anticipo acreditado para próximas compras.',
+      registeredBy: 'Admin Sistema'
     }
   ]);
 
@@ -2356,7 +2396,10 @@ export class ErpStateService {
     if (method === 'PAGO_MOVIL' || method === 'PUNTO_VENTA_DEBITO' || method === 'TARJETA_CREDITO') {
       return true;
     }
-    if ((method === 'EFECTIVO' || method === 'TRANSFERENCIA' || method === 'CREDITO') && (currency === 'VES' || !currency)) {
+    if ((method === 'EFECTIVO' || method === 'TRANSFERENCIA' || method === 'CREDITO' || method === 'SALDO_A_FAVOR') && currency === 'VES') {
+      return true;
+    }
+    if ((method === 'EFECTIVO' || method === 'TRANSFERENCIA' || method === 'CREDITO') && !currency) {
       return true;
     }
     return false;
@@ -2367,10 +2410,10 @@ export class ErpStateService {
    * (Efectivo USD/EUR, Zelle, plataformas internacionales, criptomonedas, etc.)
    */
   isForeignCurrencyPaymentMethod(method: PaymentMethod, currency?: CurrencyCode): boolean {
-    if (method === 'EFECTIVO_USD' || method === 'EFECTIVO_EUR' || method === 'ZELLE') {
+    if (method === 'EFECTIVO_USD' || method === 'EFECTIVO_EUR' || method === 'ZELLE' || method === 'CRIPTO') {
       return true;
     }
-    if ((method === 'EFECTIVO' || method === 'TRANSFERENCIA' || method === 'CREDITO') && (currency === 'USD' || currency === 'EUR')) {
+    if ((method === 'EFECTIVO' || method === 'TRANSFERENCIA' || method === 'CREDITO' || method === 'SALDO_A_FAVOR') && (currency === 'USD' || currency === 'EUR' || !currency)) {
       return true;
     }
     return false;
@@ -2485,17 +2528,17 @@ export class ErpStateService {
       dispatchGuideNumbers?: string[];
       dispatchControlNumbers?: string[];
       deliveryOrderNumbers?: string[];
-       cashTendered?: number;
+      cashTendered?: number;
       cashChangeDue?: number;
-      creditChangeAsAdvance?: boolean;
+      saveChangeAsCustomerCredit?: boolean;
     }
   ): { success: boolean; invoiceNumber?: string; message?: string; invoice?: Invoice } {
     const user = this.authService.currentUser();
-    const customer = this.customers().find(c => c.id === customerId);
-    const warehouse = this.warehouses().find(w => w.id === warehouseId);
+    const customer = this.customers().find(c => c.id === customerId) || this.customers()[0];
+    const warehouse = this.warehouses().find(w => w.id === warehouseId) || this.warehouses()[0];
 
     if (!customer || !warehouse || items.length === 0) {
-      return { success: false, message: 'Datos incompletos para generar la factura.' };
+      return { success: false, message: 'Datos incompletos para generar la factura. Verifique productos y almacén.' };
     }
 
     const isStockAlreadyDeducted = Boolean(options?.isStockAlreadyDeducted);
@@ -2505,7 +2548,7 @@ export class ErpStateService {
     if (!isStockAlreadyDeducted) {
       for (const item of items) {
         const prod = currentProducts.find(p => p.id === item.productId);
-         if (!prod) {
+        if (!prod) {
           return { success: false, message: `Producto con ID ${item.productId} no encontrado.` };
         }
         const isService = prod.itemType === 'SERVICE' || prod.unit === 'HRA' || prod.unit === 'SRV' || prod.unit === 'GLB';
@@ -2618,8 +2661,8 @@ export class ErpStateService {
           balanceQty: newTotalStock,
           balanceAverageCost: prod.costPrice,
           balanceTotalValuation: Number((newTotalStock * prod.costPrice).toFixed(2)),
-          registeredByUserId: user.id,
-          registeredByUserName: user.name
+          registeredByUserId: user?.id || 'usr-master-00',
+          registeredByUserName: user?.name || 'Administrador'
         });
 
         auditDiff[prod.sku] = {
@@ -2677,8 +2720,8 @@ export class ErpStateService {
     };
 
     // Calculate cash tendered and multi-currency change / vuelto
-    const tendered = options?.cashTendered !== undefined ? Number(options.cashTendered.toFixed(2)) : undefined;
-    const changeDue = options?.cashChangeDue !== undefined ? Number(options.cashChangeDue.toFixed(2)) : undefined;
+    const tendered = options?.cashTendered !== undefined && options?.cashTendered !== null ? Number(Number(options.cashTendered).toFixed(2)) : undefined;
+    const changeDue = options?.cashChangeDue !== undefined && options?.cashChangeDue !== null ? Number(Number(options.cashChangeDue).toFixed(2)) : undefined;
     let cashChangeDueUsd: number | undefined = undefined;
     let cashChangeDueVes: number | undefined = undefined;
 
@@ -2722,9 +2765,12 @@ export class ErpStateService {
       totalVes,
       totalEur,
       cashTendered: tendered,
+      cashChangeDue: changeDue,
+      cashChangeDueUsd,
+      cashChangeDueVes,
       payments,
-      sellerId: user.id,
-      sellerName: user.name,
+      sellerId: user?.id || 'usr-master-00',
+      sellerName: user?.name || 'Administrador / Cajero',
       digitalSeal: 'UUID-' + Math.random().toString(36).substring(2, 10).toUpperCase() + '-' + Date.now(),
       quoteOriginNumber: options?.originQuoteNumber,
       dispatchGuideNumbers: options?.dispatchGuideNumbers,
@@ -2732,6 +2778,27 @@ export class ErpStateService {
       deliveryOrderNumbers: options?.deliveryOrderNumbers,
       isStockAlreadyDeducted
     };
+
+    // 1. Acreditación de vuelto como Saldo a Favor / Anticipo si fue solicitado
+    if (options?.saveChangeAsCustomerCredit && cashChangeDueUsd && cashChangeDueUsd > 0) {
+      newInvoice.retainedChangeAsCustomerCredit = cashChangeDueUsd;
+      newInvoice.retainedChangeAsCustomerCreditVes = cashChangeDueVes;
+      this.addCustomerCredit(
+        customer.id,
+        cashChangeDueUsd,
+        invoiceNumber,
+        `Vuelto retenido en caja por falta de cambio físico de factura ${invoiceNumber}.`
+      );
+    }
+
+    // 2. Descuento de Saldo a Favor si fue utilizado como método de pago
+    const saldoPayments = payments.filter(p => p.method === 'SALDO_A_FAVOR');
+    for (const sp of saldoPayments) {
+      const amtUsd = sp.currency === 'VES'
+        ? Number((sp.amount / bcv.usdRate).toFixed(2))
+        : (sp.currency === 'EUR' ? Number(((sp.amount * (bcv.eurRate || bcv.usdRate)) / bcv.usdRate).toFixed(2)) : sp.amount);
+      this.useCustomerCredit(customer.id, amtUsd, invoiceNumber);
+    }
 
     // Update Cash Session if active
     if (this.activeCashSession().status === 'ABIERTA') {
@@ -4327,6 +4394,8 @@ export class ErpStateService {
     phone?: string;
     address?: string;
     customerType?: 'EMPRESA' | 'PERSONA_NATURAL' | 'FINAL_CONSUMIDOR';
+    advanceBalanceUsd?: number;
+    advanceBalanceVes?: number;
   }): Observable<Customer> {
 
     const cleanTaxId = data.taxId.trim().toUpperCase();
@@ -4337,7 +4406,9 @@ export class ErpStateService {
       email: data.email ? data.email.trim() : '',
       phone: data.phone ? data.phone.trim() : '',
       address: data.address ? data.address.trim() : '',
-      customerType: data.customerType || 'EMPRESA'
+      customerType: data.customerType || 'EMPRESA',
+      advanceBalanceVes: data.advanceBalanceVes || 0,
+      advanceBalanceUsd: data.advanceBalanceUsd || 0,
     };
 
     return this.apiService.createCustomer(newCustomer).pipe(
@@ -4362,6 +4433,162 @@ export class ErpStateService {
       }),
       
     );
+  }
+
+  /**
+   * Acredita saldo a favor (anticipo en custodia) a un cliente identificado.
+   * Utilizado cuando el cliente paga de más y la caja no tiene cambio físico, o abona anticipadamente.
+   */
+  addCustomerCredit(customerId: string, amountUsd: number, originInvoiceNumber?: string, notes?: string): boolean {
+    if (amountUsd <= 0) return false;
+    const bcv = this.bcvState();
+    const amountVes = Number((amountUsd * bcv.usdRate).toFixed(2));
+    const user = this.authService.currentUser();
+    const cust = this.customers().find(c => c.id === customerId);
+
+    if (!cust) return false;
+
+    this.customers.update(custs => custs.map(c => {
+      if (c.id === customerId) {
+        const current = c.advanceBalanceUsd || 0;
+        return { ...c, advanceBalanceUsd: Number((current + amountUsd).toFixed(2)) };
+      }
+      return c;
+    }));
+
+    const movement: CustomerAdvanceMovement = {
+      id: 'adv-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+      customerId,
+      date: new Date().toISOString().split('T')[0],
+      type: 'CREDIT_ADDED',
+      amountUsd: Number(amountUsd.toFixed(2)),
+      amountVes,
+      originInvoiceNumber,
+      notes: notes || `Acreditación de saldo a favor / vuelto retenido (${originInvoiceNumber ? 'Factura ' + originInvoiceNumber : 'Depósito anticipado'}).`,
+      registeredBy: user?.name || 'Cajero'
+    };
+
+    this.customerAdvanceMovements.update(prev => [movement, ...prev]);
+
+    this.logAudit(
+      'UPDATE_CUSTOMER',
+      'SALES',
+      `Saldo a Favor Acreditado: ${cust.name}`,
+      `Se acreditó saldo a favor de $${amountUsd.toFixed(2)} USD (Bs. ${amountVes.toFixed(2)}) al cliente ${cust.name} (${cust.taxId}). Motivo: ${movement.notes}`,
+      { previousBalanceUsd: cust.advanceBalanceUsd || 0 },
+      { newBalanceUsd: Number(((cust.advanceBalanceUsd || 0) + amountUsd).toFixed(2)) }
+    );
+
+    this.notify(
+      'success',
+      'Saldo a Favor Acreditado',
+      `Se guardaron $${amountUsd.toFixed(2)} USD (Bs. ${amountVes.toFixed(2)}) como saldo a favor de ${cust.name}.`
+    );
+
+    this.saveState();
+    return true;
+  }
+
+  /**
+   * Consume saldo a favor (anticipo en custodia) de un cliente para saldar una venta.
+   */
+  useCustomerCredit(customerId: string, amountUsd: number, invoiceNumber?: string): boolean {
+    if (amountUsd <= 0) return false;
+    const bcv = this.bcvState();
+    const amountVes = Number((amountUsd * bcv.usdRate).toFixed(2));
+    const user = this.authService.currentUser();
+    const cust = this.customers().find(c => c.id === customerId);
+
+    if (!cust) return false;
+
+    let success = false;
+    this.customers.update(custs => custs.map(c => {
+      if (c.id === customerId) {
+        const current = c.advanceBalanceUsd || 0;
+        const newBal = Math.max(0, Number((current - amountUsd).toFixed(2)));
+        success = true;
+        return { ...c, advanceBalanceUsd: newBal };
+      }
+      return c;
+    }));
+
+    if (success) {
+      const movement: CustomerAdvanceMovement = {
+        id: 'adv-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+        customerId,
+        date: new Date().toISOString().split('T')[0],
+        type: 'CREDIT_USED',
+        amountUsd: Number(amountUsd.toFixed(2)),
+        amountVes,
+        originInvoiceNumber: invoiceNumber,
+        notes: `Consumo de saldo a favor aplicado al pago de la factura ${invoiceNumber || 'POS'}.`,
+        registeredBy: user?.name || 'Cajero'
+      };
+
+      this.customerAdvanceMovements.update(prev => [movement, ...prev]);
+
+      this.logAudit(
+        'UPDATE_CUSTOMER',
+        'SALES',
+        `Saldo a Favor Consumido: ${cust.name}`,
+        `Se descontó saldo a favor de $${amountUsd.toFixed(2)} USD (Bs. ${amountVes.toFixed(2)}) del cliente ${cust.name} en la factura ${invoiceNumber}.`,
+        { previousBalanceUsd: cust.advanceBalanceUsd || 0 },
+        { newBalanceUsd: Math.max(0, Number(((cust.advanceBalanceUsd || 0) - amountUsd).toFixed(2))) }
+      );
+
+      this.saveState();
+    }
+    return success;
+  }
+
+  /**
+   * Reembolso o egreso en efectivo/pago móvil de un saldo a favor en custodia.
+   */
+  refundCustomerCredit(customerId: string, amountUsd: number, reason: string): boolean {
+    if (amountUsd <= 0) return false;
+    const bcv = this.bcvState();
+    const amountVes = Number((amountUsd * bcv.usdRate).toFixed(2));
+    const user = this.authService.currentUser();
+    const cust = this.customers().find(c => c.id === customerId);
+
+    if (!cust || (cust.advanceBalanceUsd || 0) < amountUsd) {
+      this.notify('error', 'Saldo Insuficiente', 'El monto a devolver supera el saldo disponible del cliente.');
+      return false;
+    }
+
+    this.customers.update(custs => custs.map(c => {
+      if (c.id === customerId) {
+        const current = c.advanceBalanceUsd || 0;
+        return { ...c, advanceBalanceUsd: Math.max(0, Number((current - amountUsd).toFixed(2))) };
+      }
+      return c;
+    }));
+
+    const movement: CustomerAdvanceMovement = {
+      id: 'adv-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+      customerId,
+      date: new Date().toISOString().split('T')[0],
+      type: 'CREDIT_USED',
+      amountUsd: Number(amountUsd.toFixed(2)),
+      amountVes,
+      notes: `Reembolso / Devolución de saldo a favor: ${reason}`,
+      registeredBy: user?.name || 'Cajero'
+    };
+
+    this.customerAdvanceMovements.update(prev => [movement, ...prev]);
+
+    this.logAudit(
+      'UPDATE_CUSTOMER',
+      'SALES',
+      `Reembolso de Saldo a Favor: ${cust.name}`,
+      `Devolución de $${amountUsd.toFixed(2)} USD (Bs. ${amountVes.toFixed(2)}) a ${cust.name}. Motivo: ${reason}`,
+      { previousBalanceUsd: cust.advanceBalanceUsd || 0 },
+      { newBalanceUsd: Math.max(0, Number(((cust.advanceBalanceUsd || 0) - amountUsd).toFixed(2))) }
+    );
+
+    this.notify('info', 'Reembolso Procesado', `Se liquidó el saldo de $${amountUsd.toFixed(2)} USD a ${cust.name}.`);
+    this.saveState();
+    return true;
   }
 
   // Create Quote Helper

@@ -15,6 +15,7 @@ import {
 } from '../../models/erp.models';
 import { exportSalesToCsv, exportSaleItemLinesToCsv } from '../../utils/csv-exporter';
 import { DecimalPipe } from '@angular/common';
+import { InvoiceModal } from '../invoice-modal/invoice-modal';
 
 interface CartItem {
   product: Product;
@@ -34,7 +35,7 @@ export interface SplitPaymentLine {
 @Component({
   selector: 'app-sales-pos',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, MatIconModule, DecimalPipe],
+  imports: [ReactiveFormsModule, MatIconModule, DecimalPipe, InvoiceModal],
   template: `
     <div class="space-y-4 pb-12">
       
@@ -108,7 +109,7 @@ export interface SplitPaymentLine {
                 <div class="flex items-center space-x-1.5 font-mono font-bold text-slate-800 text-[11px]">
                   <span>USD: Bs. {{ stateService.bcvState().usdRate  | number: '1.2-2' }}</span>
                   <span class="text-slate-300">|</span>
-                  <span>EUR: Bs. {{ stateService.bcvState().eurRate  | number: '1.2-2' }}</span>
+                  <span>EUR: Bs. {{ stateService.bcvState().eurRate.toFixed(2) }}</span>
                 </div>
                 <span class="text-[9px] text-slate-400">
                   {{ stateService.bcvState().origin === 'API_BCV' ? 'BCV Oficial ' + stateService.bcvState().bcvOfficialDate : 'Tasa Manual' }}
@@ -245,10 +246,10 @@ export interface SplitPaymentLine {
                         {{ selectedPriceTierLabel() }}
                       </span>
                       <span class="text-sm font-mono font-bold text-slate-900">
-                        \${{ getAppliedProductPrice(product)  | number: '1.2-2' }}
+                        \${{ getAppliedProductPrice(product)  | number: '1.2-2'  }}
                       </span>
                       <span class="text-[10px] font-mono text-emerald-700 block">
-                        Bs. {{ (getAppliedProductPrice(product) * stateService.bcvState().usdRate)  | number: '1.2-2' }}
+                        Bs. {{ (getAppliedProductPrice(product) * stateService.bcvState().usdRate)  | number: '1.2-2'  }}
                       </span>
                     </div>
 
@@ -350,17 +351,28 @@ export interface SplitPaymentLine {
                     <span class="font-mono font-bold text-slate-700">{{ cust.taxId }}</span>
                     <span class="truncate max-w-[220px] text-slate-400">{{ cust.email || cust.phone || cust.customerType }}</span>
                   </div>
-                  @if (customerAdvanceBalanceUsd() > 0) {
-                    <div class="flex items-center justify-between mt-1 px-2 py-1 rounded-lg bg-amber-50 border border-amber-200 text-[10px]">
-                      <span class="flex items-center space-x-1 text-amber-900 font-semibold">
-                        <mat-icon class="text-xs text-amber-600">savings</mat-icon>
-                        <span>Saldo a favor: \${{ customerAdvanceBalanceUsd() | number: '1.2-2' }} (Bs. {{ cust.advanceBalanceVes | number: '1.2-2' }})</span>
-                      </span>
+
+                  @if (cust.advanceBalanceUsd && cust.advanceBalanceUsd > 0) {
+                    <div class="mt-1.5 p-2 rounded-xl bg-emerald-50 border border-emerald-200/90 flex items-center justify-between gap-2 shadow-2xs">
+                      <div class="flex items-center space-x-1.5 text-emerald-900">
+                        <mat-icon class="text-emerald-600 text-base">account_balance_wallet</mat-icon>
+                        <div class="text-[11px] leading-tight">
+                          <span class="font-bold text-emerald-950">Saldo a Favor disponible:</span>
+                          <div class="font-mono text-xs font-extrabold text-emerald-700">
+                            \${{ cust.advanceBalanceUsd  | number: '1.2-2'  }} USD
+                            <span class="text-[10px] font-normal text-emerald-800">
+                              (Bs. {{ (cust.advanceBalanceUsd * stateService.bcvState().usdRate)  | number: '1.2-2'  }})
+                            </span>
+                          </div>
+                        </div>
+                      </div>
                       <button
                         type="button"
-                        (click)="applyAdvanceBalance()"
-                        class="px-2 py-0.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold border border-amber-300 cursor-pointer">
-                        Aplicar a esta venta
+                        (click)="applyCustomerCreditToPayment()"
+                        title="Aplicar saldo a favor al pago de esta venta"
+                        class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] flex items-center space-x-1 shadow-2xs transition-all cursor-pointer shrink-0">
+                        <mat-icon class="text-xs">bolt</mat-icon>
+                        <span>Aplicar al Pago</span>
                       </button>
                     </div>
                   }
@@ -389,8 +401,8 @@ export interface SplitPaymentLine {
                         <div class="flex items-center space-x-2 mt-0.5 text-[10px] text-slate-400 font-mono">
                           <span>SKU: {{ item.product.sku }}</span>
                           <span>•</span>
-                          <span>\${{ getItemUnitPrice(item)  | number: '1.2-2' }} / {{ item.product.unit || 'UND' }}</span>
-                          <span>(Bs. {{ (getItemUnitPrice(item) * stateService.bcvState().usdRate)  | number: '1.2-2' }})</span>
+                          <span>\${{ getItemUnitPrice(item)  | number: '1.2-2'  }} / {{ item.product.unit || 'UND' }}</span>
+                          <span>(Bs. {{ (getItemUnitPrice(item) * stateService.bcvState().usdRate)  | number: '1.2-2'  }})</span>
                         </div>
                       </div>
 
@@ -435,10 +447,10 @@ export interface SplitPaymentLine {
                       <!-- Line Subtotal Amount in USD and VES -->
                       <div class="text-right">
                         <span class="font-mono font-bold text-xs text-slate-900 block">
-                          \${{ getItemSubtotal(item)  | number: '1.2-2' }}
+                          \${{ getItemSubtotal(item)  | number: '1.2-2'  }}
                         </span>
                         <span class="font-mono text-[10px] text-emerald-700 block">
-                          Bs. {{ (getItemSubtotal(item) * stateService.bcvState().usdRate)  | number: '1.2-2' }}
+                          Bs. {{ (getItemSubtotal(item) * stateService.bcvState().usdRate)  | number: '1.2-2'  }}
                         </span>
                       </div>
 
@@ -458,7 +470,7 @@ export interface SplitPaymentLine {
               <div class="p-2.5 bg-slate-100/70 border-t border-slate-200/80 flex items-center justify-between text-xs">
                 <span class="text-slate-600 font-medium">Subtotal Renglones ({{ cartTotalUnits() }} und):</span>
                 <div class="text-right">
-                  <span class="font-mono font-bold text-slate-900">\${{ cartSubtotalGross()  | number: '1.2-2' }}</span>
+                  <span class="font-mono font-bold text-slate-900">\${{ cartSubtotalGross()  | number: '1.2-2'  }}</span>
                   <span class="text-[10px] font-mono text-slate-500 block">
                     Bs. {{ (cartSubtotalGross() * stateService.bcvState().usdRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
                   </span>
@@ -503,24 +515,24 @@ export interface SplitPaymentLine {
               <div class="space-y-1 text-xs">
                 <div class="flex justify-between text-slate-500">
                   <span>Subtotal Bruto:</span>
-                  <span class="font-mono font-medium text-slate-800">\${{ cartSubtotalGross()  | number: '1.2-2' }}</span>
+                  <span class="font-mono font-medium text-slate-800">\${{ cartSubtotalGross()  | number: '1.2-2'  }}</span>
                 </div>
 
                 @if (computedTaxDetails().exemptBase > 0) {
                   <div class="flex justify-between text-amber-700">
                     <span>Base Exenta (0% IVA):</span>
-                    <span class="font-mono font-medium">\${{ computedTaxDetails().exemptBase  | number: '1.2-2' }}</span>
+                    <span class="font-mono font-medium">\${{ computedTaxDetails().exemptBase  | number: '1.2-2'  }}</span>
                   </div>
                 }
 
                 <div class="flex justify-between text-slate-500">
                   <span>Base Gravable (IVA {{ (selectedIvaRate() * 100).toFixed(0) }}%):</span>
-                  <span class="font-mono font-medium text-slate-800">\${{ computedTaxDetails().taxableBase  | number: '1.2-2' }}</span>
+                  <span class="font-mono font-medium text-slate-800">\${{ computedTaxDetails().taxableBase  | number: '1.2-2'  }}</span>
                 </div>
 
                 <div class="flex justify-between text-slate-500">
                   <span>Impuesto IVA Liquidado:</span>
-                  <span class="font-mono font-medium text-slate-800">\${{ computedTaxDetails().ivaAmount  | number: '1.2-2' }}</span>
+                  <span class="font-mono font-medium text-slate-800">\${{ computedTaxDetails().ivaAmount  | number: '1.2-2'  }}</span>
                 </div>
 
                 <!-- IGTF Alert & SENIAT Status -->
@@ -531,11 +543,11 @@ export interface SplitPaymentLine {
                         <mat-icon class="text-xs">account_balance</mat-icon>
                         <span>Percepción IGTF 3% (Divisas / SENIAT):</span>
                       </span>
-                      <span class="block text-[9px] text-indigo-500 font-normal">Base imponible en divisas: \${{ computedTaxDetails().igtfBase  | number: '1.2-2' }}</span>
+                      <span class="block text-[9px] text-indigo-500 font-normal">Base imponible en divisas: \${{ computedTaxDetails().igtfBase  | number: '1.2-2'  }}</span>
                     </div>
                     <div class="text-right">
-                      <span class="font-mono font-bold text-xs">\${{ computedTaxDetails().igtfAmount  | number: '1.2-2' }}</span>
-                      <span class="block text-[9px] text-indigo-600 font-mono">Bs. {{ (computedTaxDetails().igtfAmount * stateService.bcvState().usdRate)  | number: '1.2-2' }}</span>
+                      <span class="font-mono font-bold text-xs">\${{ computedTaxDetails().igtfAmount  | number: '1.2-2'  }}</span>
+                      <span class="block text-[9px] text-indigo-600 font-mono">Bs. {{ (computedTaxDetails().igtfAmount * stateService.bcvState().usdRate)  | number: '1.2-2'  }}</span>
                     </div>
                   </div>
                 } @else {
@@ -559,7 +571,7 @@ export interface SplitPaymentLine {
                 <div class="flex justify-between items-baseline">
                   <div>
                     <span class="text-[10px] text-slate-400 font-semibold tracking-wider uppercase block">TOTAL GENERAL FACTURA</span>
-                    <span class="text-xl font-bold font-mono text-emerald-400">\${{ grandTotalUsd()  | number: '1.2-2' }}</span>
+                    <span class="text-xl font-bold font-mono text-emerald-400">\${{ grandTotalUsd()  | number: '1.2-2'  }}</span>
                   </div>
                   <div class="text-right">
                     <span class="text-[10px] text-slate-400 block font-mono">Equivalente BCV</span>
@@ -620,6 +632,7 @@ export interface SplitPaymentLine {
                       <option value="ZELLE">Zelle / Wire (USD)</option>
                       <option value="CRIPTO">Criptomonedas / USDT</option>
                       <option value="CREDITO">Crédito Comercial</option>
+                      <option value="SALDO_A_FAVOR">Saldo a Favor / Anticipo Cliente</option>
                     </select>
                   </div>
                 </div>
@@ -687,7 +700,7 @@ export interface SplitPaymentLine {
                           <span>CAMBIO / VUELTO A ENTREGAR:</span>
                         </span>
                         <span class="font-mono font-extrabold text-sm text-emerald-700">
-                          {{ selectedPaymentCurrency() === 'VES' ? 'Bs. ' : '$' }}{{ ch.changeInCurrency  | number: '1.2-2' }}
+                          {{ selectedPaymentCurrency() === 'VES' ? 'Bs. ' : '$' }}{{ ch.changeInCurrency  | number: '1.2-2'  }}
                         </span>
                       </div>
                       
@@ -697,31 +710,38 @@ export interface SplitPaymentLine {
                         @if (selectedPaymentCurrency() === 'USD') {
                           <span class="font-bold">Bs. {{ ch.changeVes.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</span>
                         } @else if (selectedPaymentCurrency() === 'VES') {
-                          <span class="font-bold">\${{ ch.changeUsd  | number: '1.2-2' }} USD</span>
+                          <span class="font-bold">\${{ ch.changeUsd  | number: '1.2-2'  }} USD</span>
                         } @else {
-                          <span class="font-bold">Bs. {{ ch.changeVes  | number: '1.2-2' }} (\${{ ch.changeUsd  | number: '1.2-2' }})</span>
+                          <span class="font-bold">Bs. {{ ch.changeVes  | number: '1.2-2'  }} (\${{ ch.changeUsd  | number: '1.2-2'  }})</span>
                         }
                       </div>
-                      <!-- Acreditar vuelto como saldo a favor -->
-                      @if (canUseAdvanceBalance()) {
-                        <label class="flex items-start space-x-2 pt-1.5 border-t border-emerald-200/60 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            [checked]="creditChangeAsAdvance()"
-                            (change)="creditChangeAsAdvance.set($any($event.target).checked)"
-                            class="mt-0.5 accent-emerald-600" />
-                          <span class="text-[10px] text-emerald-900">
-                            <span class="font-bold">El cliente no quiere el vuelto: acreditar como saldo a favor</span>
-                            @if (creditChangeAsAdvance()) {
-                              <span class="block font-mono text-emerald-700">Nuevo saldo: \${{ projectedAdvanceBalanceUsd() | number: '1.2-2' }} USD</span>
-                            }
-                          </span>
-                        </label>
-                      } @else {
-                        <p class="text-[10px] text-emerald-800/80 pt-1 border-t border-emerald-200/60">
-                          Seleccione un cliente identificado para poder acreditar el vuelto como saldo a favor.
-                        </p>
-                      }
+
+                      <!-- Opción de retener vuelto como Saldo a Favor / Anticipo -->
+                      <div class="pt-2 border-t border-emerald-200/80 mt-1">
+                        @if (selectedCustomer(); as cust) {
+                          <label class="flex items-start space-x-2 cursor-pointer select-none bg-white/90 hover:bg-white p-2 rounded-lg border border-emerald-300 transition-all">
+                            <input 
+                              type="checkbox" 
+                              [checked]="saveChangeAsCustomerCredit()" 
+                              (change)="saveChangeAsCustomerCredit.set($any($event.target).checked)"
+                              class="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500 h-4 w-4 shrink-0">
+                            <div class="flex-1 text-[11px] leading-tight text-emerald-950">
+                              <div class="font-bold flex items-center space-x-1">
+                                <mat-icon class="text-xs text-emerald-700">account_balance_wallet</mat-icon>
+                                <span>¿Sin cambio físico? Guardar vuelto como Saldo a Favor</span>
+                              </div>
+                              <p class="text-[10px] text-emerald-800 mt-0.5">
+                                Acreditar <strong>\${{ ch.changeUsd  | number: '1.2-2'  }} USD (Bs. {{ ch.changeVes  | number: '1.2-2'  }})</strong> a la cuenta de <strong>{{ cust.name }}</strong> ({{ cust.taxId }}) para sus futuras compras.
+                              </p>
+                            </div>
+                          </label>
+                        } @else {
+                          <div class="text-[10px] text-amber-800 bg-amber-50 p-1.5 rounded-lg border border-amber-200 flex items-center space-x-1">
+                            <mat-icon class="text-xs text-amber-600">info</mat-icon>
+                            <span>Para retener el vuelto como saldo a favor, seleccione un cliente identificado con RIF.</span>
+                          </div>
+                        }
+                      </div>
                     </div>
                   } @else if (ch.isDeficit) {
                     <div class="p-2 bg-rose-50 border border-rose-200 rounded-xl text-rose-950 space-y-0.5">
@@ -731,12 +751,12 @@ export interface SplitPaymentLine {
                           <span>MONTO INSUFICIENTE:</span>
                         </span>
                         <span class="font-mono font-bold text-xs text-rose-700">
-                          -{{ selectedPaymentCurrency() === 'VES' ? 'Bs. ' : '$' }}{{ ch.deficitInCurrency  | number: '1.2-2' }}
+                          -{{ selectedPaymentCurrency() === 'VES' ? 'Bs. ' : '$' }}{{ ch.deficitInCurrency  | number: '1.2-2'  }}
                         </span>
                       </div>
                       <p class="text-[10px] text-rose-700 font-mono">
-                        Faltan: {{ selectedPaymentCurrency() === 'VES' ? 'Bs. ' : '$' }}{{ ch.deficitInCurrency | number:'1.2-2' }} 
-                        @if (selectedPaymentCurrency() === 'USD') { (Bs. {{ ch.deficitVes  | number: '1.2-2' }}) }
+                        Faltan: {{ selectedPaymentCurrency() === 'VES' ? 'Bs. ' : '$' }}{{ ch.deficitInCurrency | number:'1.2-2' }}
+                        @if (selectedPaymentCurrency() === 'USD') { (Bs. {{ ch.deficitVes  | number: '1.2-2'  }}) }
                       </p>
                     </div>
                   } @else {
@@ -789,9 +809,7 @@ export interface SplitPaymentLine {
                               <option value="ZELLE">Zelle / Wire (USD)</option>
                               <option value="CRIPTO">Criptomonedas / USDT</option>
                               <option value="CREDITO">Crédito Comercial</option>
-                              @if (canUseAdvanceBalance() && (customerAdvanceBalanceUsd() > 0 || sp.method === 'SALDO_A_FAVOR')) {
-                                <option value="SALDO_A_FAVOR">Saldo a favor (USD)</option>
-                              }
+                              <option value="SALDO_A_FAVOR">Saldo a Favor / Anticipo</option>
                             </select>
                           </div>
 
@@ -844,9 +862,9 @@ export interface SplitPaymentLine {
                         <div class="flex items-center justify-between text-[10px] pt-1 border-t border-slate-200/50">
                           <span class="text-slate-500 font-mono">
                             @if (sp.currency === 'VES') {
-                              ≈ \${{ (sp.amount / stateService.bcvState().usdRate)  | number: '1.2-2' }} USD
+                              ≈ \${{ (sp.amount / stateService.bcvState().usdRate)  | number: '1.2-2'  }} USD
                             } @else {
-                              ≈ Bs. {{ (sp.amount * stateService.bcvState().usdRate)  | number: '1.2-2' }}
+                              ≈ Bs. {{ (sp.amount * stateService.bcvState().usdRate)  | number: '1.2-2'  }}
                             }
                           </span>
                           <span class="px-1.5 py-0.2 rounded font-semibold text-[9px]"
@@ -866,30 +884,23 @@ export interface SplitPaymentLine {
                   <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1 text-xs">
                     <div class="flex items-center justify-between text-[11px] text-slate-600">
                       <span>Base Venta (Subtotal + IVA):</span>
-                      <span class="font-mono font-semibold">\${{ baseSaleWithIvaUsd()  | number: '1.2-2' }}</span>
+                      <span class="font-mono font-semibold">\${{ baseSaleWithIvaUsd()  | number: '1.2-2'  }}</span>
                     </div>
                     
                     <div class="flex items-center justify-between text-[11px] text-indigo-700">
                       <span>Porción en Divisas (IGTF 3%):</span>
-                      <span class="font-mono font-bold">\${{ splitTaxDetails().divisasPaidUsd  | number: '1.2-2' }} ➔ +\${{ splitTaxDetails().igtfAmount  | number: '1.2-2' }}</span>
+                      <span class="font-mono font-bold">\${{ splitTaxDetails().divisasPaidUsd  | number: '1.2-2'  }} ➔ +\${{ splitTaxDetails().igtfAmount  | number: '1.2-2'  }}</span>
                     </div>
 
                     <div class="flex items-center justify-between text-[11px] text-emerald-700">
                       <span>Porción en Bolívares (Exenta):</span>
-                      <span class="font-mono font-bold">\${{ splitTaxDetails().bolivaresPaidUsd  | number: '1.2-2' }} (Bs. {{ (splitTaxDetails().bolivaresPaidUsd * stateService.bcvState().usdRate)  | number: '1.2-2' }})</span>
+                      <span class="font-mono font-bold">\${{ splitTaxDetails().bolivaresPaidUsd  | number: '1.2-2'  }} (Bs. {{ (splitTaxDetails().bolivaresPaidUsd * stateService.bcvState().usdRate)  | number: '1.2-2'  }})</span>
                     </div>
 
                     <div class="flex items-center justify-between text-xs font-bold text-slate-900 border-t border-slate-200 pt-1">
                       <span>TOTAL GENERAL FACTURA:</span>
-                      <span class="font-mono text-emerald-700 font-extrabold">\${{ grandTotalUsd()  | number: '1.2-2' }}</span>
+                      <span class="font-mono text-emerald-700 font-extrabold">\${{ grandTotalUsd()  | number: '1.2-2'  }}</span>
                     </div>
-
-                    @if (advanceExceedsBalance()) {
-                      <div class="p-1.5 bg-rose-50 border border-rose-200 rounded-lg text-rose-800 text-[11px] font-bold flex items-center space-x-1">
-                        <mat-icon class="text-xs text-rose-600">error_outline</mat-icon>
-                        <span>El saldo a favor aplicado (\${{ advanceLinesUsd() | number: '1.2-2' }}) excede el disponible (\${{ customerAdvanceBalanceUsd() | number: '1.2-2' }})</span>
-                      </div>
-                    }
 
                     <!-- Balance status -->
                     @let bal = mixedBalanceDetails();
@@ -899,35 +910,35 @@ export interface SplitPaymentLine {
                           <mat-icon class="text-xs text-rose-600">error_outline</mat-icon>
                           <span>Falta por cubrir:</span>
                         </span>
-                        <span class="font-mono font-bold">\${{ bal.deficitUsd  | number: '1.2-2' }} USD (Bs. {{ bal.deficitVes  | number: '1.2-2' }})</span>
+                        <span class="font-mono font-bold">\${{ bal.deficitUsd  | number: '1.2-2'  }} USD (Bs. {{ bal.deficitVes  | number: '1.2-2'  }})</span>
                       </div>
                     } @else if (bal.isSurplus) {
-                      <div class="p-1.5 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 flex items-center justify-between text-[11px]">
-                        <span class="font-bold flex items-center space-x-1">
-                          <mat-icon class="text-xs text-emerald-600">price_check</mat-icon>
-                          <span>Vuelto / Excedente:</span>
-                        </span>
-                        <span class="font-mono font-bold">\${{ bal.surplusUsd  | number: '1.2-2' }} USD (Bs. {{ bal.surplusVes  | number: '1.2-2' }})</span>
-                      </div>
-                      @if (canUseAdvanceBalance()) {
-                        <label class="flex items-start space-x-2 px-1 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            [checked]="creditChangeAsAdvance()"
-                            (change)="creditChangeAsAdvance.set($any($event.target).checked)"
-                            class="mt-0.5 accent-emerald-600" />
-                          <span class="text-[10px] text-emerald-900">
-                            <span class="font-bold">El cliente no quiere el vuelto: acreditar como saldo a favor</span>
-                            @if (creditChangeAsAdvance()) {
-                              <span class="block font-mono text-emerald-700">Nuevo saldo: \${{ projectedAdvanceBalanceUsd() | number: '1.2-2' }} USD</span>
-                            }
+                      <div class="space-y-1.5">
+                        <div class="p-1.5 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 flex items-center justify-between text-[11px]">
+                          <span class="font-bold flex items-center space-x-1">
+                            <mat-icon class="text-xs text-emerald-600">price_check</mat-icon>
+                            <span>Vuelto / Excedente:</span>
                           </span>
-                        </label>
-                      } @else {
-                        <p class="text-[10px] text-emerald-800/80 px-1">
-                          Seleccione un cliente identificado para poder acreditar el vuelto como saldo a favor.
-                        </p>
-                      }
+                          <span class="font-mono font-bold">\${{ bal.surplusUsd  | number: '1.2-2'  }} USD (Bs. {{ bal.surplusVes  | number: '1.2-2'  }})</span>
+                        </div>
+
+                        @if (selectedCustomer(); as cust) {
+                          <label class="flex items-start space-x-2 cursor-pointer select-none bg-white p-2 rounded-lg border border-emerald-300 text-[11px] transition-all hover:bg-emerald-50/50">
+                            <input 
+                              type="checkbox" 
+                              [checked]="saveChangeAsCustomerCredit()" 
+                              (change)="saveChangeAsCustomerCredit.set($any($event.target).checked)"
+                              class="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500 h-4 w-4 shrink-0">
+                            <div class="flex-1 leading-tight text-emerald-950">
+                              <span class="font-bold flex items-center space-x-1">
+                                <mat-icon class="text-xs text-emerald-700">account_balance_wallet</mat-icon>
+                                <span>Guardar excedente (\${{ bal.surplusUsd  | number: '1.2-2'  }}) como Saldo a Favor</span>
+                              </span>
+                              <span class="text-[10px] text-emerald-700 block mt-0.5">Se acreditará a {{ cust.name }} ({{ cust.taxId }}).</span>
+                            </div>
+                          </label>
+                        }
+                      </div>
                     } @else {
                       <div class="p-1.5 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 flex items-center justify-center space-x-1 text-[11px] font-bold">
                         <mat-icon class="text-xs text-emerald-600">check_circle</mat-icon>
@@ -943,7 +954,7 @@ export interface SplitPaymentLine {
               <button 
                 type="button"
                 (click)="checkout()"
-                [disabled]="cartItems().length === 0 || (!isMixedPayment() && cashChangeDetails().isDeficit && selectedPaymentMethod() !== 'CREDITO') || (isMixedPayment() && mixedBalanceDetails().isDeficit && !hasCreditPayment()) || advanceExceedsBalance()"
+                [disabled]="cartItems().length === 0 || (!isMixedPayment() && cashChangeDetails().isDeficit && selectedPaymentMethod() !== 'CREDITO') || (isMixedPayment() && mixedBalanceDetails().isDeficit && !hasCreditPayment())"
                 class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-bold rounded-xl text-xs flex items-center justify-center space-x-1.5 shadow-sm transition-all cursor-pointer disabled:cursor-not-allowed">
                 <mat-icon class="text-base">receipt_long</mat-icon>
                 <span>EMITIR FACTURA FISCAL (F10)</span>
@@ -967,7 +978,7 @@ export interface SplitPaymentLine {
             
             <div class="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-xs">
               <span class="text-[11px] font-medium text-slate-500 block">Total Facturado ($ USD)</span>
-              <p class="text-lg font-bold font-mono text-emerald-700 mt-0.5">\${{ totalFilteredUsd()  | number: '1.2-2' }}</p>
+              <p class="text-lg font-bold font-mono text-emerald-700 mt-0.5">\${{ totalFilteredUsd()  | number: '1.2-2'  }}</p>
               <span class="text-[10px] text-slate-400 font-mono">
                 Bs. {{ totalFilteredVes().toLocaleString('es-VE', { minimumFractionDigits: 2 }) }}
               </span>
@@ -975,13 +986,13 @@ export interface SplitPaymentLine {
 
             <div class="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-xs">
               <span class="text-[11px] font-medium text-slate-500 block">Total IVA Recaudado ($)</span>
-              <p class="text-lg font-bold font-mono text-slate-900 mt-0.5">\${{ totalFilteredIvaUsd()  | number: '1.2-2' }}</p>
+              <p class="text-lg font-bold font-mono text-slate-900 mt-0.5">\${{ totalFilteredIvaUsd()  | number: '1.2-2'  }}</p>
               <span class="text-[10px] text-slate-400">Débito fiscal IVA 16%</span>
             </div>
 
             <div class="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-xs">
               <span class="text-[11px] font-medium text-slate-500 block">Percepción IGTF 3% ($)</span>
-              <p class="text-lg font-bold font-mono text-indigo-900 mt-0.5">\${{ totalFilteredIgtfUsd()  | number: '1.2-2' }}</p>
+              <p class="text-lg font-bold font-mono text-indigo-900 mt-0.5">\${{ totalFilteredIgtfUsd()  | number: '1.2-2'  }}</p>
               <span class="text-[10px] text-slate-400">Cobros en efectivo / divisas</span>
             </div>
 
@@ -1114,27 +1125,27 @@ export interface SplitPaymentLine {
                       <!-- Currency & BCV -->
                       <td class="py-3 px-3 text-[11px]">
                         <span class="font-bold text-slate-800">{{ inv.paymentCurrency }}</span>
-                        <span class="block text-[10px] text-slate-400 font-mono">Tasa: {{ inv.bcvRate  | number: '1.2-2' }}</span>
+                        <span class="block text-[10px] text-slate-400 font-mono">Tasa: {{ inv.bcvRate  | number: '1.2-2'  }}</span>
                       </td>
 
                       <!-- Subtotal -->
                       <td class="py-3 px-3 text-right font-mono text-slate-700">
-                        \${{ inv.subtotal  | number: '1.2-2' }}
+                        \${{ inv.subtotal  | number: '1.2-2'  }}
                       </td>
 
                       <!-- IVA -->
                       <td class="py-3 px-3 text-right font-mono text-slate-700">
-                        \${{ (inv.taxDetails.ivaAmount || 0)  | number: '1.2-2' }}
+                        \${{ (inv.taxDetails.ivaAmount || 0)  | number: '1.2-2'  }}
                       </td>
 
                       <!-- IGTF -->
                       <td class="py-3 px-3 text-right font-mono" [class.text-indigo-700]="(inv.taxDetails.igtfAmount || 0) > 0">
-                        \${{ (inv.taxDetails.igtfAmount || 0)  | number: '1.2-2' }}
+                        \${{ (inv.taxDetails.igtfAmount || 0)  | number: '1.2-2'  }}
                       </td>
 
                       <!-- Total USD -->
                       <td class="py-3 px-3 text-right font-mono font-bold text-emerald-700 text-sm">
-                        \${{ inv.total  | number: '1.2-2' }}
+                        \${{ inv.total  | number: '1.2-2'  }}
                       </td>
 
                       <!-- Total VES -->
@@ -1209,7 +1220,7 @@ export interface SplitPaymentLine {
                 </button>
               </div>
 
-              <span>Total acumulado en vista: <strong class="font-mono text-slate-900">\${{ totalFilteredUsd()  | number: '1.2-2' }}</strong> (Bs. {{ totalFilteredVes().toLocaleString('es-VE') }})</span>
+              <span>Total acumulado en vista: <strong class="font-mono text-slate-900">\${{ totalFilteredUsd()  | number: '1.2-2'  }}</strong> (Bs. {{ totalFilteredVes().toLocaleString('es-VE') }})</span>
             </div>
 
           </div>
@@ -1310,6 +1321,27 @@ export interface SplitPaymentLine {
                   class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:bg-white focus:ring-1 focus:ring-emerald-500 focus:outline-none" />
               </div>
 
+              <div>
+                <label for="pos-cust-advance" class="block font-semibold text-slate-700 mb-1">
+                  Saldo a Favor / Anticipo Inicial ($ USD)
+                  <span class="text-slate-400 font-normal">(Opcional)</span>
+                </label>
+                <div class="relative">
+                  <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-mono text-xs">$</span>
+                  <input 
+                    id="pos-cust-advance"
+                    type="number" 
+                    step="0.01"
+                    min="0"
+                    disabled
+                    [value]="newCustomerAdvanceBalance()" 
+                    (input)="newCustomerAdvanceBalance.set(+$any($event.target).value || 0)" 
+                    placeholder="0.00" 
+                    class="w-full pl-7 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:bg-white focus:ring-1 focus:ring-emerald-500 focus:outline-none font-mono" />
+                </div>
+                <p class="text-[10px] text-slate-400 mt-0.5">Anticipo en custodia o saldo a favor preexistente para futuras compras.</p>
+              </div>
+
               <div class="pt-3 border-t border-slate-100 flex items-center justify-end space-x-2">
                 <button 
                   type="button" 
@@ -1330,7 +1362,12 @@ export interface SplitPaymentLine {
           </div>
         </div>
       }
-
+      <!-- Modal de Factura para ver Comprobantes Fiscales Asociados -->
+      @if (activeInvoiceForView(); as inv) {
+        <app-invoice-modal 
+          [invoice]="inv"
+          (closeModal)="activeInvoiceForView.set(null)" />
+      }
     </div>
   `
 })
@@ -1352,6 +1389,9 @@ export default class SalesPosComponent {
   newCustomerPhone = signal<string>('');
   newCustomerAddress = signal<string>('');
   newCustomerType = signal<'EMPRESA' | 'PERSONA_NATURAL' | 'FINAL_CONSUMIDOR'>('EMPRESA');
+  newCustomerAdvanceBalance = signal<number>(0);
+
+  activeInvoiceForView = signal<Invoice | null>(null);
 
   constructor() {
     effect(() => {
@@ -1382,9 +1422,7 @@ export default class SalesPosComponent {
   globalDiscountPercent = signal<number>(0);
   manualIgtfOverride = signal<boolean | null>(null);
   cashTendered = signal<number | null>(null);
-
-  // Saldo a favor: el cajero marca esto cuando el cliente no quiere el vuelto
-  creditChangeAsAdvance = signal<boolean>(false);
+  saveChangeAsCustomerCredit = signal<boolean>(false);
 
   cartItems = signal<CartItem[]>([]);
 
@@ -1526,7 +1564,7 @@ export default class SalesPosComponent {
     let bolivaresPaidUsd = 0;
 
     for (const sp of this.splitPayments()) {
-      if (sp.method === 'SALDO_A_FAVOR') continue; // no genera IGTF
+     // if (sp.method === 'SALDO_A_FAVOR') continue; // no genera IGTF
       const isBs = this.stateService.isBolivaresPaymentMethod(sp.method, sp.currency);
       const isDiv = this.stateService.isForeignCurrencyPaymentMethod(sp.method, sp.currency);
 
@@ -1607,8 +1645,8 @@ export default class SalesPosComponent {
     if (this.manualIgtfOverride() !== null) {
       appliesIgtf = Boolean(this.manualIgtfOverride());
     } else {
-      // SENIAT Rule: Only Special Taxpayers perceive 3% IGTF, and only on payments in foreign currencies / crypto
-      appliesIgtf = isSpecialTaxpayer && isDivisas && !isBolivares;
+      // Regla SENIAT: se le cobra a todas las personas siempre que se pague en divisas/moneda extranjera
+       appliesIgtf = isSpecialTaxpayer && isDivisas && !isBolivares;
     }
 
     const baseForIgtf = taxable + exempt + ivaAmount;
@@ -1797,70 +1835,6 @@ export default class SalesPosComponent {
     };
   });
 
-  // ── Saldo a favor ────────────────────────────────────────────────────────────
-
-  /** Saldo disponible del cliente seleccionado (USD es la fuente de verdad). */
-  customerAdvanceBalanceUsd = computed(() => Number(this.selectedCustomer()?.advanceBalanceUsd ?? 0));
-
-  /** El saldo a favor requiere un cliente identificado (no consumidor final). */
-  canUseAdvanceBalance = computed(() => {
-    const c = this.selectedCustomer();
-    return !!c && c.customerType !== 'FINAL_CONSUMIDOR';
-  });
-
-  /** Suma en USD de las líneas SALDO_A_FAVOR (solo existen en pago mixto). */
-  advanceLinesUsd = computed(() =>
-    this.isMixedPayment()
-      ? this.splitPayments().filter(sp => sp.method === 'SALDO_A_FAVOR').reduce((sum, sp) => sum + sp.amount, 0)
-      : 0
-  );
-
-  advanceExceedsBalance = computed(() => this.advanceLinesUsd() > this.customerAdvanceBalanceUsd() + 0.005);
-
-  /** Vuelto actual en USD, tanto en pago simple como mixto. */
-  currentSurplusUsd = computed(() =>
-    this.isMixedPayment() ? this.mixedBalanceDetails().surplusUsd : this.cashChangeDetails().changeUsd
-  );
-
-  /** true solo si hay vuelto, el cliente es válido y el cajero marcó la casilla. */
-  shouldCreditChange = computed(() =>
-    this.creditChangeAsAdvance() && this.canUseAdvanceBalance() && this.currentSurplusUsd() > 0
-  );
-
-  /** Saldo del cliente después de esta venta (para mostrarlo antes de cobrar). */
-  projectedAdvanceBalanceUsd = computed(() =>
-    Number((
-      this.customerAdvanceBalanceUsd()
-      - this.advanceLinesUsd()
-      + (this.shouldCreditChange() ? this.currentSurplusUsd() : 0)
-    ).toFixed(2))
-  );
-
-  /** Pasa a pago mixto y precarga una línea de saldo a favor (menor entre saldo y total). */
-  applyAdvanceBalance() {
-    if (!this.canUseAdvanceBalance()) return;
-    const totalUsd = this.grandTotalUsd();
-    const useUsd = Number(Math.min(this.customerAdvanceBalanceUsd(), totalUsd).toFixed(2));
-    if (useUsd <= 0) return;
-
-    const stamp = Date.now();
-    const lines: SplitPaymentLine[] = [
-      { id: 'sp-' + stamp + '-adv', method: 'SALDO_A_FAVOR', currency: 'USD', amount: useUsd }
-    ];
-    const remainingUsd = Number((totalUsd - useUsd).toFixed(2));
-    if (remainingUsd > 0.005) {
-      const rate = this.stateService.bcvState().usdRate;
-      lines.push({
-        id: 'sp-' + stamp + '-rest',
-        method: 'PAGO_MOVIL',
-        currency: 'VES',
-        amount: Number((remainingUsd * rate).toFixed(2))
-      });
-    }
-    this.isMixedPayment.set(true);
-    this.splitPayments.set(lines);
-  }
-
   toggleMixedPayment(isMixed: boolean) {
     this.isMixedPayment.set(isMixed);
     if (isMixed) {
@@ -2011,12 +1985,73 @@ export default class SalesPosComponent {
     );
   }
 
+  applyCustomerCreditToPayment() {
+    const cust = this.selectedCustomer();
+    if (!cust || !cust.advanceBalanceUsd || cust.advanceBalanceUsd <= 0) {
+      this.stateService.notify('warning', 'Sin Saldo', 'El cliente no tiene saldo a favor disponible.');
+      return;
+    }
+
+    const availableCreditUsd = cust.advanceBalanceUsd;
+    const totalToPayUsd = this.grandTotalUsd();
+
+    if (totalToPayUsd <= 0) {
+      this.stateService.notify('info', 'Carrito Vacío', 'Agregue productos al carrito antes de aplicar el saldo a favor.');
+      return;
+    }
+
+    if (availableCreditUsd >= totalToPayUsd) {
+      // El saldo a favor cubre la totalidad de la venta
+      this.isMixedPayment.set(false);
+      this.selectedPaymentCurrency.set('USD');
+      this.selectedPaymentMethod.set('SALDO_A_FAVOR');
+      this.cashTendered.set(totalToPayUsd);
+      this.stateService.notify(
+        'success',
+        'Saldo a Favor Aplicado',
+        `Se aplicaron $${totalToPayUsd.toFixed(2)} USD del saldo a favor de ${cust.name}. Le restarán $${(availableCreditUsd - totalToPayUsd).toFixed(2)} USD.`
+      );
+    } else {
+      // El saldo cubre una parte: activar automáticamente Pagos Mixtos SENIAT
+      this.isMixedPayment.set(true);
+      const bcvRate = this.stateService.bcvState().usdRate;
+      const remainingDeficitUsd = Number((totalToPayUsd - availableCreditUsd).toFixed(2));
+      const remainingDeficitVes = Number((remainingDeficitUsd * bcvRate).toFixed(2));
+
+      this.splitPayments.set([
+        {
+          id: 'sp-credit',
+          method: 'SALDO_A_FAVOR',
+          currency: 'USD',
+          amount: availableCreditUsd,
+          reference: 'ANTICIPO-' + cust.taxId
+        },
+        {
+          id: 'sp-diff',
+          method: 'PAGO_MOVIL',
+          currency: 'VES',
+          amount: remainingDeficitVes,
+          reference: ''
+        }
+      ]);
+
+      this.stateService.notify(
+        'info',
+        'Abono con Saldo a Favor',
+        `Se abonaron $${availableCreditUsd.toFixed(2)} USD de saldo a favor. Restan $${remainingDeficitUsd.toFixed(2)} USD (Bs. ${remainingDeficitVes.toFixed(2)}) por cubrir en el segundo método.`
+      );
+    }
+  }
+
   onPaymentMethodChange(method: PaymentMethod) {
     this.selectedPaymentMethod.set(method);
     if (method === 'PAGO_MOVIL' || method === 'PUNTO_VENTA_DEBITO' || method === 'TARJETA_CREDITO' || method === 'EFECTIVO') {
       this.selectedPaymentCurrency.set('VES');
-    } else if (method === 'EFECTIVO_USD' || method === 'ZELLE') {
+    } else if (method === 'EFECTIVO_USD' || method === 'ZELLE' || method === 'SALDO_A_FAVOR') {
       this.selectedPaymentCurrency.set('USD');
+      if (method === 'SALDO_A_FAVOR') {
+        this.cashTendered.set(this.currentTotalToPay());
+      }
     } else if (method === 'EFECTIVO_EUR') {
       this.selectedPaymentCurrency.set('EUR');
     }
@@ -2050,6 +2085,7 @@ export default class SalesPosComponent {
       case 'TRANSFERENCIA': return 'Transferencia';
       case 'ZELLE': return 'Zelle';
       case 'CREDITO': return 'Crédito';
+      case 'SALDO_A_FAVOR': return 'Saldo a Favor / Anticipo';
       default: return method;
     }
   }
@@ -2147,16 +2183,19 @@ export default class SalesPosComponent {
           method: sp.method,
           amount: sp.amount,
           currency: sp.currency,
-          reference: sp.reference || (sp.method === 'SALDO_A_FAVOR' ? 'SALDO_A_FAVOR' : sp.method.startsWith('EFECTIVO') ? 'CONTADO_CAJA' : 'REF-' + Math.floor(Math.random() * 90000 + 10000)),
-          isForeignCurrency: isDiv && !isBs && sp.method !== 'SALDO_A_FAVOR'
+          reference: sp.reference || (sp.method.startsWith('EFECTIVO') ? 'CONTADO_CAJA' : 'REF-' + Math.floor(Math.random() * 90000 + 10000)),
+          isForeignCurrency: isDiv && !isBs
         };
       });
 
       const sTax = this.splitTaxDetails();
 
+      const custId = this.selectedCustomerId() || this.stateService.customers()[0]?.id || 'cust-01';
+      const whId = this.selectedWarehouseId() || this.stateService.warehouses()[0]?.id || 'wh-01';
+
       const result = this.stateService.registerSaleInvoice(
-        this.selectedCustomerId(),
-        this.selectedWarehouseId(),
+        custId,
+        whId,
         saleItems,
         payments,
         'FACTURA_ELECTRONICA',
@@ -2168,18 +2207,23 @@ export default class SalesPosComponent {
           customIvaRate: this.selectedIvaRate(),
           appliesIgtfManual: sTax.appliesIgtf,
           cashTendered: bal.totalPaidUsd,
-          // Si el vuelto se acredita como saldo a favor, no se entrega nada en caja
-          cashChangeDue: this.shouldCreditChange() ? 0 : (bal.surplusUsd > 0 ? bal.surplusUsd : 0),
-          creditChangeAsAdvance: this.shouldCreditChange()
+          cashChangeDue: bal.surplusUsd > 0 ? bal.surplusUsd : 0,
+          saveChangeAsCustomerCredit: this.saveChangeAsCustomerCredit()
         }
       );
 
       if (result.success && result.invoice) {
         this.cartItems.set([]);
         this.cashTendered.set(null);
-        this.creditChangeAsAdvance.set(false);
+        this.saveChangeAsCustomerCredit.set(false);
         this.openInvoiceView.emit(result.invoice);
-        this.emailService.checkAndTriggerReorderAlerts('SALE_POS', result.invoice.invoiceNumber);
+        try {
+          this.emailService.checkAndTriggerReorderAlerts('SALE_POS', result.invoice.invoiceNumber);
+        } catch (err) {
+          console.warn('Alerta de stock no enviada:', err);
+        }
+      } else {
+        this.stateService.notify('error', 'Error al Emitir Factura', result.message || 'No se pudo generar la factura fiscal.');
       }
       return;
     }
@@ -2218,9 +2262,12 @@ export default class SalesPosComponent {
       }
     ];
 
+    const custId = this.selectedCustomerId() || this.stateService.customers()[0]?.id || 'cust-01';
+    const whId = this.selectedWarehouseId() || this.stateService.warehouses()[0]?.id || 'wh-01';
+
     const result = this.stateService.registerSaleInvoice(
-      this.selectedCustomerId(),
-      this.selectedWarehouseId(),
+      custId,
+      whId,
       saleItems,
       payments,
       'FACTURA_ELECTRONICA',
@@ -2232,24 +2279,28 @@ export default class SalesPosComponent {
         customIvaRate: this.selectedIvaRate(),
         appliesIgtfManual: this.computedTaxDetails().appliesIgtf,
         cashTendered: changeInfo.tendered,
-        // Si el vuelto se acredita como saldo a favor, no se entrega nada en caja
-        cashChangeDue: this.shouldCreditChange() ? 0 : changeInfo.changeInCurrency,
-        creditChangeAsAdvance: this.shouldCreditChange()
+        cashChangeDue: changeInfo.changeInCurrency,
+        saveChangeAsCustomerCredit: this.saveChangeAsCustomerCredit()
       }
     );
 
     if (result.success && result.invoice) {
       this.cartItems.set([]);
       this.cashTendered.set(null);
-      this.creditChangeAsAdvance.set(false);
-      this.openInvoiceView.emit(result.invoice);
-      // Trigger automatic reorder check for inventory items sold
-      this.emailService.checkAndTriggerReorderAlerts('SALE_POS', result.invoice.invoiceNumber);
+      this.saveChangeAsCustomerCredit.set(false);
+      this.activeInvoiceForView.set(result.invoice);
+      try {
+        this.emailService.checkAndTriggerReorderAlerts('SALE_POS', result.invoice.invoiceNumber);
+      } catch (err) {
+        console.warn('Alerta de stock no enviada:', err);
+      }
+    } else {
+      this.stateService.notify('error', 'Error al Emitir Factura', result.message || 'No se pudo generar la factura fiscal.');
     }
   }
 
   viewInvoice(invoice: Invoice) {
-    this.openInvoiceView.emit(invoice);
+    this.activeInvoiceForView.set(invoice);
   }
 
   onCancelInvoiceClicked(invoice: Invoice) {
@@ -2294,6 +2345,7 @@ export default class SalesPosComponent {
     this.newCustomerPhone.set('');
     this.newCustomerAddress.set('');
     this.newCustomerType.set('EMPRESA');
+    this.newCustomerAdvanceBalance.set(0);
     this.showNewCustomerModal.set(true);
   }
 
@@ -2310,7 +2362,8 @@ export default class SalesPosComponent {
       email: this.newCustomerEmail().trim(),
       phone: this.newCustomerPhone().trim(),
       address: this.newCustomerAddress().trim(),
-      customerType: this.newCustomerType()
+      customerType: this.newCustomerType(),
+      advanceBalanceUsd: this.newCustomerAdvanceBalance() > 0 ? this.newCustomerAdvanceBalance() : undefined
     }).subscribe(customer => {
         this.selectedCustomerId.set(customer.id);
         this.showNewCustomerModal.set(false);

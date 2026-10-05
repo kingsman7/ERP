@@ -622,14 +622,23 @@ export class CompanyProfileModalComponent {
       email: val.email || '',
       address: val.address || '',
       isSpecialTaxpayer: Boolean(val.isSpecialTaxpayer),
-      specialTaxpayerDesignationNumber: val.specialTaxpayerDesignationNumber || ''
+      specialTaxpayerDesignationNumber: val.specialTaxpayerDesignationNumber || '',
+      defaultIvaRate: 0.16,
+      igtfRate: 0.03
     };
 
-    this.stateService.updateCompanyProfile(updated);
-    this.stateService.notify(
-      'success',
-      'Perfil Fiscal Guardado',
-      'Los datos fiscales de la empresa y la configuración SENIAT se actualizaron correctamente.'
-    );
+    this.stateService.updateCompanyProfile(updated).subscribe({
+      next: (profile) => {
+        this.fiscalForm.patchValue(profile);
+        this.stateService.notify(
+          'success',
+          'Perfil Fiscal Guardado',
+          'Los datos fiscales de la empresa y la configuración SENIAT se actualizaron correctamente.'
+        );
+      },
+      error: (err) => {
+        this.stateService.notify('error', 'Error al Guardar Perfil Fiscal', 'Ocurrió un error al guardar el perfil fiscal de la empresa.');
+      }
+    });
   }
 }
