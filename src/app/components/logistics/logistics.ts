@@ -1000,7 +1000,7 @@ import { DecimalPipe } from '@angular/common';
             </div>
 
             <!-- Official Document Container (SENIAT Standard) -->
-            <div id="seniat-dispatch-guide-print-area" class="p-8 overflow-y-auto font-sans text-slate-900 text-xs bg-white space-y-6">
+            <div id="seniat-dispatch-guide-print-area" class="p-8 overflow-y-auto font-sans text-slate-900 text-xs bg-white space-y-6 print-document">
               
               <!-- Encabezado Fiscal Emisor -->
               <div class="border-b-2 border-slate-900 pb-4 flex flex-col sm:flex-row justify-between items-start gap-4">

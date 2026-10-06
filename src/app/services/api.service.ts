@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, catchError, forkJoin, map, of, throwError } from 'rxjs';
 import { Account, AuditLog, BankAccount, BcvExchangeRateState, Bom, CashRegisterSession, CompanyFiscalProfile, CrmDeal, CurrencyCode, Customer, DeliveryOrder, DispatchGuide, Invoice, InvoiceItem, InvoiceTaxDetails, JournalEntry, KardexMovement, PayableBill, PaymentRecord, PriceLevelKey, Product, ProductCategory, ProductionOrder, PurchaseOrder, Quote, Supplier, TreasuryTransaction, Warehouse } from '../models/erp.models';
 
@@ -44,6 +44,13 @@ export interface StockAdjustmentResponse {
   adjustment: unknown;
   kardexMovement: KardexMovement;
   stock: unknown;
+}
+
+export interface KardexReportFilters {
+  from?: string;
+  to?: string;
+  productId?: string;
+  warehouseId?: string;
 }
 
 @Injectable({
@@ -205,6 +212,10 @@ export class ApiService {
     );
   }
 
+  openCashierSession(newSession: CashRegisterSession): Observable<CashRegisterSession> {
+    return this.http.post<CashRegisterSession>(`${this.baseUrl}/cash-sessions`, newSession);
+  }
+
   updateFiscalProfile(profile: Partial<CompanyFiscalProfile>): Observable<CompanyFiscalProfile> {
     return this.http.put<CompanyFiscalProfile>(`${this.baseUrl}/fiscal/company-profile`, profile);
   }
@@ -255,6 +266,17 @@ export class ApiService {
       map(movements => movements.map(movement => this.normalizeKardexMovement(movement as KardexMovement & { movementDate?: string }))),
       catchError(() => of([]))
     );
+  }
+
+  downloadKardexReport(format: 'pdf' | 'excel', filters: KardexReportFilters): Observable<Blob> {
+    let params = new HttpParams();
+    for (const [key, value] of Object.entries(filters)) {
+      if (value) params = params.set(key, value);
+    }
+    return this.http.get(`${this.baseUrl}/reports/kardex/${format}`, {
+      params,
+      responseType: 'blob'
+    });
   }
 
   createCustomer(customer: Partial<Customer>): Observable<Customer> {
@@ -402,5 +424,9 @@ export class ApiService {
 
   getCashSessions(): Observable<CashRegisterSession[]> {
     return this.http.get<CashRegisterSession[]>(`${this.baseUrl}/cash-sessions`).pipe(catchError(() => of([])));
+  }
+
+  updateCashSession(sessionId: string, updatedSession: Partial<CashRegisterSession>): Observable<CashRegisterSession> {
+    return this.http.put<CashRegisterSession>(`${this.baseUrl}/cash-sessions/${sessionId}`, updatedSession);
   }
 }

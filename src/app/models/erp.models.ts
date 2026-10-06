@@ -679,12 +679,12 @@ export interface CashRegisterSession {
   sessionCode: string; // e.g. "CAJA-20260818-01"
   cashierId: string;
   cashierName: string;
-  openDate: string;
+  openedAt: string;
   closeDate?: string;
+  closedAt?: string;
   status: 'ABIERTA' | 'CERRADA';
-  initialAmount: number; // Fondo inicial en USD
-  initialAmountVes?: number; // Fondo inicial en VES
-  
+  openingBaseUsd: number; // Fondo inicial en USD
+  openingBaseVes?: number; // Fondo inicial en VES
   // Computed collections (Equivalente en USD)
   totalCashSales: number;
   totalCardSales: number;
@@ -713,6 +713,14 @@ export interface CashRegisterSession {
   cashDifference?: number;        // Diferencia en USD
   cashDifferenceVes?: number;     // Diferencia en VES
   closingNotes?: string;
+  closingSystemUsd?: number;
+  closingSystemVes?: number;
+  closingPhysicalUsd?: number;
+  closingPhysicalVes?: number;
+  differenceUsd?: number;
+  differenceVes?: number;
+  notes?: string;
+  warehouseId: string;
 }
 
 // ============================================================================
@@ -1147,7 +1155,6 @@ export interface PayableBill {
   payments: SupplierPaymentReceipt[];
   createdAt: string;
 }
-
 
 
 

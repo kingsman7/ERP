@@ -47,7 +47,7 @@ import { DecimalPipe, DatePipe } from '@angular/common';
         </div>
 
         <!-- Printable Document Area -->
-        <div id="printable-quote-document" class="p-8 overflow-y-auto space-y-6 text-xs text-slate-800 bg-white">
+        <div id="printable-quote-document" class="p-8 overflow-y-auto space-y-6 text-xs text-slate-800 bg-white print-document">
           
           <!-- Company & Document Title Header -->
           <div class="flex flex-col sm:flex-row justify-between items-start gap-4 pb-6 border-b border-slate-200">

@@ -184,8 +184,32 @@ export class ErpStateService {
   }
 
   private loadSales(): Observable<boolean> {
-    return forkJoin({ invoices: this.apiService.getInvoices(), customers: this.apiService.getCustomers(), products: this.apiService.getProducts(), warehouses: this.apiService.getWarehouses() }).pipe(
-      tap(({ invoices, customers, products, warehouses }) => { this.invoices.set(invoices); this.customers.set(customers); this.products.set(products); this.warehouses.set(warehouses); }), map(() => true)
+    return forkJoin({ 
+      invoices: this.apiService.getInvoices(), 
+      customers: this.apiService.getCustomers(), 
+      products: this.apiService.getProducts(), 
+      warehouses: this.apiService.getWarehouses(), 
+      companyProfile: this.apiService.getCompanyProfile(),
+      sessions: this.apiService.getCashSessions()
+     }).pipe(
+      tap(({ 
+        invoices, 
+        customers, 
+        products, 
+        warehouses, 
+        companyProfile,
+        sessions,
+
+       }) => { 
+        this.invoices.set(invoices); 
+        this.customers.set(customers); 
+        this.products.set(products); 
+        this.warehouses.set(warehouses); 
+        this.companyProfile.update(current => ({ ...current, ...companyProfile })); 
+        this.cashSessionHistory.set(sessions.filter(session => session.status !== 'ABIERTA'));
+        const active = sessions.find(session => session.status === 'ABIERTA');
+        if (active) this.activeCashSession.set(active);
+      }), map(() => true)
     );
   }
 
@@ -234,17 +258,19 @@ export class ErpStateService {
       logs: this.apiService.getAuditLogs(),
       users: this.authService.loadUsersFromBackend()
     }).pipe(
-      tap(({ logs, users }) => { this.auditLogs.set(logs) }),
+      tap(({ logs }) => { this.auditLogs.set(logs) }),
       map(() => true)
     );
   }
 
   private loadCashSessions(): Observable<boolean> {
-    return this.apiService.getCashSessions().pipe(
-      tap(sessions => {
+    return forkJoin({ sessions: this.apiService.getCashSessions(), warehouses: this.apiService.getWarehouses(), companyProfile: this.apiService.getCompanyProfile() }).pipe(
+      tap(({ sessions, warehouses, companyProfile }) => {
         this.cashSessionHistory.set(sessions.filter(session => session.status !== 'ABIERTA'));
         const active = sessions.find(session => session.status === 'ABIERTA');
         if (active) this.activeCashSession.set(active);
+        this.warehouses.set(warehouses);
+        this.companyProfile.update(current => ({ ...current, ...companyProfile }));
       }),
       map(() => true)
     );
@@ -1037,14 +1063,16 @@ export class ErpStateService {
     sessionCode: 'CAJA-20260818-01',
     cashierId: 'usr-cash-03',
     cashierName: 'Carlos Mendoza (Caja/POS)',
-    openDate: '2026-08-18 08:00:00',
+    openedAt: '2026-08-18 08:00:00',
     status: 'ABIERTA',
-    initialAmount: 150.00,
+    openingBaseUsd: 150.00,
+    openingBaseVes: 0.00,
     totalCashSales: 320.00,
     totalCardSales: 442.07,
     totalTransferSales: 274.57,
     totalCreditSales: 0.00,
-    totalSales: 1036.64
+    totalSales: 1036.64,
+    warehouseId: 'wh-main-001'
   });
 
   readonly cashSessionHistory = signal<CashRegisterSession[]>([]);
@@ -2941,40 +2969,44 @@ export class ErpStateService {
       });
 
       this.activeCashSession.update(session => {
-        const newTotalCashUsd = Number(((session.totalCashSalesUsd || 0) + cashDeltaUsd).toFixed(2));
-        const newTotalCashVes = Number(((session.totalCashSalesVes || 0) + cashDeltaVes).toFixed(2));
+        const newTotalCashUsd = Number(((Number(session.totalCashSalesUsd) || 0) + Number(cashDeltaUsd)).toFixed(2));
+        const newTotalCashVes = Number(((Number(session.totalCashSalesVes) || 0) + Number(cashDeltaVes)).toFixed(2));
         const consolidatedCashUsd = Number((newTotalCashUsd + (newTotalCashVes / bcvRate)).toFixed(2));
 
-        const newTotalCardUsd = Number(((session.totalCardSalesUsd || 0) + cardDeltaUsd).toFixed(2));
-        const newTotalCardVes = Number(((session.totalCardSalesVes || 0) + cardDeltaVes).toFixed(2));
+        const newTotalCardUsd = Number(((Number(session.totalCardSalesUsd) || 0) + Number(cardDeltaUsd)).toFixed(2));
+        const newTotalCardVes = Number(((Number(session.totalCardSalesVes) || 0) + Number(cardDeltaVes)).toFixed(2));
         const consolidatedCardUsd = Number((newTotalCardUsd + (newTotalCardVes / bcvRate)).toFixed(2));
 
-        const newTotalTransferUsd = Number(((session.totalTransferSalesUsd || 0) + transferDeltaUsd).toFixed(2));
-        const newTotalTransferVes = Number(((session.totalTransferSalesVes || 0) + transferDeltaVes).toFixed(2));
+        const newTotalTransferUsd = Number(((Number(session.totalTransferSalesUsd) || 0) + Number(transferDeltaUsd)).toFixed(2));
+        const newTotalTransferVes = Number(((Number(session.totalTransferSalesVes) || 0) + Number(transferDeltaVes)).toFixed(2));
         const consolidatedTransferUsd = Number((newTotalTransferUsd + (newTotalTransferVes / bcvRate)).toFixed(2));
 
-        const newTotalSalesUsd = Number((session.totalSales + grandTotalUsd).toFixed(2));
+        const newTotalSalesUsd = Number(((Number(session.totalSales) || 0) + Number(grandTotalUsd)).toFixed(2));
         const newTotalSalesVes = Number((newTotalSalesUsd * bcvRate).toFixed(2));
 
         return {
           ...session,
-          totalCashSales: consolidatedCashUsd,
-          totalCashSalesUsd: newTotalCashUsd,
-          totalCashSalesVes: newTotalCashVes,
-          totalCardSales: consolidatedCardUsd,
-          totalCardSalesUsd: newTotalCardUsd,
-          totalCardSalesVes: newTotalCardVes,
-          totalTransferSales: consolidatedTransferUsd,
-          totalTransferSalesUsd: newTotalTransferUsd,
-          totalTransferSalesVes: newTotalTransferVes,
-          totalZelleSalesUsd: Number(((session.totalZelleSalesUsd || 0) + zelleDeltaUsd).toFixed(2)),
-          totalPagoMovilSalesVes: Number(((session.totalPagoMovilSalesVes || 0) + pagoMovilDeltaVes).toFixed(2)),
-          totalCreditSales: Number((session.totalCreditSales + creditDeltaUsd).toFixed(2)),
-          totalSales: newTotalSalesUsd,
-          totalSalesVes: newTotalSalesVes,
+          totalCashSales: Number(consolidatedCashUsd),
+          totalCashSalesUsd: Number(newTotalCashUsd),
+          totalCashSalesVes: Number(newTotalCashVes),
+          totalCardSales: Number(consolidatedCardUsd),
+          totalCardSalesUsd: Number(newTotalCardUsd),
+          totalCardSalesVes: Number(newTotalCardVes),
+          totalTransferSales: Number(consolidatedTransferUsd),
+          totalTransferSalesUsd: Number(newTotalTransferUsd),
+          totalTransferSalesVes: Number(newTotalTransferVes),
+          totalZelleSalesUsd: Number(((Number(session.totalZelleSalesUsd) || 0) + Number(zelleDeltaUsd)).toFixed(2)),
+          totalPagoMovilSalesVes: Number(((Number(session.totalPagoMovilSalesVes) || 0) + Number(pagoMovilDeltaVes)).toFixed(2)),
+          totalCreditSales: Number(((Number(session.totalCreditSales) || 0) + Number(creditDeltaUsd)).toFixed(2)),
+          totalSales: Number(newTotalSalesUsd),
+          totalSalesVes: Number(newTotalSalesVes),
+          openingBaseUsd: Number(session.openingBaseUsd),
+          openingBaseVes: Number(session.openingBaseVes),
           methodBreakdowns: currentBreakdowns
         };
       });
+
+      this.apiService.updateCashSession(this.activeCashSession().id, this.activeCashSession()).subscribe();
     }
 
     // Atomic write
@@ -4099,11 +4131,11 @@ export class ErpStateService {
   // ==========================================
   // TRANSACTION 5: CIERRE DE CAJA (Z-REPORT)
   // ==========================================
-  closeCashSession(
+  async closeCashSession(
     countedCashUsd: number,
     countedCashVes: number = 0,
     notes?: string
-  ): { success: boolean; session?: CashRegisterSession } {
+  ): Promise<{ success: boolean; session?: CashRegisterSession }> {
     const session = this.activeCashSession();
     if (session.status === 'CERRADA') {
       return { success: false };
@@ -4111,52 +4143,85 @@ export class ErpStateService {
 
     const bcvRate = this.bcvState().usdRate || 36.50;
     const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    const closedAt = new Date().toISOString();
 
-    const initialUsd = session.initialAmount || 0;
-    const initialVes = session.initialAmountVes || 0;
-    const cashSalesUsd = session.totalCashSalesUsd !== undefined ? session.totalCashSalesUsd : session.totalCashSales;
-    const cashSalesVes = session.totalCashSalesVes || 0;
+    const initialUsd = Number(session.openingBaseUsd) || 0;
+    const initialVes = Number(session.openingBaseVes) || 0;
+    const cashSalesUsd = session.totalCashSalesUsd !== undefined
+      ? Number(session.totalCashSalesUsd) || 0
+      : Number(session.totalCashSales) || 0;
+    const cashSalesVes = Number(session.totalCashSalesVes) || 0;
 
-    const expectedCashUsd = Number((initialUsd + cashSalesUsd).toFixed(2));
-    const expectedCashVes = Number((initialVes + cashSalesVes).toFixed(2));
+    const closingSystemUsd = Number((initialUsd + cashSalesUsd).toFixed(2));
+    const closingSystemVes = Number((initialVes + cashSalesVes).toFixed(2));
+    const closingPhysicalUsd = Number(countedCashUsd.toFixed(2));
+    const closingPhysicalVes = Number(countedCashVes.toFixed(2));
 
-    const totalCountedInUsd = Number((countedCashUsd + (countedCashVes / bcvRate)).toFixed(2));
-    const totalExpectedInUsd = Number((expectedCashUsd + (expectedCashVes / bcvRate)).toFixed(2));
-    const cashDifference = Number((totalCountedInUsd - totalExpectedInUsd).toFixed(2));
-    const cashDifferenceVes = Number((countedCashVes - expectedCashVes).toFixed(2));
+    const totalCountedInUsd = Number((closingPhysicalUsd + (closingPhysicalVes / bcvRate)).toFixed(2));
+    const totalExpectedInUsd = Number((closingSystemUsd + (closingSystemVes / bcvRate)).toFixed(2));
+    const differenceUsd = Number((closingPhysicalUsd - closingSystemUsd).toFixed(2));
+    const differenceVes = Number((closingPhysicalVes - closingSystemVes).toFixed(2));
+    const cashDifference = Number((differenceUsd + (differenceVes / bcvRate)).toFixed(2));
 
     const closedSession: CashRegisterSession = {
       ...session,
       status: 'CERRADA',
       closeDate: nowStr,
+      closedAt,
       countedCashAmount: totalCountedInUsd,
-      countedCashAmountUsd: countedCashUsd,
-      countedCashAmountVes: countedCashVes,
+      countedCashAmountUsd: closingPhysicalUsd,
+      countedCashAmountVes: closingPhysicalVes,
       cashDifference,
-      cashDifferenceVes,
-      closingNotes: notes
+      cashDifferenceVes: differenceVes,
+      closingSystemUsd,
+      closingSystemVes,
+      closingPhysicalUsd,
+      closingPhysicalVes,
+      differenceUsd,
+      differenceVes,
+      closingNotes: notes,
+      notes
     };
 
-    this.activeCashSession.set(closedSession);
-    this.cashSessionHistory.update(hist => [closedSession, ...hist]);
+    try {
+      const updatedSession = await firstValueFrom(this.apiService.updateCashSession(session.id, {
+        status: 'CERRADA',
+        closedAt,
+        closingSystemUsd,
+        closingSystemVes,
+        closingPhysicalUsd,
+        closingPhysicalVes,
+        differenceUsd,
+        differenceVes,
+        notes
+      }));
+      const persistedSession = { ...closedSession, ...updatedSession, closeDate: nowStr, closingNotes: notes };
 
-    this.logAudit(
-      'CASH_CLOSING',
-      'FINANCE',
-      `Cierre de Turno de Caja ${session.sessionCode}`,
-      `Cierre de caja efectuado. Total ventas: $${session.totalSales.toFixed(2)} (Bs. ${(session.totalSalesVes || session.totalSales * bcvRate).toFixed(2)}). Diferencia Efectivo: $${cashDifference.toFixed(2)} USD / Bs. ${cashDifferenceVes.toFixed(2)}.`,
-      { apertura: session.openDate, fondoInicialUsd: initialUsd, fondoInicialVes: initialVes, ventasTotal: session.totalSales },
-      { cierre: nowStr, contadoUsd: countedCashUsd, contadoVes: countedCashVes, diffUsd: cashDifference, diffVes: cashDifferenceVes, estado: 'CERRADA' }
-    );
+      this.activeCashSession.set(persistedSession);
+      this.cashSessionHistory.update(hist => [persistedSession, ...hist]);
 
-    this.notify('success', 'Caja Cerrada', `Turno ${session.sessionCode} cerrado. Dif: $${cashDifference >= 0 ? '+' : ''}${cashDifference.toFixed(2)} / Bs. ${cashDifferenceVes >= 0 ? '+' : ''}${cashDifferenceVes.toFixed(2)}`);
-    this.saveState();
-    return { success: true, session: closedSession };
+      this.logAudit(
+        'CASH_CLOSING',
+        'FINANCE',
+        `Cierre de Turno de Caja ${session.sessionCode}`,
+        `Cierre de caja efectuado. Total ventas: $${Number(session.totalSales).toFixed(2)} (Bs. ${(Number(session.totalSalesVes) || Number(session.totalSales) * bcvRate).toFixed(2)}). Diferencia Efectivo: $${cashDifference.toFixed(2)} USD / Bs. ${differenceVes.toFixed(2)}.`,
+        { apertura: session.openedAt, fondoInicialUsd: initialUsd, fondoInicialVes: initialVes, ventasTotal: Number(session.totalSales)},
+        { cierre: nowStr, contadoUsd: closingPhysicalUsd, contadoVes: closingPhysicalVes, diffUsd: differenceUsd, diffVes: differenceVes, estado: 'CERRADA' }
+      );
+
+      this.notify('success', 'Caja Cerrada', `Turno ${session.sessionCode} cerrado. Dif: $${cashDifference >= 0 ? '+' : ''}${cashDifference.toFixed(2)} / Bs. ${differenceVes >= 0 ? '+' : ''}${differenceVes.toFixed(2)}`);
+      this.saveState();
+      return { success: true, session: persistedSession };
+    } catch (error) {
+      console.error('Failed to close cash session:', error);
+      this.notify('error', 'Error al Cerrar Caja', 'No se pudo guardar el cierre de caja en el servidor.');
+      return { success: false };
+    }
   }
 
-  reopenCashSession(initialAmountUsd: number, initialAmountVes: number = 0) {
+  reopenCashSession(initialAmountUsd: number, initialAmountVes: number = 0, warehouseId: string) {
     const user = this.authService.currentUser();
-    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    const nowStr = new Date().toISOString();
     const code = 'CAJA-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-' + (this.cashSessionHistory().length + 1).toString().padStart(2, '0');
 
     const newSession: CashRegisterSession = {
@@ -4164,10 +4229,10 @@ export class ErpStateService {
       sessionCode: code,
       cashierId: user.id,
       cashierName: user.name,
-      openDate: nowStr,
+      openedAt: nowStr,
       status: 'ABIERTA',
-      initialAmount: initialAmountUsd,
-      initialAmountVes,
+      openingBaseUsd: initialAmountUsd,
+      openingBaseVes: initialAmountVes,
       totalCashSales: 0,
       totalCashSalesUsd: 0,
       totalCashSalesVes: 0,
@@ -4182,12 +4247,23 @@ export class ErpStateService {
       totalCreditSales: 0,
       totalSales: 0,
       totalSalesVes: 0,
-      methodBreakdowns: []
+      methodBreakdowns: [],
+      warehouseId: warehouseId
     };
 
-    this.activeCashSession.set(newSession);
-    this.notify('info', 'Caja Abierta', `Nuevo turno de caja iniciado con fondo de $${initialAmountUsd.toFixed(2)} y Bs. ${initialAmountVes.toFixed(2)}`);
-    this.saveState();
+    this.apiService.openCashierSession(newSession).subscribe({
+      next: session => {
+        this.activeCashSession.set(session);
+        this.notify('info', 'Caja Abierta', `Nuevo turno de caja iniciado con fondo de $${initialAmountUsd.toFixed(2)} y Bs. ${initialAmountVes.toFixed(2)}`);
+        this.saveState();
+      },
+      error: err => {
+        console.error('Failed to open cash session:', err);
+        this.notify('error', 'Error', 'No se pudo abrir el turno de caja.');
+      }
+    });
+
+    
   }
 
   // Create Product Helper

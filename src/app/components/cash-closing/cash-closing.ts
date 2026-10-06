@@ -3,7 +3,7 @@ import { CommonModule, DecimalPipe } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { ErpStateService } from '../../services/erp-state.service';
 import { AuthService } from '../../services/auth.service';
-import { CashSessionPaymentMethodBreakdown, PaymentMethod, CurrencyCode } from '../../models/erp.models';
+import { CashSessionPaymentMethodBreakdown, PaymentMethod, CurrencyCode, Warehouse } from '../../models/erp.models';
 
 @Component({
   selector: 'app-cash-closing',
@@ -68,7 +68,7 @@ import { CashSessionPaymentMethodBreakdown, PaymentMethod, CurrencyCode } from '
             </div>
             <p class="text-xs text-slate-500 mt-1">
               Cajero a cargo: <strong class="text-slate-800">{{ sess.cashierName }}</strong> • 
-              Apertura: <span class="font-mono text-slate-600">{{ sess.openDate }}</span>
+              Apertura: <span class="font-mono text-slate-600">{{ sess.openedAt }}</span>
             </p>
           </div>
 
@@ -76,9 +76,9 @@ import { CashSessionPaymentMethodBreakdown, PaymentMethod, CurrencyCode } from '
             <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
               <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Fondo Inicial en Gaveta</span>
               <div class="flex items-baseline justify-end space-x-1.5">
-                <span class="font-mono font-bold text-base text-slate-900">\${{ sess.initialAmount | number:'1.2-2' }}</span>
+                <span class="font-mono font-bold text-base text-slate-900">\${{ sess.openingBaseUsd | number:'1.2-2' }}</span>
                 <span class="text-xs text-slate-400 font-mono">/</span>
-                <span class="font-mono font-semibold text-xs text-slate-600">Bs. {{ formatNumber(sess.initialAmountVes || 0) }}</span>
+                <span class="font-mono font-semibold text-xs text-slate-600">Bs. {{ formatNumber(sess.openingBaseVes || 0) }}</span>
               </div>
             </div>
           </div>
@@ -860,7 +860,7 @@ import { CashSessionPaymentMethodBreakdown, PaymentMethod, CurrencyCode } from '
                       {{ h.cashierName }}
                     </span>
                   </div>
-                  <p class="text-slate-400 text-[11px] mt-0.5">{{ h.openDate }} a {{ h.closeDate }}</p>
+                  <p class="text-slate-400 text-[11px] mt-0.5">{{ h.openedAt }} a {{ h.closeDate }}</p>
                 </div>
                 <div class="flex items-center space-x-4">
                   <div class="text-right">
@@ -897,14 +897,25 @@ import { CashSessionPaymentMethodBreakdown, PaymentMethod, CurrencyCode } from '
             <div class="space-y-3">
               <div>
                 <label class="block font-semibold text-slate-700 mb-1">Fondo Inicial en Dólares ($ USD):</label>
-                <input #initialUsdInput type="number" step="0.01" value="150.00" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono text-sm font-bold text-slate-900" />
+                <input #initialUsdInput type="number" step="0.01" value="0.00" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono text-sm font-bold text-slate-900" />
               </div>
               <div>
                 <label class="block font-semibold text-slate-700 mb-1">Fondo Inicial en Bolívares (Bs. VES):</label>
-                <input #initialVesInput type="number" step="0.01" value="5475.00" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono text-sm font-bold text-slate-900" />
+                <input #initialVesInput type="number" step="0.01" value="0.00" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono text-sm font-bold text-slate-900" />
                 <span class="text-[10px] text-slate-400 block mt-0.5 font-mono">
-                  Equivalente: ~ \${{ (5475 / bcvRate()) | number:'1.2-2' }} USD (Tasa BCV: Bs. {{ bcvRate() | number:'1.2-2' }})
+                  Equivalente: ~ \${{ (+initialVesInput.value / bcvRate()) | number:'1.2-2' }} USD (Tasa BCV: Bs. {{ bcvRate() | number:'1.2-2' }})
                 </span>
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Seleccione Almacén:</label>
+                <select 
+                  [value]="warehouseSelect()"
+                  (change)="warehouseSelect.set($any($event.target).value)"
+                  class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono text-sm font-bold text-slate-900">
+                  @for (wh of warehouses(); track wh.id) {
+                    <option [value]="wh.id">{{ wh.name }}</option>
+                  }
+                </select>
               </div>
             </div>
 
@@ -963,7 +974,7 @@ import { CashSessionPaymentMethodBreakdown, PaymentMethod, CurrencyCode } from '
                 </div>
                 <div>
                   <span class="text-slate-400 block text-[10px]">APERTURA:</span>
-                  <span>{{ sess.openDate }}</span>
+                  <span>{{ sess.openedAt }}</span>
                 </div>
                 <div>
                   <span class="text-slate-400 block text-[10px]">TASA OFICIAL BCV:</span>
@@ -1018,7 +1029,7 @@ import { CashSessionPaymentMethodBreakdown, PaymentMethod, CurrencyCode } from '
               <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1 font-mono text-[11px]">
                 <div class="flex justify-between">
                   <span class="text-slate-500">Fondo Inicial Asignado:</span>
-                  <span class="font-bold">\${{ formatNumber(sess.initialAmount) }} + Bs. {{ formatNumber(sess.initialAmountVes || 0) }}</span>
+                  <span class="font-bold">\${{ formatNumber(sess.openingBaseUsd || 0) }} + Bs. {{ formatNumber(sess.openingBaseVes || 0) }}</span>
                 </div>
                 <div class="flex justify-between">
                   <span class="text-slate-500">Efectivo Físico Esperado:</span>
@@ -1067,12 +1078,16 @@ export default class CashClosingComponent {
   selectedBreakdownFilter = signal<'ALL' | 'EFECTIVO' | 'TARJETA' | 'TRANSFERENCIA'>('ALL');
   dashboardCurrencyMode = signal<'MULTI' | 'USD' | 'VES'>('MULTI');
 
+  warehouses = computed(() => this.stateService.warehouses());
+
+  warehouseSelect = signal<Warehouse | null>(this.warehouses().find(wh => wh.isMain) || null);
+
   bcvRate = computed(() => Number(this.stateService.bcvState().usdRate) || 36.50);
 
   // Cash count input signals (Dual currency)
   // Default values set to match expected physical cash
-  countedCashUsdInput = signal<number>(15350.00);
-  countedCashVesInput = signal<number>(335793.43);
+  countedCashUsdInput = signal<number>(0.00);
+  countedCashVesInput = signal<number>(0.00);
 
   // Fallback initial method breakdowns if none in session
   allBreakdownItems = computed<CashSessionPaymentMethodBreakdown[]>(() => {
@@ -1139,9 +1154,9 @@ export default class CashClosingComponent {
       });
     }
 
-    const zelleUsd = sess.totalZelleSalesUsd || 12500.00;
-    const pagoMovilVes = sess.totalPagoMovilSalesVes || 206670.66;
-    const trfUsd = sess.totalTransferSalesUsd || 9000.00;
+    const zelleUsd = sess.totalZelleSalesUsd || 0.00;
+    const pagoMovilVes = sess.totalPagoMovilSalesVes || 0.00;
+    const trfUsd = sess.totalTransferSalesUsd || 0.00;
 
     if (zelleUsd > 0) {
       items.push({
@@ -1151,7 +1166,7 @@ export default class CashClosingComponent {
         currency: 'USD',
         amount: zelleUsd,
         amountUsd: zelleUsd,
-        transactionCount: 9
+        transactionCount: 0
       });
     }
 
@@ -1163,7 +1178,7 @@ export default class CashClosingComponent {
         currency: 'VES',
         amount: pagoMovilVes,
         amountUsd: Number((pagoMovilVes / bcv).toFixed(2)),
-        transactionCount: 22
+        transactionCount: 0
       });
     }
 
@@ -1175,7 +1190,7 @@ export default class CashClosingComponent {
         currency: 'USD',
         amount: trfUsd,
         amountUsd: trfUsd,
-        transactionCount: 4
+        transactionCount: 0
       });
     }
 
@@ -1192,7 +1207,7 @@ export default class CashClosingComponent {
 
   cashUsdOps = computed(() => {
     const item = this.allBreakdownItems().find(it => it.category === 'EFECTIVO' && it.currency === 'USD');
-    return item?.transactionCount || 28;
+    return item?.transactionCount || 0;
   });
 
   cashVes = computed(() => {
@@ -1204,7 +1219,7 @@ export default class CashClosingComponent {
 
   cashVesOps = computed(() => {
     const item = this.allBreakdownItems().find(it => it.category === 'EFECTIVO' && it.currency === 'VES');
-    return item?.transactionCount || 19;
+    return item?.transactionCount || 0;
   });
 
   // Card Inflow Specifics
@@ -1217,7 +1232,7 @@ export default class CashClosingComponent {
 
   cardVesOps = computed(() => {
     const item = this.allBreakdownItems().find(it => it.category === 'TARJETA' && it.currency === 'VES');
-    return item?.transactionCount || 14;
+    return item?.transactionCount || 0;
   });
 
   cardUsd = computed(() => {
@@ -1237,36 +1252,36 @@ export default class CashClosingComponent {
     const item = this.allBreakdownItems().find(it => it.method === 'ZELLE');
     if (item) return item.amount;
     const sess = this.stateService.activeCashSession();
-    return sess.totalZelleSalesUsd || 12500.00;
+    return sess.totalZelleSalesUsd || 0;
   });
 
   zelleOps = computed(() => {
     const item = this.allBreakdownItems().find(it => it.method === 'ZELLE');
-    return item?.transactionCount || 9;
+    return item?.transactionCount || 0;
   });
 
   pagoMovilVes = computed(() => {
     const item = this.allBreakdownItems().find(it => it.method === 'PAGO_MOVIL');
     if (item) return item.amount;
     const sess = this.stateService.activeCashSession();
-    return sess.totalPagoMovilSalesVes || 206670.66;
+    return sess.totalPagoMovilSalesVes || 0;
   });
 
   pagoMovilOps = computed(() => {
     const item = this.allBreakdownItems().find(it => it.method === 'PAGO_MOVIL');
-    return item?.transactionCount || 22;
+    return item?.transactionCount || 0;
   });
 
   transferUsd = computed(() => {
     const item = this.allBreakdownItems().find(it => it.method === 'TRANSFERENCIA' && it.currency === 'USD');
     if (item) return item.amount;
     const sess = this.stateService.activeCashSession();
-    return sess.totalTransferSalesUsd || 9000.00;
+    return sess.totalTransferSalesUsd || 0;
   });
 
   transferUsdOps = computed(() => {
     const item = this.allBreakdownItems().find(it => it.method === 'TRANSFERENCIA' && it.currency === 'USD');
-    return item?.transactionCount || 4;
+    return item?.transactionCount || 0;
   });
 
   totalSessionOperations = computed(() => {
@@ -1303,15 +1318,15 @@ export default class CashClosingComponent {
   // Expected Physical Cash
   expectedCashUsd = computed(() => {
     const sess = this.stateService.activeCashSession();
-    const initial = sess.initialAmount || 0;
-    const sales = sess.totalCashSalesUsd !== undefined ? sess.totalCashSalesUsd : sess.totalCashSales;
+    const initial = Number(sess.openingBaseUsd) || 0;
+    const sales = sess.totalCashSalesUsd !== undefined ? Number(sess.totalCashSalesUsd) : Number(sess.totalCashSales);
     return Number((initial + sales).toFixed(2));
   });
 
   expectedCashVes = computed(() => {
     const sess = this.stateService.activeCashSession();
-    const initial = sess.initialAmountVes || 0;
-    const sales = sess.totalCashSalesVes || 0;
+    const initial = Number(sess.openingBaseVes) || 0;
+    const sales = Number(sess.totalCashSalesVes) || 0;
     return Number((initial + sales).toFixed(2));
   });
 
@@ -1338,8 +1353,8 @@ export default class CashClosingComponent {
     );
   }
 
-  confirmOpenSession(initialAmountUsd: number, initialAmountVes: number) {
-    this.stateService.reopenCashSession(initialAmountUsd || 100, initialAmountVes || 0);
+  confirmOpenSession(openingBaseUsd: number, initialAmountVes: number) {
+    this.stateService.reopenCashSession(openingBaseUsd || 0, initialAmountVes || 0, this.warehouseSelect()?.id || '');
     this.showOpenSessionModal.set(false);
   }
 

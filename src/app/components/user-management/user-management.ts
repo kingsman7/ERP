@@ -385,7 +385,7 @@ import { User, UserRole } from '../../models/erp.models';
                   </td>
 
                   <!-- Permissions Summary -->
-                  <td class="py-3.5 px-3 max-w-[200px]">
+                  <td class="py-3.5 px-3 max-w-50">
                     <div class="flex flex-wrap gap-1">
                       @for (perm of getPermissionsPills(user.role); track perm) {
                         <span class="px-1.5 py-0.2 bg-slate-100 text-slate-600 rounded text-[10px] font-mono">

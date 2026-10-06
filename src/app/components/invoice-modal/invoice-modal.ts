@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, input, output, inject, OnInit } from '@angular/core';
+import { Component, ChangeDetectionStrategy, input, output, inject, OnDestroy, signal } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { Invoice } from '../../models/erp.models';
 import { ErpStateService } from '../../services/erp-state.service';
@@ -39,7 +39,7 @@ type InvoiceWithWithholdings = Invoice & {
           </div>
 
           <!-- Printable Document Container -->
-          <div class="p-8 overflow-y-auto space-y-6 text-slate-800 text-xs sm:text-sm print:p-0 print:m-0" id="printable-invoice">
+          <div class="p-8 overflow-y-auto space-y-6 text-slate-800 text-xs sm:text-sm print:p-0 print:m-0 print-document" id="printable-invoice">
             
             <!-- Document Header -->
             <div class="flex justify-between items-start border-b border-slate-200 pb-5">
@@ -323,10 +323,18 @@ type InvoiceWithWithholdings = Invoice & {
     }
   `
 })
-export class InvoiceModal {
+export class InvoiceModal implements OnDestroy {
   invoice = input<Invoice | null>(null);
   closeModal = output<void>();
   readonly stateService = inject(ErpStateService);
+  readonly isPrinting = signal(false);
+  private afterPrintHandler?: () => void;
+
+  ngOnDestroy(): void {
+    if (this.afterPrintHandler && typeof window !== 'undefined') {
+      window.removeEventListener('afterprint', this.afterPrintHandler);
+    }
+  }
 
   withholdingDetails(invoice: Invoice): InvoiceWithWithholdings {
     return invoice as InvoiceWithWithholdings;
@@ -337,7 +345,21 @@ export class InvoiceModal {
 
   printInvoice() {
     if (typeof window !== 'undefined') {
-      window.print();
+      if (this.afterPrintHandler) window.removeEventListener('afterprint', this.afterPrintHandler);
+      this.isPrinting.set(true);
+      this.afterPrintHandler = () => {
+        this.isPrinting.set(false);
+        this.afterPrintHandler = undefined;
+      };
+      window.addEventListener('afterprint', this.afterPrintHandler, { once: true });
+      try {
+        window.print();
+      } catch (error) {
+        window.removeEventListener('afterprint', this.afterPrintHandler);
+        this.afterPrintHandler = undefined;
+        this.isPrinting.set(false);
+        throw error;
+      }
     }
   }
 }

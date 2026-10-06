@@ -1,10 +1,10 @@
-import { Component, ChangeDetectionStrategy, inject, signal, computed, effect } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, computed, effect, OnDestroy } from '@angular/core';
 import { ReactiveFormsModule, FormGroup, FormControl, Validators } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { ErpStateService } from '../../services/erp-state.service';
 import { AuthService } from '../../services/auth.service';
 import { KeyboardShortcutsService } from '../../services/keyboard-shortcuts.service';
-import { ProductPrices } from '../../models/erp.models';
+import { ProductPrices, PurchaseOrder } from '../../models/erp.models';
 import { DatePipe } from '@angular/common';
 import { DecimalPipe } from '@angular/common';
 
@@ -90,6 +90,7 @@ interface TempItem {
                   <th class="py-3 px-3 text-right">Subtotal</th>
                   <th class="py-3 px-3 text-right">Total ($)</th>
                   <th class="py-3 px-4 text-center">Estado</th>
+                  <th class="py-3 px-4 text-center no-print">Documento</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-100 text-slate-700">
@@ -125,10 +126,15 @@ interface TempItem {
                         {{ po.status }}
                       </span>
                     </td>
+                    <td class="py-3 px-4 text-center no-print">
+                      <button type="button" (click)="printPurchaseOrder(po)" [attr.aria-label]="'Imprimir orden ' + po.orderNumber" class="p-2 rounded-lg text-slate-600 hover:bg-amber-50 hover:text-amber-700">
+                        <mat-icon class="text-sm">print</mat-icon>
+                      </button>
+                    </td>
                   </tr>
                 } @empty {
                   <tr>
-                    <td colspan="8" class="text-center py-10 text-slate-400">
+                    <td colspan="9" class="text-center py-10 text-slate-400">
                       No hay órdenes de compra registradas.
                     </td>
                   </tr>
@@ -605,10 +611,59 @@ interface TempItem {
         </div>
       }
 
+      @if (selectedPurchaseOrderForPrint(); as order) {
+        <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60">
+          <div class="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-xl bg-white p-8 shadow-2xl print-document" id="printable-purchase-order">
+            <div class="mb-6 flex items-start justify-between border-b-2 border-slate-800 pb-4">
+              <div>
+                <h1 class="text-2xl font-bold text-slate-900">{{ stateService.companyProfile().legalName }}</h1>
+                <p class="text-sm text-slate-600">RIF: {{ stateService.companyProfile().taxId }}</p>
+                <p class="text-sm text-slate-600">{{ stateService.companyProfile().address }}</p>
+              </div>
+              <div class="text-right">
+                <h2 class="text-xl font-bold">ORDEN DE COMPRA</h2>
+                <p class="font-mono text-lg font-semibold">{{ order.orderNumber }}</p>
+                <p>{{ order.orderDate | date:'dd/MM/yyyy' }}</p>
+              </div>
+            </div>
+            <div class="mb-6 grid grid-cols-2 gap-4 text-sm">
+              <div><strong>Proveedor:</strong> {{ order.supplierName }}<p>RIF: {{ order.supplierTaxId }}</p></div>
+              <div><strong>Almacén:</strong> {{ order.warehouseName }}<p><strong>Recibió:</strong> {{ order.receivedBy }}</p></div>
+            </div>
+            <table class="w-full border-collapse text-sm">
+              <thead><tr class="border-y border-slate-400 text-left">
+                <th class="py-2">SKU</th><th>Descripción</th><th class="text-right">Cantidad</th>
+                <th class="text-right">Costo unitario</th><th class="text-right">Subtotal</th>
+              </tr></thead>
+              <tbody>
+                @for (item of order.items; track item.productId) {
+                  <tr class="border-b border-slate-200">
+                    <td class="py-2 font-mono">{{ item.sku }}</td><td>{{ item.productName }}</td>
+                    <td class="text-right">{{ item.quantity | number:'1.2-2' }}</td>
+                    <td class="text-right">{{ item.unitCost | number:'1.2-2' }}</td>
+                    <td class="text-right">{{ item.subtotal | number:'1.2-2' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+            <div class="ml-auto mt-5 w-64 space-y-1 text-right text-sm">
+              <p>Subtotal: <strong>{{ order.subtotal | number:'1.2-2' }}</strong></p>
+              <p>IVA: <strong>{{ order.taxTotal | number:'1.2-2' }}</strong></p>
+              <p class="border-t border-slate-400 pt-2 text-base">Total: <strong>{{ order.total | number:'1.2-2' }}</strong></p>
+            </div>
+            @if (order.notes) { <p class="mt-5 text-sm"><strong>Observaciones:</strong> {{ order.notes }}</p> }
+            <div class="mt-8 flex justify-end gap-2 no-print">
+              <button type="button" (click)="selectedPurchaseOrderForPrint.set(null)" class="rounded-lg bg-slate-100 px-4 py-2 text-sm">Cerrar</button>
+              <button type="button" (click)="printSelectedPurchaseOrder()" class="rounded-lg bg-amber-700 px-4 py-2 text-sm font-semibold text-white">Imprimir / Guardar PDF</button>
+            </div>
+          </div>
+        </div>
+      }
+
     </div>
   `
 })
-export default class PurchasesComponent {
+export default class PurchasesComponent implements OnDestroy {
   stateService = inject(ErpStateService);
   authService = inject(AuthService);
   shortcutService = inject(KeyboardShortcutsService);
@@ -624,6 +679,8 @@ export default class PurchasesComponent {
   showNewPurchaseModal = signal<boolean>(false);
   showNewSupplierModal = signal<boolean>(false);
   showQuickProductModal = signal<boolean>(false);
+  selectedPurchaseOrderForPrint = signal<PurchaseOrder | null>(null);
+  private afterPrintHandler?: () => void;
 
   productSearchQuery = signal<string>('');
   selectedProductIdForEntry = signal<string>('');
@@ -636,6 +693,27 @@ export default class PurchasesComponent {
         this.openNewPurchaseModal();
       }
     });
+  }
+
+  ngOnDestroy(): void {
+    if (this.afterPrintHandler && typeof window !== 'undefined') {
+      window.removeEventListener('afterprint', this.afterPrintHandler);
+    }
+  }
+
+  printPurchaseOrder(order: PurchaseOrder): void {
+    this.selectedPurchaseOrderForPrint.set(order);
+  }
+
+  printSelectedPurchaseOrder(): void {
+    if (typeof window === 'undefined') return;
+    if (this.afterPrintHandler) window.removeEventListener('afterprint', this.afterPrintHandler);
+    this.afterPrintHandler = () => {
+      this.selectedPurchaseOrderForPrint.set(null);
+      this.afterPrintHandler = undefined;
+    };
+    window.addEventListener('afterprint', this.afterPrintHandler, { once: true });
+    window.requestAnimationFrame(() => window.print());
   }
 
   selectedSupplierId = signal<string>(this.suppliers()[0]?.id || '');
