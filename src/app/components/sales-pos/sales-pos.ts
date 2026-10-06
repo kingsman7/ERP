@@ -1752,6 +1752,7 @@ export default class SalesPosComponent {
     let bolivaresPaidUsd = 0;
 
     for (const sp of this.splitPayments()) {
+      if (sp.method === 'CREDITO') continue;
       const isBs = this.stateService.isBolivaresPaymentMethod(sp.method, sp.currency);
       const isDiv = this.stateService.isForeignCurrencyPaymentMethod(sp.method, sp.currency);
 
@@ -2160,6 +2161,16 @@ export default class SalesPosComponent {
     this.cashTendered.set(Number(amount.toFixed(2)));
   }
 
+  private tenderedAmountUsd(): number {
+    const amount = this.cashTendered() ?? 0;
+    const usdRate = this.stateService.bcvState().usdRate;
+    const eurRate = this.stateService.bcvState().eurRate || usdRate;
+    const currency = this.selectedPaymentCurrency();
+    if (currency === 'VES') return usdRate > 0 ? amount / usdRate : 0;
+    if (currency === 'EUR') return usdRate > 0 ? (amount * eurRate) / usdRate : 0;
+    return amount;
+  }
+
   onCashTenderedInput(event: Event) {
     const input = event.target as HTMLInputElement;
     const val = input.value.trim();
@@ -2510,11 +2521,16 @@ export default class SalesPosComponent {
     const isDivisas = this.computedTaxDetails().isDivisas;
     const isBolivares = this.computedTaxDetails().isBolivares;
 
+    const paymentMethod = this.selectedPaymentMethod();
+    const paymentCurrency = this.selectedPaymentCurrency();
+    const paymentAmount = paymentMethod === 'CREDITO'
+      ? Number(Math.max(0, this.grandTotalUsd() - this.tenderedAmountUsd()).toFixed(2))
+      : targetAmount;
     const payments: PaymentRecord[] = [
       {
-        method: this.selectedPaymentMethod(),
-        amount: targetAmount,
-        currency: this.selectedPaymentCurrency(),
+        method: paymentMethod,
+        amount: paymentAmount,
+        currency: paymentMethod === 'CREDITO' ? 'USD' : paymentCurrency,
         reference: this.isCashPayment() ? 'CONTADO_CAJA' : 'REF-' + Math.floor(Math.random() * 90000 + 10000),
         isForeignCurrency: isDivisas && !isBolivares
       }

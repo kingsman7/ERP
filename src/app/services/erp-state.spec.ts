@@ -1,6 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { Invoice } from '../models/erp.models';
 import { ErpStateService } from './erp-state.service';
 
 describe('ErpStateService', () => {
@@ -125,6 +126,52 @@ describe('ErpStateService', () => {
 
     expect(service.invoices()).toMatchObject([{ id: 'invoice-1', invoiceNumber: 'FAC-001', total: 125 }]);
     expect(service.customers()).toMatchObject([{ id: 'customer-1', name: 'Cliente de prueba' }]);
+  });
+
+  it('shows the POS down payment against the credit balance in CxC', () => {
+    service.invoices.set([{
+      id: 'invoice-credit',
+      invoiceNumber: 'FAC-001',
+      customerId: 'customer-1',
+      customerName: 'Cliente de prueba',
+      customerTaxId: 'J-123',
+      warehouseId: 'warehouse-1',
+      date: '2026-10-05T10:00:00.000Z',
+      type: 'FACTURA_ELECTRONICA',
+      status: 'EMITIDA',
+      items: [],
+      baseCurrency: 'USD',
+      paymentCurrency: 'USD',
+      bcvRate: 36.5,
+      eurRate: 39.8,
+      rateOrigin: 'MANUAL',
+      priceLevelApplied: 'price1',
+      subtotal: 200,
+      discountTotal: 0,
+      taxDetails: {
+        taxableBase: 200,
+        exemptBase: 0,
+        ivaPercent: 0,
+        ivaAmount: 0,
+        appliesIgtf: false,
+        igtfPercent: 0,
+        igtfBase: 0,
+        igtfAmount: 0,
+      },
+      taxTotal: 0,
+      total: 200,
+      totalVes: 7300,
+      totalEur: 183.42,
+      payments: [{ method: 'CREDITO', amount: 190, currency: 'USD' }],
+      sellerId: 'user-1',
+      sellerName: 'Caja',
+    } satisfies Invoice]);
+
+    expect(service.customerReceivables()[0]).toMatchObject({
+      paidUsd: 10,
+      balanceUsd: 190,
+      status: 'PARCIAL',
+    });
   });
 
   it('loads treasury CxC/CxP collections without retaining stale state', () => {

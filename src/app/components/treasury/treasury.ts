@@ -1177,6 +1177,18 @@ export interface DetailItemRow {
             </div>
 
             <div>
+              <label for="bill-expense-account" class="block font-semibold text-slate-700 mb-1">Cuenta contable de compra / gasto *</label>
+              <select
+                id="bill-expense-account"
+                formControlName="glAccountExpenseCode"
+                class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500">
+                @for (account of payableExpenseAccounts(); track account.id) {
+                  <option [value]="account.code">{{ account.code }} — {{ account.name }}</option>
+                }
+              </select>
+            </div>
+
+            <div>
               <label for="bill-notes" class="block font-semibold text-slate-700 mb-1">Descripción / Concepto</label>
               <textarea 
                 id="bill-notes"
@@ -2154,6 +2166,7 @@ export default class TreasuryComponent {
     dueDate: [new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString().substring(0, 10), Validators.required],
     totalAmountUsd: [0, [Validators.required, Validators.min(0.01)]],
     category: ['Mercancía e Insumos'],
+    glAccountExpenseCode: ['1.1.03.01', Validators.required],
     notes: ['']
   });
 
@@ -2222,6 +2235,7 @@ export default class TreasuryComponent {
       return true;
     });
   });
+  readonly payableExpenseAccounts = computed(() => this.stateService.accounts().filter(account => account.isDebitNormal));
 
   handleCxcSearchInput(event: Event) {
     const target = event.target as HTMLInputElement;
@@ -2252,10 +2266,10 @@ export default class TreasuryComponent {
     this.selectedCxc.set(null);
   }
 
-  submitCollection() {
+  async submitCollection() {
     if (this.collectionForm.invalid || !this.selectedCxc()) return;
     const val = this.collectionForm.value;
-    const res = this.stateService.recordCxcCollection({
+    const res = await this.stateService.recordCxcCollectionFromApi({
       invoiceId: this.selectedCxc()!.invoiceId,
       amountUsd: Number(val.amountUsd),
       paymentMethod: val.paymentMethod as PaymentMethod,
@@ -2288,10 +2302,10 @@ export default class TreasuryComponent {
     this.selectedBill.set(null);
   }
 
-  submitPayment() {
+  async submitPayment() {
     if (this.paymentForm.invalid || !this.selectedBill()) return;
     const val = this.paymentForm.value;
-    const res = this.stateService.recordCxpPayment({
+    const res = await this.stateService.recordCxpPaymentFromApi({
       payableBillId: this.selectedBill()!.id,
       amountUsd: Number(val.amountUsd),
       paymentMethod: val.paymentMethod as PaymentMethod,
@@ -2314,6 +2328,7 @@ export default class TreasuryComponent {
       dueDate: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString().substring(0, 10),
       totalAmountUsd: 0,
       category: 'Mercancía e Insumos',
+      glAccountExpenseCode: '1.1.03.01',
       notes: ''
     });
     this.showNewBillModal.set(true);
@@ -2323,15 +2338,16 @@ export default class TreasuryComponent {
     this.showNewBillModal.set(false);
   }
 
-  submitNewBill() {
+  async submitNewBill() {
     if (this.newBillForm.invalid) return;
     const val = this.newBillForm.value;
-    const res = this.stateService.createPayableBill({
+    const res = await this.stateService.createPayableBillFromApi({
       billNumber: val.billNumber!,
       supplierId: val.supplierId!,
       issueDate: val.issueDate!,
       dueDate: val.dueDate!,
       totalAmountUsd: Number(val.totalAmountUsd),
+      glAccountExpenseCode: val.glAccountExpenseCode!,
       category: val.category || 'Mercancía e Insumos',
       notes: val.notes || undefined
     });
@@ -2361,10 +2377,10 @@ export default class TreasuryComponent {
     this.showTransferModal.set(false);
   }
 
-  submitTransfer() {
+  async submitTransfer() {
     if (this.transferForm.invalid) return;
     const val = this.transferForm.value;
-    const res = this.stateService.transferBetweenBankAccounts({
+    const res = await this.stateService.transferBetweenBankAccountsFromApi({
       sourceBankAccountId: val.sourceBankAccountId!,
       destinationBankAccountId: val.destinationBankAccountId!,
       amountUsd: Number(val.amountUsd),
@@ -2398,10 +2414,10 @@ export default class TreasuryComponent {
     this.showNewAccountModal.set(false);
   }
 
-  submitNewAccount() {
+  async submitNewAccount() {
     if (this.newAccountForm.invalid) return;
     const val = this.newAccountForm.value;
-    this.stateService.createBankAccount({
+    const result = await this.stateService.createBankAccountFromApi({
       accountName: val.accountName!,
       bankName: val.bankName!,
       accountNumber: val.accountNumber!,
@@ -2415,7 +2431,7 @@ export default class TreasuryComponent {
       isDefault: Boolean(val.isDefault)
     });
 
-    this.closeNewAccountModal();
+    if (result.success) this.closeNewAccountModal();
   }
 
   // Métodos de Apertura y Cierre de Detalles CxC

@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, catchError, forkJoin, map, of, throwError } from 'rxjs';
-import { Account, AuditLog, BankAccount, BcvExchangeRateState, Bom, CashRegisterSession, CompanyFiscalProfile, CrmDeal, CurrencyCode, Customer, DeliveryOrder, DispatchGuide, Invoice, InvoiceItem, InvoiceTaxDetails, JournalEntry, KardexMovement, PayableBill, PaymentRecord, PriceLevelKey, Product, ProductCategory, ProductionOrder, PurchaseOrder, Quote, Supplier, TreasuryTransaction, Warehouse } from '../models/erp.models';
+import { Account, AuditLog, BankAccount, BcvExchangeRateState, Bom, CashRegisterSession, CompanyFiscalProfile, CrmDeal, CurrencyCode, Customer, CustomerPaymentReceipt, DeliveryOrder, DispatchGuide, Invoice, InvoiceItem, InvoiceTaxDetails, JournalEntry, KardexMovement, PayableBill, PaymentRecord, PriceLevelKey, Product, ProductCategory, ProductionOrder, PurchaseOrder, Quote, Supplier, SupplierPaymentReceipt, TreasuryTransaction, Warehouse } from '../models/erp.models';
 
 export interface CreateInvoiceRequest {
   customerId: string;
@@ -399,15 +399,50 @@ export class ApiService {
   }
 
   getBankAccounts(): Observable<BankAccount[]> {
-    return this.http.get<BankAccount[]>(`${this.baseUrl}/treasury/bank-accounts`).pipe(catchError(() => of([])));
+    return this.http.get<Record<string, unknown>[]>(`${this.baseUrl}/treasury/bank-accounts`).pipe(
+      map(accounts => accounts.map(account => ({
+        ...account,
+        balance: Number(account['balance'] ?? 0),
+        balanceUsd: Number(account['balanceUsd'] ?? 0),
+        balanceVes: Number(account['balanceVes'] ?? 0),
+      } as unknown as BankAccount))),
+      catchError(() => of([]))
+    );
   }
 
   getTreasuryTransactions(): Observable<TreasuryTransaction[]> {
-    return this.http.get<TreasuryTransaction[]>(`${this.baseUrl}/treasury/transactions`).pipe(catchError(() => of([])));
+    return this.http.get<Record<string, unknown>[]>(`${this.baseUrl}/treasury/transactions`).pipe(
+      map(transactions => transactions.map(transaction => ({
+        ...transaction,
+        date: String(transaction['date'] ?? transaction['transactionDate'] ?? ''),
+        amount: Number(transaction['amount'] ?? 0),
+        amountUsd: Number(transaction['amountUsd'] ?? 0),
+        amountVes: Number(transaction['amountVes'] ?? 0),
+        bcvRate: Number(transaction['bcvRate'] ?? 0),
+      } as unknown as TreasuryTransaction))),
+      catchError(() => of([]))
+    );
   }
 
   getPayableBills(): Observable<PayableBill[]> {
-    return this.http.get<PayableBill[]>(`${this.baseUrl}/treasury/payable-bills`).pipe(catchError(() => of([])));
+    return this.http.get<Record<string, unknown>[]>(`${this.baseUrl}/treasury/payable-bills`).pipe(
+      map(bills => bills.map(bill => ({
+        ...bill,
+        totalAmountUsd: Number(bill['totalAmountUsd'] ?? 0),
+        totalAmountVes: Number(bill['totalAmountVes'] ?? 0),
+        paidAmountUsd: Number(bill['paidAmountUsd'] ?? 0),
+        paidAmountVes: Number(bill['paidAmountVes'] ?? 0),
+        balanceUsd: Number(bill['balanceUsd'] ?? 0),
+        balanceVes: Number(bill['balanceVes'] ?? 0),
+        payments: Array.isArray(bill['payments']) ? bill['payments'].map((payment) => ({
+          ...(payment as Record<string, unknown>),
+          amountUsd: Number((payment as Record<string, unknown>)['amountUsd'] ?? 0),
+          amountVes: Number((payment as Record<string, unknown>)['amountVes'] ?? 0),
+          date: String((payment as Record<string, unknown>)['date'] ?? (payment as Record<string, unknown>)['paymentDate'] ?? ''),
+        })) : [],
+      } as unknown as PayableBill))),
+      catchError(() => of([]))
+    );
   }
 
   getAuditLogs(): Observable<AuditLog[]> {
@@ -429,4 +464,104 @@ export class ApiService {
   updateCashSession(sessionId: string, updatedSession: Partial<CashRegisterSession>): Observable<CashRegisterSession> {
     return this.http.put<CashRegisterSession>(`${this.baseUrl}/cash-sessions/${sessionId}`, updatedSession);
   }
+
+  //treasury api endpoints
+
+  getAccountsBanks(): Observable<BankAccount[]> {
+    return this.getBankAccounts();
+  }
+  
+  getAccountsBanksById(bankId: string): Observable<BankAccount> {
+    return this.http.get<Record<string, unknown>>(`${this.baseUrl}/treasury/bank-accounts/${bankId}`).pipe(
+      map(account => ({
+        ...account,
+        balance: Number(account['balance'] ?? 0),
+        balanceUsd: Number(account['balanceUsd'] ?? 0),
+        balanceVes: Number(account['balanceVes'] ?? 0),
+      } as unknown as BankAccount))
+    );
+  }
+
+  createBankAccount(newBankAccount: Partial<BankAccount>): Observable<BankAccount> {
+    return this.http.post<BankAccount>(`${this.baseUrl}/treasury/bank-accounts`, newBankAccount);
+  }
+
+  updateBankAccount(bankId: string, updatedBankAccount: Partial<BankAccount>): Observable<BankAccount> {
+    return this.http.put<BankAccount>(`${this.baseUrl}/treasury/bank-accounts/${bankId}`, updatedBankAccount);
+  }
+
+  deleteBankAccount(bankId: string): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/treasury/bank-accounts/${bankId}`);
+  }
+
+  // treasury transactions
+
+  getTreasuryTransactionById(transactionId: string): Observable<TreasuryTransaction> {
+    return this.http.get<TreasuryTransaction>(`${this.baseUrl}/treasury/transactions/${transactionId}`);
+  }
+
+  createTreasuryTransaction(newTransaction: Partial<TreasuryTransaction> & { transactionDate?: string }): Observable<TreasuryTransaction> {
+    return this.http.post<TreasuryTransaction>(`${this.baseUrl}/treasury/transactions`, newTransaction);
+  }
+
+  updateTreasuryTransaction(transactionId: string, updatedTransaction: Partial<TreasuryTransaction>): Observable<TreasuryTransaction> {
+    return this.http.put<TreasuryTransaction>(`${this.baseUrl}/treasury/transactions/${transactionId}`, updatedTransaction);
+  }
+
+  //treasury Customer Receipts
+
+  getCustomerReceipts(): Observable<CustomerPaymentReceipt[]> {
+    return this.http.get<Record<string, unknown>[]>(`${this.baseUrl}/treasury/customer-receipts`).pipe(
+      map(receipts => receipts.map(receipt => ({
+        ...receipt,
+        date: String(receipt['date'] ?? receipt['receiptDate'] ?? ''),
+        amountUsd: Number(receipt['amountUsd'] ?? 0),
+        amountVes: Number(receipt['amountVes'] ?? 0),
+        bcvRate: Number(receipt['bcvRate'] ?? 0),
+      } as unknown as CustomerPaymentReceipt))),
+      catchError(() => of([]))
+    );
+  }
+
+  createCustomerPaymentReceipt(newReceipt: Partial<CustomerPaymentReceipt> & { receiptDate?: string }): Observable<CustomerPaymentReceipt> {
+    return this.http.post<CustomerPaymentReceipt>(`${this.baseUrl}/treasury/customer-receipts`, newReceipt);
+  }
+
+  // treasury Payable Bills
+
+  getPayableBillById(billId: string): Observable<PayableBill> {
+    return this.http.get<PayableBill>(`${this.baseUrl}/treasury/payable-bills/${billId}`);
+  }
+
+  createPayableBill(newBill: Partial<PayableBill>): Observable<PayableBill> {
+    return this.http.post<PayableBill>(`${this.baseUrl}/treasury/payable-bills`, newBill);
+  }
+
+  updatePayableBill(billId: string, updatedBill: Partial<PayableBill>): Observable<PayableBill> {
+    return this.http.put<PayableBill>(`${this.baseUrl}/treasury/payable-bills/${billId}`, updatedBill);
+  }
+
+  deletePayableBill(billId: string): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/treasury/payable-bills/${billId}`);
+  }
+
+  //treasury Supplier Receipts
+
+  getSupplierReceipts(): Observable<SupplierPaymentReceipt[]> {
+    return this.http.get<Record<string, unknown>[]>(`${this.baseUrl}/treasury/supplier-receipts`).pipe(
+      map(receipts => receipts.map(receipt => ({
+        ...receipt,
+        date: String(receipt['date'] ?? receipt['paymentDate'] ?? ''),
+        amountUsd: Number(receipt['amountUsd'] ?? 0),
+        amountVes: Number(receipt['amountVes'] ?? 0),
+        bcvRate: Number(receipt['bcvRate'] ?? 0),
+      } as unknown as SupplierPaymentReceipt))),
+      catchError(() => of([]))
+    );
+  }
+
+  createSupplierPaymentReceipt(newReceipt: Partial<SupplierPaymentReceipt> & { paymentDate?: string }): Observable<SupplierPaymentReceipt> {
+    return this.http.post<SupplierPaymentReceipt>(`${this.baseUrl}/treasury/supplier-receipts`, newReceipt);
+  }
+
 }

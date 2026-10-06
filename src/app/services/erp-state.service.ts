@@ -246,9 +246,27 @@ export class ErpStateService {
     return forkJoin({
       banks: this.apiService.getBankAccounts(),
       transactions: this.apiService.getTreasuryTransactions(),
-      bills: this.apiService.getPayableBills()
+      bills: this.apiService.getPayableBills(),
+      invoices: this.apiService.getInvoices(),
+      customerReceipts: this.apiService.getCustomerReceipts(),
+      supplierReceipts: this.apiService.getSupplierReceipts(),
+      bcv: this.apiService.getCurrentBcv(),
+      suppliers: this.apiService.getSuppliers(),
+      purchaseOrders: this.apiService.getPurchaseOrders(),
+      accounts: this.apiService.getAccounts(),
     }).pipe(
-      tap(({ banks, transactions, bills }) => { this.bankAccounts.set(banks); this.treasuryTransactions.set(transactions); this.payableBills.set(bills); }),
+      tap(({ banks, transactions, bills, invoices, customerReceipts, supplierReceipts, bcv, suppliers, purchaseOrders, accounts }) => {
+        this.bankAccounts.set(banks);
+        this.treasuryTransactions.set(transactions);
+        this.payableBills.set(bills);
+        this.invoices.set(invoices);
+        this.customerPaymentReceipts.set(customerReceipts);
+        this.supplierPaymentReceipts.set(supplierReceipts);
+        this.bcvState.update(current => ({ ...current, ...bcv }));
+        this.suppliers.set(suppliers);
+        this.purchaseOrders.set(purchaseOrders);
+        this.accounts.set(accounts);
+      }),
       map(() => true)
     );
   }
@@ -503,6 +521,8 @@ export class ErpStateService {
     { id: 'cat-06', code: 'FERR', name: 'Ferretería General', description: 'Tornillería, anclajes y fijaciones', color: 'sky', createdAt: '2026-01-10 08:00:00' },
     { id: 'cat-07', code: 'SEG', name: 'Seguridad Industrial', description: 'EPP, cascos, guantes y protección visual', color: 'indigo', createdAt: '2026-01-10 08:00:00' }
   ]);
+  readonly customerPaymentReceipts = signal<CustomerPaymentReceipt[]>([]);
+  readonly supplierPaymentReceipts = signal<SupplierPaymentReceipt[]>([]);
 
   readonly warehouses = signal<Warehouse[]>([
     { id: 'wh-01', code: 'ALM-CENTRAL', name: 'Almacén Central (Bodega Principal)', location: 'Av. Industrial 4050, Nave B', isMain: true, status: 'ACTIVE', capacity: 15000, managerName: 'Carlos Morales', phone: '+58 212 555-1001', description: 'Bodega principal de almacenamiento y despacho mayorista' },
@@ -1712,13 +1732,21 @@ export class ErpStateService {
     const invs = this.invoices().filter(inv => inv.status === 'EMITIDA');
     
     return invs.map(inv => {
-      const paidUsd = (inv.payments || []).reduce((s, p) => {
-        if (p.method === 'CREDITO') return s;
-        if (p.currency === 'VES') {
-          return s + (p.amount / (inv.bcvRate || rate));
-        }
-        return s + p.amount;
-      }, 0);
+      const invoiceRate = inv.bcvRate || rate;
+      const invoiceEurRate = inv.eurRate || this.bcvState().eurRate || invoiceRate;
+      const payments = inv.payments || [];
+      const creditPayments = payments.filter(p => p.method === 'CREDITO');
+      const amountInUsd = (amount: number, currency = inv.paymentCurrency) => {
+        if (currency === 'VES') return amount / invoiceRate;
+        if (currency === 'EUR') return (amount * invoiceEurRate) / invoiceRate;
+        return amount;
+      };
+      const originalPaidUsd = Math.min(inv.total, creditPayments.length
+        ? Math.max(0, inv.total - creditPayments.reduce((sum, payment) => sum + amountInUsd(payment.amount, payment.currency), 0))
+        : payments.reduce((sum, payment) => payment.method === 'CREDITO' ? sum : sum + amountInUsd(payment.amount, payment.currency), 0));
+      const paidUsd = originalPaidUsd + this.customerPaymentReceipts()
+        .filter(receipt => receipt.invoiceId === inv.id)
+        .reduce((sum, receipt) => sum + Number(receipt.amountUsd || 0), 0);
       
       const balanceUsd = Math.max(0, Number((inv.total - paidUsd).toFixed(2)));
       const balanceVes = Number((balanceUsd * (inv.bcvRate || rate)).toFixed(2));
@@ -2442,7 +2470,7 @@ export class ErpStateService {
     if (method === 'EFECTIVO_USD' || method === 'EFECTIVO_EUR' || method === 'ZELLE' || method === 'CRIPTO') {
       return true;
     }
-    if ((method === 'EFECTIVO' || method === 'TRANSFERENCIA' || method === 'CREDITO' || method === 'SALDO_A_FAVOR') && (currency === 'USD' || currency === 'EUR' || !currency)) {
+    if ((method === 'EFECTIVO' || method === 'TRANSFERENCIA' || method === 'SALDO_A_FAVOR') && (currency === 'USD' || currency === 'EUR' || !currency)) {
       return true;
     }
     return false;
@@ -5103,6 +5131,158 @@ export class ErpStateService {
   // ============================================================================
   // FASE 2: MÉTODOS TRANSACCIONALES DE TESORERÍA, BANCOS, CxC Y CxP
   // ============================================================================
+
+  async recordCxcCollectionFromApi(data: {
+    invoiceId: string;
+    amountUsd: number;
+    amountVes?: number;
+    paymentMethod: PaymentMethod;
+    bankAccountId: string;
+    referenceNumber: string;
+    notes?: string;
+  }): Promise<{ success: boolean; message?: string; receipt?: CustomerPaymentReceipt }> {
+    try {
+      const invoice = this.invoices().find(item => item.id === data.invoiceId);
+      const bank = this.bankAccounts().find(item => item.id === data.bankAccountId);
+      const receipt = await firstValueFrom(this.apiService.createCustomerPaymentReceipt({
+        ...data,
+        invoiceNumber: invoice?.invoiceNumber,
+        receiptDate: new Date().toISOString(),
+        amountVes: data.amountVes ?? Number((data.amountUsd * (invoice?.bcvRate || this.bcvState().usdRate)).toFixed(2)),
+        currencyPaid: bank?.currency ?? 'USD',
+        bcvRate: invoice?.bcvRate || this.bcvState().usdRate,
+        receivedBy: this.authService.currentUser()?.name ?? 'Usuario autenticado',
+      }));
+      await this.refreshTreasuryAfterWrite();
+      this.notify('success', 'Cobro registrado', `Se registró el abono a la factura ${receipt.invoiceNumber}.`);
+      return { success: true, receipt: { ...receipt, date: (receipt as CustomerPaymentReceipt & { receiptDate?: string }).receiptDate ?? receipt.date } };
+    } catch (error) {
+      const message = this.treasuryApiError(error);
+      this.notify('error', 'No se pudo registrar el cobro', message);
+      return { success: false, message };
+    }
+  }
+
+  async recordCxpPaymentFromApi(data: {
+    payableBillId: string;
+    amountUsd: number;
+    amountVes?: number;
+    paymentMethod: PaymentMethod;
+    bankAccountId: string;
+    referenceNumber: string;
+    notes?: string;
+  }): Promise<{ success: boolean; message?: string; receipt?: SupplierPaymentReceipt }> {
+    try {
+      const bank = this.bankAccounts().find(item => item.id === data.bankAccountId);
+      const receipt = await firstValueFrom(this.apiService.createSupplierPaymentReceipt({
+        ...data,
+        paymentDate: new Date().toISOString(),
+        amountVes: data.amountVes ?? Number((data.amountUsd * this.bcvState().usdRate).toFixed(2)),
+        currencyPaid: bank?.currency ?? 'USD',
+        bcvRate: this.bcvState().usdRate,
+        approvedBy: this.authService.currentUser()?.name ?? 'Usuario autenticado',
+      }));
+      await this.refreshTreasuryAfterWrite();
+      this.notify('success', 'Pago registrado', `Se registró el pago de la factura ${receipt.billNumber}.`);
+      return { success: true, receipt: { ...receipt, date: (receipt as SupplierPaymentReceipt & { paymentDate?: string }).paymentDate ?? receipt.date } };
+    } catch (error) {
+      const message = this.treasuryApiError(error);
+      this.notify('error', 'No se pudo registrar el pago', message);
+      return { success: false, message };
+    }
+  }
+
+  async createPayableBillFromApi(data: {
+    billNumber: string;
+    supplierId: string;
+    issueDate: string;
+    dueDate: string;
+    totalAmountUsd: number;
+    glAccountExpenseCode?: string;
+    category?: string;
+    notes?: string;
+    purchaseOrderId?: string;
+    purchaseOrderNumber?: string;
+  }): Promise<{ success: boolean; message?: string; bill?: PayableBill }> {
+    try {
+      const bill = await firstValueFrom(this.apiService.createPayableBill(data));
+      await this.refreshTreasuryAfterWrite();
+      this.notify('success', 'Cuenta por pagar registrada', `Factura ${bill.billNumber} añadida.`);
+      return { success: true, bill };
+    } catch (error) {
+      const message = this.treasuryApiError(error);
+      this.notify('error', 'No se pudo registrar la factura', message);
+      return { success: false, message };
+    }
+  }
+
+  async createBankAccountFromApi(data: Omit<BankAccount, 'id' | 'updatedAt' | 'balanceUsd' | 'balanceVes'>): Promise<{ success: boolean; message?: string }> {
+    try {
+      await firstValueFrom(this.apiService.createBankAccount({
+        ...data,
+        openingBalanceAccountCode: data.balance > 0 ? '3.1.01.01' : undefined,
+      } as Partial<BankAccount> & { openingBalanceAccountCode?: string }));
+      await this.refreshTreasuryAfterWrite();
+      this.notify('success', 'Cuenta bancaria registrada', `${data.accountName} quedó disponible en Tesorería.`);
+      return { success: true };
+    } catch (error) {
+      const message = this.treasuryApiError(error);
+      this.notify('error', 'No se pudo crear la cuenta', message);
+      return { success: false, message };
+    }
+  }
+
+  async transferBetweenBankAccountsFromApi(data: {
+    sourceBankAccountId: string;
+    destinationBankAccountId: string;
+    amountUsd: number;
+    referenceNumber: string;
+    notes?: string;
+  }): Promise<{ success: boolean; message?: string }> {
+    try {
+      const source = this.bankAccounts().find(account => account.id === data.sourceBankAccountId);
+      const rate = this.bcvState().usdRate;
+      await firstValueFrom(this.apiService.createTreasuryTransaction({
+        type: 'TRANSFERENCIA_BANCO',
+        transactionDate: new Date().toISOString(),
+        bankAccountId: data.sourceBankAccountId,
+        destinationBankAccountId: data.destinationBankAccountId,
+        amount: data.amountUsd,
+        amountUsd: data.amountUsd,
+        amountVes: Number((data.amountUsd * rate).toFixed(2)),
+        currency: source?.currency ?? 'USD',
+        bcvRate: rate,
+        paymentMethod: 'TRANSFERENCIA',
+        referenceNumber: data.referenceNumber,
+        concept: data.notes ?? 'Transferencia entre cuentas propias',
+      }));
+      await this.refreshTreasuryAfterWrite();
+      this.notify('success', 'Transferencia completada', 'Los saldos de ambas cuentas fueron actualizados.');
+      return { success: true };
+    } catch (error) {
+      const message = this.treasuryApiError(error);
+      this.notify('error', 'No se pudo realizar la transferencia', message);
+      return { success: false, message };
+    }
+  }
+
+  private treasuryApiError(error: unknown) {
+    if (typeof error === 'object' && error !== null && 'error' in error) {
+      const response = (error as { error?: { message?: string | string[] } }).error;
+      if (Array.isArray(response?.message)) return response.message.join(', ');
+      if (response?.message) return response.message;
+    }
+    if (error instanceof Error && error.message) return error.message;
+    return 'Ocurrió un error inesperado al comunicarse con Tesorería.';
+  }
+
+  private async refreshTreasuryAfterWrite() {
+    try {
+      await firstValueFrom(this.loadTreasury());
+    } catch (error) {
+      this.notify('warning', 'Operación guardada', `La operación se guardó, pero no se pudieron actualizar los datos en pantalla: ${this.treasuryApiError(error)}`);
+    }
+  }
 
   // 1. Registro de Cobro de Factura de Cliente (CxC)
   recordCxcCollection(data: {
