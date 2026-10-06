@@ -534,6 +534,10 @@ export class ApiService {
     return this.http.get<Partial<BcvExchangeRateState>>(`${this.baseUrl}/bcv/current`);
   }
 
+  updateCurrentBcv(rate: Partial<BcvExchangeRateState>): Observable<Partial<BcvExchangeRateState>> {  
+    return this.http.post<Partial<BcvExchangeRateState>>(`${this.baseUrl}/bcv/manual`, rate);
+  }
+
   getCompanyProfile(): Observable<Partial<CompanyFiscalProfile>> {
     return this.http.get<Partial<CompanyFiscalProfile>>(`${this.baseUrl}/fiscal/company-profile`);
   }

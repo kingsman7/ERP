@@ -6,6 +6,7 @@ import { ErpStateService } from '../../services/erp-state.service';
 import { KeyboardShortcutsService } from '../../services/keyboard-shortcuts.service';
 import { User, CriticalAuditNotification, CriticalAuditCategory } from '../../models/erp.models';
 import { DecimalPipe } from '@angular/common';
+import { ApiService } from '../../services/api.service';
 
 @Component({
   selector: 'app-header',
@@ -96,12 +97,12 @@ import { DecimalPipe } from '@angular/common';
           <div class="text-left leading-tight hidden xs:block">
             <span class="text-[10px] uppercase font-bold text-slate-400 block">Tasa Oficial</span>
             <span class="text-xs font-mono font-bold text-emerald-400">
-              Bs. {{ stateService.bcvState().usdRate | number:'1.2-2' }}
+              Bs. {{ (dayilyExchangeRate().usdRate) | number:'1.2-2' }}
             </span>
           </div>
           <span class="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold"
-            [class]="stateService.bcvState().origin === 'API_BCV' ? 'bg-emerald-950 text-emerald-300 border border-emerald-700/60' : 'bg-amber-950 text-amber-300 border border-amber-700/60'">
-            {{ stateService.bcvState().origin === 'API_BCV' ? 'BCV' : 'MAN' }}
+            [class]="dayilyExchangeRate().origin === 'API_BCV' ? 'bg-emerald-950 text-emerald-300 border border-emerald-700/60' : 'bg-amber-950 text-amber-300 border border-amber-700/60'">
+            {{ dayilyExchangeRate().origin === 'API_BCV' ? 'BCV' : 'MAN' }}
           </span>
         </button>
 
@@ -409,13 +410,13 @@ import { DecimalPipe } from '@angular/common';
             <div class="grid grid-cols-2 gap-3">
               <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-200">
                 <span class="text-[10px] uppercase font-bold text-emerald-800 block mb-0.5">Dólar Oficial (USD)</span>
-                <p class="text-lg font-mono font-bold text-emerald-950">Bs. {{ stateService.bcvState().usdRate | number:'1.2-2' }}</p>
-                <span class="text-[10px] text-emerald-700">Origen: {{ stateService.bcvState().origin }}</span>
+                <p class="text-lg font-mono font-bold text-emerald-950">Bs. {{ dayilyExchangeRate().usdRate | number:'1.2-2' }}</p>
+                <span class="text-[10px] text-emerald-700">Origen: {{ dayilyExchangeRate().origin }}</span>
               </div>
 
               <div class="p-3 bg-indigo-50 rounded-xl border border-indigo-200">
                 <span class="text-[10px] uppercase font-bold text-indigo-800 block mb-0.5">Euro Oficial (EUR)</span>
-                <p class="text-lg font-mono font-bold text-indigo-950">Bs. {{ stateService.bcvState().eurRate | number:'1.2-2' }}</p>
+                <p class="text-lg font-mono font-bold text-indigo-950">Bs. {{ dayilyExchangeRate().eurRate | number:'1.2-2' }}</p>
                 <span class="text-[10px] text-indigo-700">Tasa Cruzada EUR/USD</span>
               </div>
             </div>
@@ -437,20 +438,36 @@ import { DecimalPipe } from '@angular/common';
 
             <!-- Manual Override -->
             <div class="space-y-2 pt-2 border-t border-slate-100">
-              <span class="font-bold text-slate-800 block">Ajuste Manual de Tasa (Bs. / USD)</span>
-              <div class="flex items-center space-x-2">
-                <input 
-                  type="number" 
-                  step="0.01" 
-                  [formControl]="manualRateCtrl"
-                  placeholder="Ej: 36.80" 
-                  class="flex-1 px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono text-slate-900 font-bold" />
-                <button 
-                  (click)="applyManualRate()" 
-                  class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-semibold cursor-pointer">
-                  Fijar Tasa
-                </button>
+              <span class="font-bold text-slate-800 block">Ajuste Manual de Tasas (Bs.)</span>
+              <div class="grid grid-cols-2 gap-3">
+                <label class="block">
+                  <span class="text-[10px] uppercase font-bold text-emerald-800 block mb-1">Dólar (Bs. / USD)</span>
+                  <input 
+                    type="number" 
+                    step="0.01" 
+                    [formControl]="manualRateCtrl"
+                    placeholder="Ej: 36.80" 
+                    class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono text-slate-900 font-bold" />
+                </label>
+                <label class="block">
+                  <span class="text-[10px] uppercase font-bold text-indigo-800 block mb-1">Europedo (Bs. / EUR)</span>
+                  <input 
+                    type="number" 
+                    step="0.01" 
+                    [formControl]="manualEurRateCtrl"
+                    placeholder="Ej: 40.10" 
+                    class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono text-slate-900 font-bold" />
+                </label>
               </div>
+              <button 
+                (click)="applyManualRate()" 
+                [disabled]="manualRateCtrl.invalid || manualEurRateCtrl.invalid"
+                class="w-full px-4 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded-xl font-semibold cursor-pointer">
+                Fijar Tasas
+              </button>
+              <p class="text-[10px] text-slate-500 font-mono">
+                Se guardará: USD Bs. {{ manualRateCtrl.value | number:'1.2-2' }} · EUR Bs. {{ manualEurRateCtrl.value | number:'1.2-2' }}
+              </p>
               <p class="text-[10px] text-slate-400">
                 Al fijar manualmente, todas las operaciones de Punto de Venta, facturación y presupuestos usarán este valor como referencia legal.
               </p>
@@ -574,6 +591,10 @@ export class HeaderComponent {
   authService = inject(AuthService);
   stateService = inject(ErpStateService);
   shortcutService = inject(KeyboardShortcutsService);
+  apiService = inject(ApiService);
+
+
+  dayilyExchangeRate = computed(() => this.stateService.bcvState())
 
   showUserDropdown = signal<boolean>(false);
   showBcvModal = signal<boolean>(false);
@@ -584,7 +605,8 @@ export class HeaderComponent {
   selectedNotificationForDetail = signal<CriticalAuditNotification | null>(null);
   notifFilter = signal<'ALL' | 'PRICE_CHANGE' | 'STOCK_MANUAL' | 'UNREAD'>('ALL');
 
-  manualRateCtrl = new FormControl(36.54, [Validators.required, Validators.min(0.01)]);
+  manualRateCtrl = new FormControl(this.stateService.bcvState().usdRate, [Validators.required, Validators.min(0.01)]);
+  manualEurRateCtrl = new FormControl(this.stateService.bcvState().eurRate, [Validators.required, Validators.min(0.01)]);
 
   toggleSidebar = output<void>();
   openArchitecture = output<void>();
@@ -662,13 +684,15 @@ export class HeaderComponent {
     setTimeout(() => {
       this.isSyncing.set(false);
       this.manualRateCtrl.setValue(this.stateService.bcvState().usdRate);
+      this.manualEurRateCtrl.setValue(this.stateService.bcvState().eurRate);
     }, 400);
   }
 
   applyManualRate() {
-    const val = Number(this.manualRateCtrl.value);
-    if (val && val > 0) {
-      this.stateService.setManualExchangeRate(val);
+    const usd = Number(this.manualRateCtrl.value);
+    const eur = Number(this.manualEurRateCtrl.value);
+    if (usd > 0 && eur > 0) {
+      this.stateService.setManualExchangeRate(usd, eur);
       this.showBcvModal.set(false);
     }
   }

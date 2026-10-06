@@ -127,6 +127,13 @@ export class ErpStateService {
     );
   }
 
+  loadBcvCurrency(): Observable<boolean> {
+    return this.apiService.getCurrentBcv().pipe(
+      tap(bcv => this.bcvState.update(current => ({ ...current, ...bcv }))),
+      map(() => true)
+    );
+  }
+
   loadRouteData(route: string): Observable<boolean> {
     const loaders: Record<string, () => Observable<boolean>> = {
       dashboard: () => this.loadDashboard(),
@@ -2298,72 +2305,76 @@ export class ErpStateService {
   // BCV RATE SYNCHRONIZATION & MANUAL CONTROL
   // ==========================================
   syncBcvRates(): void {
-    this.bcvState.update(s => ({ ...s, isSyncing: true }));
     
-    // Simulate real-time API call to BCV Scraper / Webhook Gateway
-    setTimeout(() => {
-      const now = new Date();
-      const timeStr = now.toISOString().replace('T', ' ').substring(0, 19);
-      const day = now.getDate().toString().padStart(2, '0');
-      const month = (now.getMonth() + 1).toString().padStart(2, '0');
-      const year = now.getFullYear();
-      const officialDate = `${day}/${month}/${year}`;
+    const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    const prev = this.bcvState();
 
-      // Realistic official rate query (BCV Venezuelan Central Bank)
-      const newUsd = 36.54;
-      const newEur = 39.85;
+    this.apiService.getCurrentBcv().subscribe({
+      next:(rate)=> {
+        if(rate) {
+          this.bcvState.set({
+            usdRate: Number(rate.usdRate),
+            eurRate: Number(rate.eurRate),
+            origin: rate.origin ?? 'API_BCV',
+            lastSync: rate.lastSync ?? now,
+            isSyncing: rate.isSyncing ?? true,
+            status: rate.status ?? 'SYNCED',
+            bcvOfficialDate: rate.bcvOfficialDate ?? new Date().toISOString().split('T')[0]
+          });
 
-      this.bcvState.set({
-        usdRate: newUsd,
-        eurRate: newEur,
-        origin: 'API_BCV',
-        lastSync: timeStr,
-        isSyncing: false,
-        status: 'SYNCED',
-        bcvOfficialDate: officialDate
-      });
+          this.logAudit(
+            'SYNC_BCV_RATES',
+            'FINANCE',
+            'Sincronización Automática API BCV',
+            `Tipo de cambio oficial actualizado desde el Banco Central de Venezuela. USD: Bs. ${rate.usdRate} | EUR: Bs. ${rate.eurRate}.`,
+            { originBefore: 'API_BCV' },
+            { usdRate: rate.usdRate, eurRate: rate.eurRate, officialDate: rate.bcvOfficialDate, syncTime: now },
+            { source: 'BCV_SCRAPER_GATEWAY_V2' }
+          );
 
-      this.logAudit(
-        'SYNC_BCV_RATES',
-        'FINANCE',
-        'Sincronización Automática API BCV',
-        `Tipo de cambio oficial actualizado desde el Banco Central de Venezuela. USD: Bs. ${newUsd.toFixed(2)} | EUR: Bs. ${newEur.toFixed(2)}.`,
-        { originBefore: 'API_BCV' },
-        { usdRate: newUsd, eurRate: newEur, officialDate, syncTime: timeStr },
-        { source: 'BCV_SCRAPER_GATEWAY_V2' }
-      );
-
-      this.notify('success', 'Tasa BCV Sincronizada', `USD: Bs. ${newUsd.toFixed(2)} | EUR: Bs. ${newEur.toFixed(2)} (Oficial BCV ${officialDate})`);
-      this.saveState();
-    }, 450);
+          this.notify('success', 'Tasa BCV Sincronizada', `USD: Bs. ${rate.usdRate} | EUR: Bs. ${rate.eurRate} (Oficial BCV ${rate.bcvOfficialDate})`);
+          this.saveState();
+        }
+      }
+    });
   }
 
   setManualExchangeRate(usdRate: number, eurRate?: number): void {
     const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
     const prev = this.bcvState();
-    const finalEur = eurRate !== undefined ? eurRate : Number((usdRate * 1.09).toFixed(4));
 
-    this.bcvState.set({
-      usdRate: Number(usdRate.toFixed(4)),
-      eurRate: Number(finalEur.toFixed(4)),
-      origin: 'MANUAL',
-      lastSync: now,
-      isSyncing: false,
-      status: 'FALLBACK_MANUAL',
-      bcvOfficialDate: prev.bcvOfficialDate
+    this.apiService.updateCurrentBcv({ usdRate, eurRate }).subscribe({
+      next: (response) => {
+        if(response) {
+          this.notify('info', 'Tasa Manual Configurada', `USD: Bs. ${usdRate.toFixed(2)} fijado según criterio manual.`);
+          this.bcvState.set({
+            usdRate: Number(response.usdRate),
+            eurRate: Number(response.eurRate),
+            origin: response.origin ?? 'MANUAL',
+            lastSync: response.lastSync ?? now,
+            isSyncing: response.isSyncing ?? false,
+            status: response.status ?? 'FALLBACK_MANUAL' ,
+            bcvOfficialDate: response.bcvOfficialDate ?? new Date().toISOString().split('T')[0]
+          });
+          this.logAudit(
+            'UPDATE_EXCHANGE_RATE',
+            'FINANCE',
+            'Ajuste Manual de Tasa de Cambio',
+            `Tasa fijada manualmente por el operador. USD: Bs. ${response.usdRate} (Anterior: ${prev.usdRate}), EUR: Bs. ${response.eurRate}.`,
+            { usdAnterior: prev.usdRate, eurAnterior: prev.eurRate, origenAnterior: prev.origin },
+            { usdNuevo: response.usdRate, eurNuevo: response.eurRate, origenNuevo: 'MANUAL' }
+          );
+
+        
+        this.saveState();
+
+        }
+      },
     });
 
-    this.logAudit(
-      'UPDATE_EXCHANGE_RATE',
-      'FINANCE',
-      'Ajuste Manual de Tasa de Cambio',
-      `Tasa fijada manualmente por el operador. USD: Bs. ${usdRate.toFixed(2)} (Anterior: ${prev.usdRate.toFixed(2)}), EUR: Bs. ${finalEur.toFixed(2)}.`,
-      { usdAnterior: prev.usdRate, eurAnterior: prev.eurRate, origenAnterior: prev.origin },
-      { usdNuevo: usdRate, eurNuevo: finalEur, origenNuevo: 'MANUAL' }
-    );
+    
 
-    this.notify('info', 'Tasa Manual Configurada', `USD: Bs. ${usdRate.toFixed(2)} fijado según criterio manual.`);
-    this.saveState();
+    
   }
 
   // Update Product Prices (5 levels) and Taxes
