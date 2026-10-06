@@ -3,6 +3,12 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, catchError, forkJoin, map, of, throwError } from 'rxjs';
 import { Account, AuditLog, BankAccount, BcvExchangeRateState, Bom, CashRegisterSession, CompanyFiscalProfile, CrmDeal, CurrencyCode, Customer, CustomerPaymentReceipt, DeliveryOrder, DispatchGuide, Invoice, InvoiceItem, InvoiceTaxDetails, JournalEntry, KardexMovement, PayableBill, PaymentRecord, PriceLevelKey, Product, ProductCategory, ProductionOrder, PurchaseOrder, Quote, Supplier, SupplierPaymentReceipt, TreasuryTransaction, Warehouse } from '../models/erp.models';
 
+export interface DispatchWorkflowResponse {
+  dispatchGuide: DispatchGuide;
+  deliveryOrder: DeliveryOrder;
+  kardexMovements: KardexMovement[];
+}
+
 export interface CreateInvoiceRequest {
   customerId: string;
   warehouseId: string;
@@ -342,6 +348,30 @@ export class ApiService {
     return this.http.post<DispatchGuide>(`${this.baseUrl}/logistics/dispatch-guides`, guide);
   }
 
+  createDispatchWorkflow(guide: object): Observable<DispatchWorkflowResponse> {
+    return this.http.post<DispatchWorkflowResponse>(`${this.baseUrl}/logistics/dispatch-guides`, guide).pipe(
+      map(result => ({
+        dispatchGuide: this.normalizeDispatchGuide(result.dispatchGuide),
+        deliveryOrder: this.normalizeDeliveryOrder(result.deliveryOrder),
+        kardexMovements: result.kardexMovements.map(movement =>
+          this.normalizeKardexMovement(movement as KardexMovement & { movementDate?: string })
+        )
+      }))
+    );
+  }
+
+  registerDeliveryReceipt(id: string, reception: Record<string, unknown>): Observable<DeliveryOrder> {
+    return this.http.post<DeliveryOrder>(`${this.baseUrl}/logistics/delivery-orders/${id}/receipt`, reception).pipe(
+      map(order => this.normalizeDeliveryOrder(order))
+    );
+  }
+
+  cancelDispatchGuide(id: string, reason: string): Observable<DispatchGuide> {
+    return this.http.post<DispatchGuide>(`${this.baseUrl}/logistics/dispatch-guides/${id}/cancel`, { reason }).pipe(
+      map(guide => this.normalizeDispatchGuide(guide))
+    );
+  }
+
   updateProduct(id: string, product: Partial<Product>): Observable<Product> {
     return this.http.put<Product>(`${this.baseUrl}/products/${id}`, this.productPayload(product)).pipe(
       map(response => this.normalizeProduct(response as Product & { stocks?: { warehouseId: string; quantity: number; warehouse?: { name: string } }[] }))
@@ -383,11 +413,62 @@ export class ApiService {
   }
 
   getDispatchGuides(): Observable<DispatchGuide[]> {
-    return this.http.get<DispatchGuide[]>(`${this.baseUrl}/logistics/dispatch-guides`).pipe(catchError(() => of([])));
+    return this.http.get<DispatchGuide[]>(`${this.baseUrl}/logistics/dispatch-guides`).pipe(
+      map(guides => guides.map(guide => this.normalizeDispatchGuide(guide))),
+      catchError(() => of([]))
+    );
   }
 
   getDeliveryOrders(): Observable<DeliveryOrder[]> {
-    return this.http.get<DeliveryOrder[]>(`${this.baseUrl}/logistics/delivery-orders`).pipe(catchError(() => of([])));
+    return this.http.get<DeliveryOrder[]>(`${this.baseUrl}/logistics/delivery-orders`).pipe(
+      map(orders => orders.map(order => this.normalizeDeliveryOrder(order))),
+      catchError(() => of([]))
+    );
+  }
+
+  private normalizeDispatchGuide(guide: DispatchGuide): DispatchGuide {
+    return {
+      ...guide,
+      transferReason: guide.transferReason ?? guide.transportReason,
+      transportReason: guide.transportReason ?? guide.transferReason,
+      totalQuantity: Number(guide.totalQuantity ?? 0),
+      totalPackages: guide.totalPackages == null ? undefined : Number(guide.totalPackages),
+      totalWeightKg: guide.totalWeightKg == null ? undefined : Number(guide.totalWeightKg),
+      totalVolumeM3: guide.totalVolumeM3 == null ? undefined : Number(guide.totalVolumeM3),
+      totalValuationCost: guide.totalValuationCost == null ? undefined : Number(guide.totalValuationCost),
+      totalEstimatedSale: guide.totalEstimatedSale == null ? undefined : Number(guide.totalEstimatedSale),
+      totalDeclaredValue: guide.totalDeclaredValue == null ? undefined : Number(guide.totalDeclaredValue),
+      items: (guide.items ?? []).map(item => ({
+        ...item,
+        quantity: Number(item.quantity ?? 0),
+        costPrice: Number(item.costPrice ?? 0),
+        unitPrice: item.unitPrice == null ? undefined : Number(item.unitPrice),
+        salePrice: item.salePrice == null ? undefined : Number(item.salePrice),
+        subtotal: item.subtotal == null ? undefined : Number(item.subtotal),
+        packagesCount: item.packagesCount == null ? undefined : Number(item.packagesCount),
+        weightKg: item.weightKg == null ? undefined : Number(item.weightKg),
+        volumeM3: item.volumeM3 == null ? undefined : Number(item.volumeM3)
+      }))
+    };
+  }
+
+  private normalizeDeliveryOrder(order: DeliveryOrder): DeliveryOrder {
+    return {
+      ...order,
+      totalQuantity: Number(order.totalQuantity ?? 0),
+      totalPackages: order.totalPackages == null ? undefined : Number(order.totalPackages),
+      totalWeightKg: order.totalWeightKg == null ? undefined : Number(order.totalWeightKg),
+      items: (order.items ?? []).map(item => ({
+        ...item,
+        quantity: Number(item.quantity ?? 0),
+        costPrice: Number(item.costPrice ?? 0),
+        unitPrice: item.unitPrice == null ? undefined : Number(item.unitPrice),
+        subtotal: item.subtotal == null ? undefined : Number(item.subtotal),
+        packagesCount: item.packagesCount == null ? undefined : Number(item.packagesCount),
+        weightKg: item.weightKg == null ? undefined : Number(item.weightKg)
+      })),
+      reception: order.reception ?? order.receptionDetails
+    };
   }
 
   getAccounts(): Observable<Account[]> {

@@ -221,8 +221,8 @@ export class ErpStateService {
   }
 
   private loadLogistics(): Observable<boolean> {
-    return forkJoin({ dispatches: this.apiService.getDispatchGuides(), deliveries: this.apiService.getDeliveryOrders() }).pipe(
-      tap(({ dispatches, deliveries }) => { this.dispatchGuides.set(dispatches); this.deliveryOrders.set(deliveries); }), map(() => true)
+    return forkJoin({ dispatches: this.apiService.getDispatchGuides(), deliveries: this.apiService.getDeliveryOrders(), customers: this.apiService.getCustomers() }).pipe(
+      tap(({ dispatches, deliveries, customers }) => { this.dispatchGuides.set(dispatches); this.deliveryOrders.set(deliveries); this.customers.set(customers); }), map(() => true)
     );
   }
 
@@ -2570,7 +2570,7 @@ export class ErpStateService {
   async registerSaleInvoice(
     customerId: string,
     warehouseId: string,
-    items: { productId: string; quantity: number; discountPercent?: number; priceLevel?: PriceLevelKey }[],
+    items: { productId: string; quantity: number; discountPercent?: number; priceLevel?: PriceLevelKey; unitPrice?: number }[],
     payments: PaymentRecord[],
     invoiceType: Invoice['type'] = 'FACTURA_ELECTRONICA',
     options?: {
@@ -2644,7 +2644,7 @@ export class ErpStateService {
       const prod = currentProducts[prodIndex];
       if (!prod) continue;
       const itemLevel = item.priceLevel || appliedLevel;
-      const unitPrice = this.getProductPriceByLevel(prod, itemLevel);
+      const unitPrice = item.unitPrice ?? this.getProductPriceByLevel(prod, itemLevel);
       const lineGross = unitPrice * item.quantity;
       const lineDiscPercent = item.discountPercent || 0;
       const lineDiscAmount = lineGross * (lineDiscPercent / 100);
@@ -3316,11 +3316,119 @@ export class ErpStateService {
     return `00-${nextSeq.toString().padStart(6, '0')}`;
   }
 
+  async createDispatchGuide(payload: Parameters<ErpStateService['createDispatchGuideLegacy']>[0]): Promise<{
+    success: boolean;
+    guideNumber?: string;
+    controlNumber?: string;
+    dispatchGuide?: DispatchGuide;
+    deliveryOrder?: DeliveryOrder;
+    message?: string;
+  }> {
+    const issueDate = new Date().toISOString();
+    try {
+      const result = await firstValueFrom(this.apiService.createDispatchWorkflow({
+        ...payload,
+        issueDate,
+        dispatchDate: payload.dispatchDate || issueDate,
+        transferReason: payload.transportReason,
+        transferReasonDetails: payload.transportReasonDescription,
+        driverIdNumber: payload.driverIdDoc,
+        items: payload.items.map(item => ({
+          ...item,
+          unit: this.products().find(product => product.id === item.productId)?.unit,
+          packagesCount: item.packagesCount,
+          weightKg: item.weightKg,
+          volumeM3: item.volumeM3
+        }))
+      }));
+      const { dispatchGuide, deliveryOrder } = result;
+      await this.refreshLogisticsWorkflowData();
+      if (payload.originQuoteId) {
+        this.quotes.update(quotes => quotes.map(quote => quote.id === payload.originQuoteId
+          ? { ...quote, status: 'DESPACHADO', dispatchedGuideNumber: dispatchGuide.guideNumber }
+          : quote));
+      }
+      this.logAudit(
+        'CREATE_DISPATCH_GUIDE',
+        'LOGISTICS',
+        `Emisión Guía de Despacho ${dispatchGuide.guideNumber}`,
+        `Guía ${dispatchGuide.guideNumber} y Orden de Entrega ${deliveryOrder.orderNumber} registradas; inventario, Kardex y asiento contable se actualizaron en una transacción.`,
+        { originWarehouseId: payload.originWarehouseId, customerId: payload.customerId },
+        { guideNumber: dispatchGuide.guideNumber, deliveryOrderNumber: deliveryOrder.orderNumber, itemCount: payload.items.length }
+      );
+      this.notify(
+        'success',
+        'Guía de Despacho Emitida',
+        `${dispatchGuide.guideNumber} y ${deliveryOrder.orderNumber} quedaron registradas con inventario y contabilidad actualizados.`
+      );
+      this.saveState();
+      return {
+        success: true,
+        guideNumber: dispatchGuide.guideNumber,
+        controlNumber: dispatchGuide.controlNumber,
+        dispatchGuide,
+        deliveryOrder
+      };
+    } catch (error) {
+      const message = this.extractApiErrorMessage(error, 'No se pudo registrar el despacho.');
+      this.notify('error', 'Guía de despacho no creada', message);
+      return { success: false, message };
+    }
+  }
+
+  private async refreshLogisticsWorkflowData(): Promise<void> {
+    const results = await Promise.allSettled([
+      firstValueFrom(this.apiService.getDispatchGuides()),
+      firstValueFrom(this.apiService.getDeliveryOrders()),
+      firstValueFrom(this.apiService.getProducts()),
+      firstValueFrom(this.apiService.getKardexMovements()),
+      firstValueFrom(this.apiService.getAccounts()),
+      firstValueFrom(this.apiService.getJournalEntries()),
+      firstValueFrom(this.apiService.getQuotes())
+    ]);
+    const labels = ['guías', 'órdenes de entrega', 'inventario', 'Kardex', 'cuentas contables', 'asientos contables', 'cotizaciones'];
+    const failures: string[] = [];
+    const recordFailure = <T>(result: PromiseSettledResult<T>, label: string) => {
+      if (result.status === 'rejected') {
+        failures.push(`${label}: ${this.extractApiErrorMessage(result.reason, 'error de actualización')}`);
+      }
+    };
+    if (results[0].status === 'fulfilled') this.dispatchGuides.set(results[0].value);
+    else recordFailure(results[0], labels[0]);
+    if (results[1].status === 'fulfilled') this.deliveryOrders.set(results[1].value);
+    else recordFailure(results[1], labels[1]);
+    if (results[2].status === 'fulfilled') this.products.set(results[2].value);
+    else recordFailure(results[2], labels[2]);
+    if (results[3].status === 'fulfilled') this.kardexMovements.set(results[3].value);
+    else recordFailure(results[3], labels[3]);
+    if (results[4].status === 'fulfilled') this.accounts.set(results[4].value);
+    else recordFailure(results[4], labels[4]);
+    if (results[5].status === 'fulfilled') this.journalEntries.set(results[5].value);
+    else recordFailure(results[5], labels[5]);
+    if (results[6].status === 'fulfilled') this.quotes.set(results[6].value);
+    else recordFailure(results[6], labels[6]);
+    if (failures.length) {
+      this.notify('warning', 'Actualización parcial', `La operación quedó guardada, pero algunos datos no se pudieron recargar: ${failures.join('; ')}`);
+    }
+  }
+
+  private extractApiErrorMessage(error: unknown, fallback: string): string {
+    if (typeof error === 'object' && error !== null && 'error' in error) {
+      const body = error.error;
+      if (typeof body === 'object' && body !== null && 'message' in body) {
+        const message = body.message;
+        if (typeof message === 'string') return message;
+        if (Array.isArray(message)) return message.join('; ');
+      }
+    }
+    return error instanceof Error ? error.message : fallback;
+  }
+
   /**
    * Crea una Guía de Despacho oficial conforme a la Providencia SENIAT SNAT/2011/00071.
    * Ampara el traslado de bienes en territorio nacional y descuenta stock automáticamente del Kardex.
    */
-  createDispatchGuide(payload: {
+  createDispatchGuideLegacy(payload: {
     originWarehouseId: string;
     destinationWarehouseId?: string;
     customerId?: string;
@@ -3698,7 +3806,36 @@ export class ErpStateService {
   /**
    * Registra la recepción conforme del cliente en la Orden de Entrega y actualiza la Guía de Despacho.
    */
-  registerDeliveryReceipt(
+  async registerDeliveryReceipt(
+    deliveryOrderId: string,
+    reception: DeliveryReceptionDetails
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      await firstValueFrom(this.apiService.registerDeliveryReceipt(deliveryOrderId, {
+        ...reception,
+        receivedByFullName: reception.receivedByFullName ?? reception.receivedByName,
+        receiverIdNumber: reception.receiverIdNumber ?? reception.receivedByIdDoc,
+        receptionStatus: reception.receptionStatus ?? 'COMPLETO'
+      }));
+      await this.refreshLogisticsWorkflowData();
+      this.logAudit(
+        'RECEIVE_DELIVERY',
+        'LOGISTICS',
+        `Recepción de Orden de Entrega ${deliveryOrderId}`,
+        `Recepción confirmada por ${reception.receivedByFullName ?? reception.receivedByName ?? 'receptor'}.`,
+        { deliveryOrderId },
+        { receiverIdNumber: reception.receiverIdNumber ?? reception.receivedByIdDoc, receivedDate: reception.receivedDate }
+      );
+      this.notify('success', 'Entrega Registrada', 'La recepción y su evidencia se guardaron en el servidor.');
+      return { success: true, message: 'La recepción se registró correctamente.' };
+    } catch (error) {
+      const message = this.extractApiErrorMessage(error, 'No se pudo guardar la recepción.');
+      this.notify('error', 'No se pudo registrar la entrega', message);
+      return { success: false, message };
+    }
+  }
+
+  registerDeliveryReceiptLegacy(
     deliveryOrderId: string,
     reception: DeliveryReceptionDetails
   ): { success: boolean; message: string } {
@@ -3764,7 +3901,29 @@ export class ErpStateService {
   /**
    * Anulación de Guía de Despacho con restitución de inventario al Almacén de Origen.
    */
-  cancelDispatchGuide(guideId: string, justificationReason: string): { success: boolean; message: string } {
+  async cancelDispatchGuide(guideId: string, justificationReason: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const guide = this.dispatchGuides().find(item => item.id === guideId);
+      await firstValueFrom(this.apiService.cancelDispatchGuide(guideId, justificationReason));
+      await this.refreshLogisticsWorkflowData();
+      this.logAudit(
+        'CANCEL_DISPATCH_GUIDE',
+        'LOGISTICS',
+        `Anulación de Guía de Despacho ${guide?.guideNumber ?? guideId}`,
+        `Guía anulada; existencias, Kardex y asiento de inventario en tránsito se revirtieron de forma transaccional. Motivo: ${justificationReason}.`,
+        { guideStatusBefore: guide?.status },
+        { reason: justificationReason }
+      );
+      this.notify('warning', 'Guía de Despacho Anulada', 'La guía se anuló y el stock fue reincorporado.');
+      return { success: true, message: 'La guía se anuló correctamente.' };
+    } catch (error) {
+      const message = this.extractApiErrorMessage(error, 'No se pudo anular la guía.');
+      this.notify('error', 'No se pudo anular la guía', message);
+      return { success: false, message };
+    }
+  }
+
+  cancelDispatchGuideLegacy(guideId: string, justificationReason: string): { success: boolean; message: string } {
     const guide = this.dispatchGuides().find(g => g.id === guideId);
     if (!guide) {
       return { success: false, message: 'Guía de Despacho no encontrada.' };
@@ -3861,7 +4020,7 @@ export class ErpStateService {
   /**
    * Convierte un Presupuesto / Pedido de Venta directamente en una Guía de Despacho oficial.
    */
-  convertQuoteToDispatchGuide(
+  async convertQuoteToDispatchGuide(
     quoteId: string,
     transportDetails: {
       originWarehouseId: string;
@@ -3878,7 +4037,7 @@ export class ErpStateService {
       estimatedDeliveryDate?: string;
       generalObservations?: string;
     }
-  ): { success: boolean; guideNumber?: string; message?: string } {
+  ): Promise<{ success: boolean; guideNumber?: string; message?: string }> {
     const quote = this.quotes().find(q => q.id === quoteId);
     if (!quote) return { success: false, message: 'Presupuesto no encontrado.' };
 
@@ -3888,7 +4047,7 @@ export class ErpStateService {
       notes: `Origen Cotización ${quote.quoteNumber}`
     }));
 
-    const result = this.createDispatchGuide({
+    const result = await this.createDispatchGuide({
       originWarehouseId: transportDetails.originWarehouseId,
       customerId: quote.customerId,
       customerName: quote.customerName,
@@ -3934,11 +4093,25 @@ export class ErpStateService {
     }
 
     const firstGuide = guides[0];
-    const customerId = firstGuide.customerId || this.customers()[0]?.id || 'cust-1';
+    if (guides.some(guide =>
+      !['ENTREGADA', 'ENTREGADA_CON_NOVEDAD'].includes(guide.status)
+      || !['VENTA', 'VENTA_MERCANCIA'].includes(guide.transferReason ?? guide.transportReason ?? '')
+    )) {
+      return { success: false, message: 'Solo se pueden facturar guías de venta ya entregadas.' };
+    }
+    const customerId = firstGuide.customerId;
+    debugger
+    if (!customerId || !this.customers().some(customer => customer.id === customerId)) {
+      debugger
+      return { success: false, message: 'La guía debe tener un cliente registrado para emitir una factura fiscal.' };
+    }
     const warehouseId = firstGuide.originWarehouseId;
+    if (guides.some(guide => guide.customerId !== customerId || guide.originWarehouseId !== warehouseId)) {
+      return { success: false, message: 'Las guías consolidadas deben pertenecer al mismo cliente y almacén.' };
+    }
 
     // Agrupar items de las guías
-    const itemMap = new Map<string, { productId: string; quantity: number }>();
+    const itemMap = new Map<string, { productId: string; quantity: number; totalValue: number }>();
     for (const g of guides) {
       if (g.status === 'ANULADA') {
         return { success: false, message: `La Guía ${g.guideNumber} está anulada y no puede ser facturada.` };
@@ -3948,15 +4121,21 @@ export class ErpStateService {
       }
       for (const item of g.items) {
         const existing = itemMap.get(item.productId);
+        const unitPrice = item.unitPrice ?? item.salePrice ?? this.products().find(product => product.id === item.productId)?.salePrice ?? 0;
         if (existing) {
           existing.quantity += item.quantity;
+          existing.totalValue += item.quantity * unitPrice;
         } else {
-          itemMap.set(item.productId, { productId: item.productId, quantity: item.quantity });
+          itemMap.set(item.productId, { productId: item.productId, quantity: item.quantity, totalValue: item.quantity * unitPrice });
         }
       }
     }
 
-    const itemsToInvoice = Array.from(itemMap.values());
+    const itemsToInvoice = Array.from(itemMap.values(), item => ({
+      productId: item.productId,
+      quantity: item.quantity,
+      unitPrice: item.quantity > 0 ? item.totalValue / item.quantity : 0
+    }));
     const guideNumbers = guides.map(g => g.guideNumber);
     const controlNumbers = guides.map(g => g.controlNumber);
     const deliveryOrderNumbers = guides.map(g => g.relatedDeliveryOrderNumber).filter(Boolean) as string[];
@@ -3966,8 +4145,8 @@ export class ErpStateService {
       ? options.payments
       : [
           {
-            method: (paymentCurr === 'VES' ? 'TRANSFERENCIA' : 'EFECTIVO_USD') as PaymentMethod,
-            amount: 0, // Se recalcula en registerSaleInvoice
+            method: 'CREDITO' as PaymentMethod,
+            amount: 0,
             currency: paymentCurr,
             reference: `FACT-GD-${guideNumbers.join('-')}`
           }
@@ -3993,6 +4172,7 @@ export class ErpStateService {
     );
 
     if (result.success && result.invoiceNumber) {
+      await this.refreshLogisticsWorkflowData();
       // Vincular número de factura en las Guías y Órdenes de Entrega
       const invNum = result.invoiceNumber;
       this.dispatchGuides.update(allGuides =>
@@ -5077,7 +5257,7 @@ export class ErpStateService {
 
         return {
           ...acc,
-          balance: Number((acc.balance + balanceDelta).toFixed(2))
+          balance: Number((Number(acc.balance) + Number(balanceDelta)).toFixed(2))
         };
       });
     });

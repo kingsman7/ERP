@@ -349,7 +349,7 @@ import { DecimalPipe } from '@angular/common';
                         }
 
                         <!-- Facturar Guía si no está facturada -->
-                        @if (!g.invoicedInvoiceNumber && g.status !== 'ANULADA') {
+                        @if (canInvoiceGuide(g)) {
                           <button 
                             (click)="invoiceSingleGuide(g)"
                             title="Emitir Factura Fiscal amparando esta Guía"
@@ -547,6 +547,7 @@ import { DecimalPipe } from '@angular/common';
                     <input 
                       type="checkbox"
                       [checked]="selectedGuideIdsForInvoice().includes(g.id)"
+                      [disabled]="!canInvoiceGuide(g)"
                       (change)="toggleGuideSelection(g.id)"
                       class="mt-1 w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer" />
                     <div>
@@ -559,6 +560,9 @@ import { DecimalPipe } from '@angular/common';
                       </div>
                       <p class="text-xs text-slate-800 font-semibold mt-0.5">{{ g.customerName }} <span class="font-mono text-slate-400 font-normal">({{ g.customerTaxId }})</span></p>
                       <p class="text-[11px] text-slate-500">📍 {{ g.destinationAddress }} • {{ g.items.length }} productos ({{ g.totalPackages }} bultos)</p>
+                      @if (!canInvoiceGuide(g)) {
+                        <p class="text-[10px] text-amber-700 mt-1">Disponible para facturar cuando la guía de venta figure como entregada.</p>
+                      }
                     </div>
                   </div>
 
@@ -570,7 +574,8 @@ import { DecimalPipe } from '@angular/common';
 
                     <button 
                       (click)="invoiceSingleGuide(g)"
-                      class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center space-x-1.5 shadow-2xs transition-colors cursor-pointer">
+                      [disabled]="!canInvoiceGuide(g)"
+                      class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl text-xs font-semibold flex items-center space-x-1.5 shadow-2xs transition-colors cursor-pointer">
                       <mat-icon class="text-xs">receipt_long</mat-icon>
                       <span>Facturar Esta Guía</span>
                     </button>
@@ -620,11 +625,11 @@ import { DecimalPipe } from '@angular/common';
                   <h3 class="font-bold text-sm sm:text-base tracking-tight flex items-center space-x-2">
                     <span>Emisión de Guía de Despacho Oficial</span>
                     <span class="px-2 py-0.5 bg-amber-800 rounded font-mono text-xs border border-white/20">
-                      {{ stateService.generateNextDispatchGuideNumber() }}
+                      Correlativo asignado al emitir
                     </span>
                   </h3>
                   <p class="text-[11px] text-amber-100">
-                    Providencia Administrativa SENIAT/SNAT/2011/00071 • N° Control Sugerido: {{ stateService.generateNextDispatchControlNumber() }}
+                    Providencia Administrativa SENIAT/SNAT/2011/00071 • Control SENIAT asignado automáticamente
                   </p>
                 </div>
               </div>
@@ -656,7 +661,7 @@ import { DecimalPipe } from '@angular/common';
                   <span class="block font-bold text-slate-700 text-[11px] mb-1">Motivo del Traslado (SENIAT) *</span>
                   <select 
                     [value]="newGuideTransportReason()"
-                    (change)="newGuideTransportReason.set($any($event.target).value)"
+                    (change)="onTransportReasonChanged($any($event.target).value)"
                     class="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-500">
                     <option value="VENTA_MERCANCIA">Venta de Mercancía</option>
                     <option value="TRASLADO_ENTRE_ALMACENES">Traslado entre Almacenes / Sucursales</option>
@@ -668,14 +673,28 @@ import { DecimalPipe } from '@angular/common';
                   </select>
                 </div>
 
+                @if (isWarehouseTransfer()) {
+                  <div>
+                    <span class="block text-slate-600 text-[10px] font-bold uppercase mb-1">Almacén de destino *</span>
+                    <select
+                      [value]="newGuideDestinationWarehouseId()"
+                      (change)="newGuideDestinationWarehouseId.set($any($event.target).value)"
+                      class="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-500">
+                      <option value="">-- Seleccionar destino --</option>
+                      @for (warehouse of stateService.warehouses(); track warehouse.id) {
+                        @if (warehouse.id !== newGuideOriginWarehouseId()) {
+                          <option [value]="warehouse.id">{{ warehouse.name }}</option>
+                        }
+                      }
+                    </select>
+                  </div>
+                }
+
                 <div>
                   <span class="block font-bold text-slate-700 text-[11px] mb-1">N° de Control SENIAT *</span>
-                  <input 
-                    type="text"
-                    [value]="newGuideControlNumber()"
-                    (input)="newGuideControlNumber.set($any($event.target).value)"
-                    placeholder="00-000101"
-                    class="w-full px-3 py-2 border border-slate-200 rounded-xl font-mono text-rose-700 font-bold bg-slate-50 focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                  <p class="w-full px-3 py-2 border border-slate-200 rounded-xl font-mono text-rose-700 font-bold bg-slate-100">
+                    Se asignará automáticamente al emitir
+                  </p>
                 </div>
               </div>
 
@@ -686,6 +705,20 @@ import { DecimalPipe } from '@angular/common';
                     <mat-icon class="text-amber-600 text-base">location_on</mat-icon>
                     <span>Destinatario y Lugar de Entrega</span>
                   </span>
+                </div>
+
+                <div>
+                  <span class="block text-slate-600 text-[10px] font-bold uppercase mb-1">Importar desde cotización (opcional)</span>
+                  <select
+                    [value]="newGuideOriginQuoteId()"
+                    (change)="onSelectQuoteForGuide($any($event.target).value)"
+                    class="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-500">
+                    <option value="">-- Ingreso manual / traslado --</option>
+                    @for (quote of stateService.quotes(); track quote.id) {
+                      <option [value]="quote.id">{{ quote.quoteNumber }} · {{ quote.customerName }} · {{ quote.status }}</option>
+                    }
+                  </select>
+                  <p class="text-[10px] text-slate-500 mt-1">Al elegir una cotización se cargarán cliente, almacén, productos y precios de origen.</p>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -1216,7 +1249,6 @@ import { DecimalPipe } from '@angular/common';
                   class="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
                   <option value="CONFORME">100% Conforme (Sin novedad ni faltantes)</option>
                   <option value="CON_NOVEDAD">Con Novedad / Faltante / Daño Parcial</option>
-                  <option value="RECHAZADO">Rechazado por el Cliente</option>
                 </select>
               </div>
 
@@ -1230,11 +1262,35 @@ import { DecimalPipe } from '@angular/common';
                   class="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xs"></textarea>
               </div>
 
-              <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-[11px] text-emerald-900 flex items-center space-x-2">
-                <mat-icon class="text-emerald-600 text-base">verified</mat-icon>
-                <span>Se anexará constancia con sello digital de recepción conforme en el expediente.</span>
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <span class="block font-bold text-slate-700 text-[11px]">Firma de quien recibe *</span>
+                  <button type="button" (click)="clearReceiptSignature()" class="text-[10px] font-semibold text-emerald-700 hover:text-emerald-900">Limpiar firma</button>
+                </div>
+                <canvas
+                  #signatureCanvas
+                  width="560"
+                  height="140"
+                  aria-label="Área para capturar la firma del receptor"
+                  (pointerdown)="startSignature($event, signatureCanvas)"
+                  (pointermove)="drawSignature($event, signatureCanvas)"
+                  (pointerup)="endSignature(signatureCanvas)"
+                  (pointerleave)="endSignature(signatureCanvas)"
+                  class="w-full h-28 border border-slate-300 rounded-xl bg-white touch-none cursor-crosshair"></canvas>
+                <p class="text-[10px] text-slate-500 mt-1">Firme dentro del recuadro. La firma se adjunta a la constancia de entrega.</p>
               </div>
 
+              @if (canAutoInvoiceOrder(ord)) {
+                <label class="flex items-start gap-2 p-3 bg-indigo-50 rounded-xl border border-indigo-200 text-[11px] text-indigo-900 cursor-pointer">
+                  <input type="checkbox" [checked]="invoiceAfterDelivery()" (change)="invoiceAfterDelivery.set($any($event.target).checked)" class="mt-0.5 accent-indigo-600" />
+                  <span><strong>Facturar ahora automáticamente</strong>. Se agruparán las guías entregadas y pendientes de factura para este cliente y almacén. Si no se marca, quedarán para facturación manual.</span>
+                </label>
+              }
+
+              <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-[11px] text-emerald-900 flex items-center space-x-2">
+                <mat-icon class="text-emerald-600 text-base">verified</mat-icon>
+                <span>La recepción, identificación y firma se guardarán como evidencia verificable.</span>
+              </div>
             </div>
 
             <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
@@ -1283,8 +1339,10 @@ export default class LogisticsComponent {
 
   // New Guide Form State
   newGuideOriginWarehouseId = signal<string>('');
+  newGuideDestinationWarehouseId = signal<string>('');
   newGuideTransportReason = signal<TransportReason>('VENTA_MERCANCIA');
   newGuideControlNumber = signal<string>('');
+  newGuideOriginQuoteId = signal<string>('');
   newGuideCustomerId = signal<string>('');
   newGuideCustomerName = signal<string>('');
   newGuideCustomerTaxId = signal<string>('');
@@ -1307,8 +1365,12 @@ export default class LogisticsComponent {
   // Receipt Modal State
   receiptPersonName = signal<string>('');
   receiptPersonIdDoc = signal<string>('');
-  receiptCondition = signal<'CONFORME' | 'CON_NOVEDAD' | 'RECHAZADO'>('CONFORME');
+  receiptCondition = signal<'CONFORME' | 'CON_NOVEDAD'>('CONFORME');
   receiptObservations = signal<string>('');
+  receiptSignatureDataUrl = signal<string>('');
+  private signatureInProgress = false;
+  private signatureHasStroke = false;
+  invoiceAfterDelivery = signal<boolean>(false);
 
   // Mass invoice selection
   selectedGuideIdsForInvoice = signal<string[]>([]);
@@ -1337,6 +1399,20 @@ export default class LogisticsComponent {
   readonly unInvoicedGuides = computed(() => {
     return this.stateService.dispatchGuides().filter(g => !g.invoicedInvoiceNumber && g.status !== 'ANULADA');
   });
+
+  canInvoiceGuide(guide: DispatchGuide): boolean {
+    const reason = guide.transferReason ?? guide.transportReason;
+    return !guide.invoicedInvoiceNumber
+      && ['ENTREGADA', 'ENTREGADA_CON_NOVEDAD'].includes(guide.status)
+      && ['VENTA', 'VENTA_MERCANCIA'].includes(reason ?? '')
+      && Boolean(guide.customerId);
+  }
+
+  canAutoInvoiceOrder(order: DeliveryOrder): boolean {
+    const guide = this.stateService.dispatchGuides().find(item => item.id === order.dispatchGuideId);
+    const reason = guide?.transferReason ?? guide?.transportReason;
+    return Boolean(guide && guide.customerId && ['VENTA', 'VENTA_MERCANCIA'].includes(reason ?? ''));
+  }
 
   readonly calculatedNewGuideTotalPackages = computed(() => {
     return this.newGuideItems().reduce((s, it) => s + (it.packagesCount || 0), 0);
@@ -1369,8 +1445,10 @@ export default class LogisticsComponent {
     const warehouses = this.stateService.warehouses();
     const firstWhId = warehouses[0]?.id || 'wh-01';
     this.newGuideOriginWarehouseId.set(firstWhId);
+    this.newGuideDestinationWarehouseId.set('');
     this.newGuideTransportReason.set('VENTA_MERCANCIA');
     this.newGuideControlNumber.set(this.stateService.generateNextDispatchControlNumber());
+    this.newGuideOriginQuoteId.set('');
     this.newGuideCustomerId.set('');
     this.newGuideCustomerName.set('');
     this.newGuideCustomerTaxId.set('');
@@ -1402,7 +1480,18 @@ export default class LogisticsComponent {
     this.showNewGuideModal.set(true);
   }
 
+  onTransportReasonChanged(reason: TransportReason) {
+    this.newGuideTransportReason.set(reason);
+    if (!this.isWarehouseTransfer()) this.newGuideDestinationWarehouseId.set('');
+  }
+
+  isWarehouseTransfer(): boolean {
+    return this.newGuideTransportReason() === 'TRASLADO_ALMACEN'
+      || this.newGuideTransportReason() === 'TRASLADO_ENTRE_ALMACENES';
+  }
+
   onSelectCustomerForGuide(customerId: string) {
+    this.newGuideOriginQuoteId.set('');
     this.newGuideCustomerId.set(customerId);
     const cust = this.stateService.customers().find(c => c.id === customerId);
     if (cust) {
@@ -1411,6 +1500,43 @@ export default class LogisticsComponent {
       this.newGuideDestinationAddress.set(cust.address || 'Caracas, Venezuela');
       this.newGuideRecipientContact.set(`${cust.name} (${cust.phone || ''})`);
     }
+  }
+
+  onSelectQuoteForGuide(quoteId: string) {
+    this.newGuideOriginQuoteId.set(quoteId);
+    if (!quoteId) return;
+    const quote = this.stateService.quotes().find(item => item.id === quoteId);
+    if (!quote) {
+      this.stateService.notify('error', 'Cotización no encontrada', 'No se pudo cargar la cotización seleccionada.');
+      return;
+    }
+    this.newGuideOriginWarehouseId.set(quote.warehouseId);
+    this.newGuideDestinationWarehouseId.set('');
+    this.newGuideCustomerId.set(quote.customerId);
+    this.newGuideCustomerName.set(quote.customerName);
+    this.newGuideCustomerTaxId.set(quote.customerTaxId);
+    this.newGuideDestinationAddress.set(
+      this.stateService.customers().find(customer => customer.id === quote.customerId)?.address ?? ''
+    );
+    const quantities = new Map<string, { quantity: number; unitPrice: number }>();
+    for (const item of quote.items) {
+      const quantity = Number(item.quantity);
+      const unitPrice = Number(item.unitPrice);
+      const current = quantities.get(item.productId);
+      if (current) {
+        const total = current.quantity + quantity;
+        current.unitPrice = ((current.quantity * current.unitPrice) + (quantity * unitPrice)) / total;
+        current.quantity = total;
+      } else {
+        quantities.set(item.productId, { quantity, unitPrice });
+      }
+    }
+    this.newGuideItems.set(Array.from(quantities, ([productId, item]) => ({
+      productId,
+      quantity: item.quantity,
+      packagesCount: Math.ceil(item.quantity),
+      weightKg: 0
+    })));
   }
 
   getProductById(productId: string): Product | undefined {
@@ -1488,8 +1614,11 @@ export default class LogisticsComponent {
       return;
     }
 
-    const res = this.stateService.createDispatchGuide({
+    void this.stateService.createDispatchGuide({
       originWarehouseId: whId,
+      destinationWarehouseId: this.newGuideDestinationWarehouseId() || undefined,
+      originQuoteId: this.newGuideOriginQuoteId() || undefined,
+      originQuoteNumber: this.stateService.quotes().find(quote => quote.id === this.newGuideOriginQuoteId())?.quoteNumber,
       customerId: this.newGuideCustomerId() || undefined,
       customerName: this.newGuideCustomerName() || 'Cliente Final',
       customerTaxId: this.newGuideCustomerTaxId() || 'V-00000000-0',
@@ -1503,19 +1632,18 @@ export default class LogisticsComponent {
       vehiclePlate: this.newGuideVehiclePlate(),
       vehicleModel: this.newGuideVehicleModel(),
       estimatedDeliveryDate: this.newGuideEstimatedDeliveryDate(),
-      customControlNumber: this.newGuideControlNumber() || undefined,
       items: items.map(it => ({
         productId: it.productId,
         quantity: it.quantity,
         packagesCount: it.packagesCount,
         weightKg: it.weightKg
       }))
+    }).then(res => {
+      if (res.success && res.dispatchGuide) {
+        this.showNewGuideModal.set(false);
+        this.activeGuideForPrint.set(res.dispatchGuide);
+      }
     });
-
-    if (res.success && res.dispatchGuide) {
-      this.showNewGuideModal.set(false);
-      this.activeGuideForPrint.set(res.dispatchGuide);
-    }
   }
 
   openPrintGuideModal(guide: DispatchGuide) {
@@ -1543,14 +1671,61 @@ export default class LogisticsComponent {
     this.receiptPersonIdDoc.set(order.customerTaxId || '');
     this.receiptCondition.set('CONFORME');
     this.receiptObservations.set('Recibido conforme en almacén de destino sin novedad.');
+    this.receiptSignatureDataUrl.set('');
+    this.signatureInProgress = false;
+    this.signatureHasStroke = false;
+    this.invoiceAfterDelivery.set(false);
   }
 
-  submitDeliveryReceipt() {
+  startSignature(event: PointerEvent, canvas: HTMLCanvasElement) {
+    const context = canvas.getContext('2d');
+    if (!context) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = (event.clientX - rect.left) * (canvas.width / rect.width);
+    const y = (event.clientY - rect.top) * (canvas.height / rect.height);
+    this.signatureInProgress = true;
+    canvas.setPointerCapture(event.pointerId);
+    context.beginPath();
+    context.moveTo(x, y);
+    context.strokeStyle = '#0f172a';
+    context.lineWidth = 2.5;
+    context.lineCap = 'round';
+    context.lineJoin = 'round';
+  }
+
+  drawSignature(event: PointerEvent, canvas: HTMLCanvasElement) {
+    if (!this.signatureInProgress) return;
+    const context = canvas.getContext('2d');
+    if (!context) return;
+    const rect = canvas.getBoundingClientRect();
+    context.lineTo((event.clientX - rect.left) * (canvas.width / rect.width), (event.clientY - rect.top) * (canvas.height / rect.height));
+    context.stroke();
+    this.signatureHasStroke = true;
+  }
+
+  endSignature(canvas: HTMLCanvasElement) {
+    if (!this.signatureInProgress) return;
+    this.signatureInProgress = false;
+    if (this.signatureHasStroke) this.receiptSignatureDataUrl.set(canvas.toDataURL('image/png'));
+  }
+
+  clearReceiptSignature() {
+    const canvas = document.querySelector<HTMLCanvasElement>('canvas[aria-label="Área para capturar la firma del receptor"]');
+    canvas?.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
+    this.receiptSignatureDataUrl.set('');
+    this.signatureHasStroke = false;
+  }
+
+  async submitDeliveryReceipt() {
     const ord = this.activeOrderForReceipt();
     if (!ord) return;
 
     if (!this.receiptPersonName() || !this.receiptPersonIdDoc()) {
       this.stateService.notify('error', 'Datos Requeridos', 'Ingrese el nombre y la cédula de la persona que recibe conforme.');
+      return;
+    }
+    if (!this.receiptSignatureDataUrl()) {
+      this.stateService.notify('error', 'Firma Requerida', 'Capture la firma de la persona que recibe antes de guardar la entrega.');
       return;
     }
 
@@ -1563,17 +1738,36 @@ export default class LogisticsComponent {
       receivedDate: now.toISOString().substring(0, 10),
       receivedTime: now.toTimeString().substring(0, 5),
       hasSignature: true,
-      hasStamp: true,
+      hasStamp: false,
+      signatureDataUrl: this.receiptSignatureDataUrl(),
       receptionStatus: this.receiptCondition() === 'CONFORME' ? 'COMPLETO' : 'CON_NOVEDAD',
       physicalCondition: this.receiptCondition(),
       observations: this.receiptObservations(),
-      signedProofUrl: 'digital-proof-stamp-verified.png',
-      attachedProofUrl: 'digital-proof-stamp-verified.png'
     };
 
-    const res = this.stateService.registerDeliveryReceipt(ord.id, receptionDetails);
+    const res = await this.stateService.registerDeliveryReceipt(ord.id, receptionDetails);
     if (res.success) {
       this.activeOrderForReceipt.set(null);
+      if (this.invoiceAfterDelivery() && ord.dispatchGuideId) {
+        const guide = this.stateService.dispatchGuides().find(item => item.id === ord.dispatchGuideId);
+        if (guide) {
+          const eligibleGuideIds = this.stateService.dispatchGuides()
+            .filter(item => item.customerId === guide.customerId
+              && item.originWarehouseId === guide.originWarehouseId
+              && ['ENTREGADA', 'ENTREGADA_CON_NOVEDAD'].includes(item.status)
+              && !item.invoicedInvoiceNumber)
+            .map(item => item.id);
+          const invoiced = await this.stateService.invoiceFromDispatchGuides(eligibleGuideIds, {
+            paymentCurrency: 'USD',
+            payments: [{ method: 'CREDITO', amount: 0, currency: 'USD' }]
+          });
+          if (!invoiced.success) {
+            this.stateService.notify('error', 'Entrega guardada; factura pendiente', invoiced.message ?? 'No se pudo emitir la factura automáticamente.');
+          } else if (invoiced.invoice) {
+            this.activeInvoiceForView.set(invoiced.invoice);
+          }
+        }
+      }
     }
   }
 
@@ -1638,7 +1832,7 @@ export default class LogisticsComponent {
     return type ? type.replace(/_/g, ' ') : '';
   }
 
-  formatMoney(val?: number): string {
-    return (val || 0).toFixed(2);
+  formatMoney(val?: number): number {
+    return Number((Number(val) || 0).toFixed(2));
   }
 }
