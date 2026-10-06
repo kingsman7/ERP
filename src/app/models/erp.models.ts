@@ -1088,7 +1088,7 @@ export interface TreasuryTransaction {
   documentNumber?: string; // Número de factura o factura de compra relacionada
   concept: string;
   journalEntryId?: string;
-  status: 'CONCILIADO' | 'PENDIENTE' | 'ANULADO';
+  status: 'CONCILIADO' | 'PENDIENTE' | 'PENDIENTE_CONTABILIDAD' | 'ANULADO';
   registeredBy: string;
   createdAt: string;
 }
@@ -1155,6 +1155,5 @@ export interface PayableBill {
   payments: SupplierPaymentReceipt[];
   createdAt: string;
 }
-
 
 

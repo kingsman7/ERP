@@ -844,8 +844,9 @@ export interface DetailItemRow {
                         Bs. {{ tx.amountVes.toLocaleString('es-VE', { minimumFractionDigits: 2 }) }}
                       </td>
                       <td class="py-3.5 px-4 text-center">
-                        <span class="px-2 py-0.5 text-[9px] font-bold rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-                          {{ tx.status }}
+                        <span class="px-2 py-0.5 text-[9px] font-bold rounded-full border"
+                          [class]="tx.status === 'PENDIENTE_CONTABILIDAD' ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-slate-100 text-slate-700 border-slate-200'">
+                          {{ tx.status === 'PENDIENTE_CONTABILIDAD' ? 'Pendiente contabilidad' : tx.status }}
                         </span>
                       </td>
                     </tr>
@@ -913,12 +914,14 @@ export interface DetailItemRow {
                   id="cxc-payment-method"
                   formControlName="paymentMethod" 
                   class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800">
-                  <option value="TRANSFERENCIA">Transferencia Bancaria</option>
-                  <option value="PAGO_MOVIL">Pago Móvil</option>
-                  <option value="ZELLE">Zelle / Divisa Digital</option>
-                  <option value="EFECTIVO_USD">Efectivo USD (Caja/Bóveda)</option>
-                  <option value="EFECTIVO_BS">Efectivo Bolívares</option>
-                  <option value="PUNTO_VENTA">Punto de Venta / Tarjeta</option>
+                  <option value="EFECTIVO_USD">Efectivo USD (Divisas)</option>
+                      <option value="EFECTIVO">Efectivo Bolívares (VES)</option>
+                      <option value="PAGO_MOVIL">Pago Móvil (VES)</option>
+                      <option value="PUNTO_VENTA_DEBITO">Punto de Venta Débito (VES)</option>
+                      <option value="TARJETA_CREDITO">Tarjeta de Crédito (VES)</option>
+                      <option value="TRANSFERENCIA">Transferencia Bancaria</option>
+                      <option value="ZELLE">Zelle / Wire (USD)</option>
+                      <option value="CRIPTO">Criptomonedas / USDT</option>
                 </select>
               </div>
             </div>
@@ -1694,7 +1697,7 @@ export interface DetailItemRow {
                           <td class="py-2.5 px-3 text-right font-mono text-slate-500">Bs. {{ tx.amountVes.toLocaleString('es-VE', { minimumFractionDigits: 2 }) }}</td>
                           <td class="py-2.5 px-3 text-center">
                             <span class="px-2 py-0.5 text-[9px] font-bold rounded-full bg-emerald-100 text-emerald-800">
-                              {{ tx.status }}
+                              {{ tx.status === 'PENDIENTE_CONTABILIDAD' ? 'Pendiente contabilidad' : tx.status }}
                             </span>
                           </td>
                         </tr>
@@ -2016,7 +2019,7 @@ export interface DetailItemRow {
                           <td class="py-2.5 px-3 text-right font-mono text-slate-500">Bs. {{ tx.amountVes.toLocaleString('es-VE', { minimumFractionDigits: 2 }) }}</td>
                           <td class="py-2.5 px-3 text-center">
                             <span class="px-2 py-0.5 text-[9px] font-bold rounded-full bg-amber-100 text-amber-800">
-                              {{ tx.status }}
+                              {{ tx.status === 'PENDIENTE_CONTABILIDAD' ? 'Pendiente contabilidad' : tx.status }}
                             </span>
                           </td>
                         </tr>

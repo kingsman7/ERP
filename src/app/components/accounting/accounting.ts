@@ -5,7 +5,8 @@ import { ErpStateService } from '../../services/erp-state.service';
 import { AuthService } from '../../services/auth.service';
 import { KeyboardShortcutsService } from '../../services/keyboard-shortcuts.service';
 import { Account, AccountType } from '../../models/erp.models';
-import { DecimalPipe } from '@angular/common'; 
+import { DecimalPipe } from '@angular/common';
+
 
 @Component({
   selector: 'app-accounting',
@@ -47,7 +48,7 @@ import { DecimalPipe } from '@angular/common';
         <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
           <div>
             <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Total Activos (1)</p>
-            <h3 class="text-2xl font-bold text-slate-800 mt-1">\${{ stateService.totalAccountingAssets() | number:'1.2-2' }}</h3>
+            <h3 class="text-2xl font-bold text-slate-800 mt-1">\${{ stateService.totalAccountingAssets()}}</h3>
             <p class="text-[11px] text-slate-400 font-medium mt-0.5">Bs. {{ (stateService.totalAccountingAssets() * stateService.bcvState().usdRate).toLocaleString('es-VE', { minimumFractionDigits: 2 }) }}</p>
           </div>
           <div class="w-11 h-11 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
@@ -59,7 +60,7 @@ import { DecimalPipe } from '@angular/common';
         <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
           <div>
             <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Total Pasivos (2)</p>
-            <h3 class="text-2xl font-bold text-slate-800 mt-1">\${{ stateService.totalAccountingLiabilities() | number:'1.2-2' }}</h3>
+            <h3 class="text-2xl font-bold text-slate-800 mt-1">\${{ stateService.totalAccountingLiabilities() | number: '1.2-2' }}</h3>
             <p class="text-[11px] text-slate-400 font-medium mt-0.5">Obligaciones y deudas</p>
           </div>
           <div class="w-11 h-11 rounded-xl bg-rose-50 flex items-center justify-center text-rose-600">
@@ -71,7 +72,7 @@ import { DecimalPipe } from '@angular/common';
         <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
           <div>
             <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Patrimonio Neto (3)</p>
-            <h3 class="text-2xl font-bold text-slate-800 mt-1">\${{ stateService.totalAccountingEquity() | number:'1.2-2' }}</h3>
+            <h3 class="text-2xl font-bold text-slate-800 mt-1">\${{ stateService.totalAccountingEquity() }}</h3>
             <p class="text-[11px] text-emerald-600 font-medium mt-0.5">Capital y reservas</p>
           </div>
           <div class="w-11 h-11 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">
@@ -84,7 +85,7 @@ import { DecimalPipe } from '@angular/common';
           <div>
             <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Utilidad Neta Período</p>
             <h3 class="text-2xl font-bold mt-1" [class]="stateService.netIncomePeriod() >= 0 ? 'text-emerald-700' : 'text-rose-600'">
-              \${{ stateService.netIncomePeriod() | number:'1.2-2' }}
+              \${{ stateService.netIncomePeriod() }}
             </h3>
             <p class="text-[11px] text-slate-500 font-medium mt-0.5">Ingresos - Costos - Gastos</p>
           </div>
@@ -204,10 +205,10 @@ import { DecimalPipe } from '@angular/common';
                             <td class="py-1.5 px-3 font-sans text-slate-800 font-medium">{{ line.accountName }}</td>
                             <td class="py-1.5 px-3 font-sans text-slate-500 text-[11px]">{{ line.description }}</td>
                             <td class="py-1.5 px-3 text-right font-bold" [class.text-emerald-700]="line.debit > 0">
-                              {{ line.debit > 0 ? ('$' + line.debit | number:'.2-2') : '-' }}
+                              {{ line.debit > 0 ? ('$' + line.debit ) : '-' }}
                             </td>
                             <td class="py-1.5 px-3 text-right font-bold" [class.text-blue-700]="line.credit > 0">
-                              {{ line.credit > 0 ? ('$' + line.credit | number:'.2-2') : '-' }}
+                              {{ line.credit > 0 ? ('$' + line.credit ) : '-' }}
                             </td>
                           </tr>
                         }
@@ -215,8 +216,8 @@ import { DecimalPipe } from '@angular/common';
                       <tfoot>
                         <tr class="bg-slate-50/75 font-bold font-mono border-t border-slate-200 text-slate-800">
                           <td colspan="3" class="py-2 px-3 text-right uppercase text-[10px] tracking-wider text-slate-500 font-sans">Sumas Iguales:</td>
-                          <td class="py-2 px-3 text-right text-emerald-800">\${{ entry.totalDebit | number:'1.2-2' }}</td>
-                          <td class="py-2 px-3 text-right text-blue-800">\${{ entry.totalCredit | number:'1.2-2' }}</td>
+                          <td class="py-2 px-3 text-right text-emerald-800">\${{ entry.totalDebit }}</td>
+                          <td class="py-2 px-3 text-right text-blue-800">\${{ entry.totalCredit }}</td>
                         </tr>
                       </tfoot>
                     </table>
