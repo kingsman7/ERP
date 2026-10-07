@@ -129,7 +129,18 @@ export class ErpStateService {
 
   loadBcvCurrency(): Observable<boolean> {
     return this.apiService.getCurrentBcv().pipe(
-      tap(bcv => this.bcvState.update(current => ({ ...current, ...bcv }))),
+      tap(bcv => {
+        const data = {
+          usdRate: Number(bcv.usdRate) ?? 872.39,
+          eurRate: Number(bcv.eurRate) ?? 977.22,
+          origin: bcv.origin ?? "MANUAL",
+          lastSync: bcv.lastSync ?? "2026-10-06T17:00:17.273Z",
+          isSyncing: bcv.isSyncing ?? false,
+          status: bcv.status ?? "FALLBACK_MANUAL",
+          bcvOfficialDate: bcv.bcvOfficialDate ?? "2026-10-06",
+        }
+        this.bcvState.update(current => ({ ...current, ...data }))
+      }),
       map(() => true)
     );
   }
@@ -155,12 +166,10 @@ export class ErpStateService {
   private loadDashboard(): Observable<boolean> {
     return forkJoin({
       invoices: this.apiService.getInvoices(),
-      bcv: this.apiService.getCurrentBcv(),
       companyProfile: this.apiService.getCompanyProfile()
     }).pipe(
-      tap(({ invoices, bcv, companyProfile }) => {
+      tap(({ invoices, companyProfile }) => {
         this.invoices.set(invoices);
-        this.bcvState.update(current => ({ ...current, ...bcv }));
         this.companyProfile.update(current => ({ ...current, ...companyProfile }));
       }), map(() => true)
     );
@@ -257,19 +266,17 @@ export class ErpStateService {
       invoices: this.apiService.getInvoices(),
       customerReceipts: this.apiService.getCustomerReceipts(),
       supplierReceipts: this.apiService.getSupplierReceipts(),
-      bcv: this.apiService.getCurrentBcv(),
       suppliers: this.apiService.getSuppliers(),
       purchaseOrders: this.apiService.getPurchaseOrders(),
       accounts: this.apiService.getAccounts(),
     }).pipe(
-      tap(({ banks, transactions, bills, invoices, customerReceipts, supplierReceipts, bcv, suppliers, purchaseOrders, accounts }) => {
+      tap(({ banks, transactions, bills, invoices, customerReceipts, supplierReceipts, suppliers, purchaseOrders, accounts }) => {
         this.bankAccounts.set(banks);
         this.treasuryTransactions.set(transactions);
         this.payableBills.set(bills);
         this.invoices.set(invoices);
         this.customerPaymentReceipts.set(customerReceipts);
         this.supplierPaymentReceipts.set(supplierReceipts);
-        this.bcvState.update(current => ({ ...current, ...bcv }));
         this.suppliers.set(suppliers);
         this.purchaseOrders.set(purchaseOrders);
         this.accounts.set(accounts);

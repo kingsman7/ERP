@@ -1285,7 +1285,7 @@ export default class CashClosingComponent {
   });
 
   totalSessionOperations = computed(() => {
-    return this.allBreakdownItems().reduce((s, it) => s + it.transactionCount, 0);
+    return this.allBreakdownItems().reduce((s, it) => Number(s) + Number(it.transactionCount), 0);
   });
 
   filteredBreakdownItems = computed<CashSessionPaymentMethodBreakdown[]>(() => {
@@ -1296,23 +1296,23 @@ export default class CashClosingComponent {
   });
 
   totalFilteredUsd = computed(() => {
-    return this.filteredBreakdownItems().reduce((s, it) => s + it.amountUsd, 0);
+    return this.filteredBreakdownItems().reduce((s, it) => Number(s) + Number(it.amountUsd), 0);
   });
 
   totalFilteredTransactions = computed(() => {
-    return this.filteredBreakdownItems().reduce((s, it) => s + it.transactionCount, 0);
+    return this.filteredBreakdownItems().reduce((s, it) => Number(s) + Number(it.transactionCount), 0);
   });
 
   totalCollectedInUsdOriginal = computed(() => {
     return this.allBreakdownItems()
       .filter(it => it.currency === 'USD')
-      .reduce((s, it) => s + it.amount, 0);
+      .reduce((s, it) => Number(s) + Number(it.amount), 0);
   });
 
   totalCollectedInVesOriginal = computed(() => {
     return this.allBreakdownItems()
       .filter(it => it.currency === 'VES')
-      .reduce((s, it) => s + it.amount, 0);
+      .reduce((s, it) => Number(s) + Number(it.amount), 0);
   });
 
   // Expected Physical Cash

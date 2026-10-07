@@ -726,6 +726,26 @@ export interface SplitPaymentLine {
                   </div>
                 </div>
 
+                @if (requiresPaymentReference(selectedPaymentMethod())) {
+                  <div>
+                    <label for="pos-payment-reference" class="block text-[10px] font-semibold text-slate-600 mb-0.5">
+                      Número de comprobante / referencia <span class="text-rose-600">*</span>
+                    </label>
+                    <input
+                      id="pos-payment-reference"
+                      type="text"
+                      maxlength="100"
+                      required
+                      [value]="paymentReference()"
+                      (input)="paymentReference.set($any($event.target).value)"
+                      placeholder="Ingrese el número de confirmación"
+                      class="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500" />
+                    @if (!paymentReference().trim()) {
+                      <span class="mt-0.5 block text-[10px] text-rose-600">El comprobante es obligatorio para este método.</span>
+                    }
+                  </div>
+                }
+
                 <!-- Cash Tendered & Real-Time Change / Vuelto Calculation (Multi-Currency) -->
                 <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
                   <div class="flex items-center justify-between">
@@ -947,6 +967,26 @@ export interface SplitPaymentLine {
                           </button>
                         </div>
 
+                        @if (requiresPaymentReference(sp.method)) {
+                          <div>
+                            <label [for]="'pos-split-reference-' + sp.id" class="block text-[10px] font-semibold text-slate-600 mb-0.5">
+                              Número de comprobante / referencia <span class="text-rose-600">*</span>
+                            </label>
+                            <input
+                              [id]="'pos-split-reference-' + sp.id"
+                              type="text"
+                              maxlength="100"
+                              required
+                              [value]="sp.reference || ''"
+                              (input)="updateSplitReference(sp.id, $any($event.target).value)"
+                              placeholder="Ingrese el número de confirmación"
+                              class="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+                            @if (!sp.reference?.trim() && sp.amount > 0) {
+                              <span class="mt-0.5 block text-[10px] text-rose-600">El comprobante es obligatorio para este método.</span>
+                            }
+                          </div>
+                        }
+
                         <!-- Conversion & SENIAT Badge -->
                         <div class="flex items-center justify-between text-[10px] pt-1 border-t border-slate-200/50">
                           <span class="text-slate-500 font-mono">
@@ -1043,7 +1083,7 @@ export interface SplitPaymentLine {
               <button 
                 type="button"
                 (click)="checkout()"
-                [disabled]="cartItems().length === 0 || (!isMixedPayment() && cashChangeDetails().isDeficit && selectedPaymentMethod() !== 'CREDITO') || (isMixedPayment() && mixedBalanceDetails().isDeficit && !hasCreditPayment())"
+                [disabled]="canInvoices()"
                 class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-bold rounded-xl text-xs flex items-center justify-center space-x-1.5 shadow-sm transition-all cursor-pointer disabled:cursor-not-allowed">
                 <mat-icon class="text-base">receipt_long</mat-icon>
                 <span>EMITIR FACTURA FISCAL (F10)</span>
@@ -1508,6 +1548,7 @@ export default class SalesPosComponent {
   selectedPriceTier = signal<PriceLevelKey>('price1');
   selectedPaymentCurrency = signal<CurrencyCode>('USD');
   selectedPaymentMethod = signal<PaymentMethod>('EFECTIVO_USD');
+  paymentReference = signal<string>('');
   selectedIvaRate = signal<number>(0.16);
   globalDiscountPercent = signal<number>(0);
   manualIgtfOverride = signal<boolean | null>(null);
@@ -1522,6 +1563,14 @@ export default class SalesPosComponent {
     const wh = this.stateService.warehouses().find(w => w.id === id);
     return wh ? wh.name : 'Almacén Principal';
   });
+
+  IsActiveSession = computed(() => this.stateService.activeCashSession().status !== 'ABIERTA');
+
+  paymentReferencesMissing = computed(() => this.isMixedPayment()
+    ? this.splitPayments().some(sp => sp.amount > 0 && this.requiresPaymentReference(sp.method) && !sp.reference?.trim())
+    : this.requiresPaymentReference(this.selectedPaymentMethod()) && !this.paymentReference().trim());
+
+  canInvoices = computed(() => !this.IsActiveSession() ? !this.IsActiveSession : this.cartItems().length === 0 || (!this.isMixedPayment() && this.cashChangeDetails().isDeficit && this.selectedPaymentMethod() !== 'CREDITO') || (this.isMixedPayment() && this.mixedBalanceDetails().isDeficit && !this.hasCreditPayment()) || this.paymentReferencesMissing());
 
   getProductWarehouseStock(product: Product, warehouseId?: string): number {
     if (!product) return 0;
@@ -2071,10 +2120,14 @@ export default class SalesPosComponent {
 
     this.splitPayments.update(list => list.map(sp => {
       if (sp.id === id) {
-        return { ...sp, method, currency: curr };
+        return { ...sp, method, currency: curr, reference: method === sp.method ? sp.reference : '' };
       }
       return sp;
     }));
+  }
+
+  updateSplitReference(id: string, reference: string) {
+    this.splitPayments.update(list => list.map(sp => sp.id === id ? { ...sp, reference } : sp));
   }
 
   updateSplitAmount(id: string, val: string | number) {
@@ -2258,6 +2311,9 @@ export default class SalesPosComponent {
   }
 
   onPaymentMethodChange(method: PaymentMethod) {
+    if (method !== this.selectedPaymentMethod()) {
+      this.paymentReference.set('');
+    }
     this.selectedPaymentMethod.set(method);
     if (method === 'PAGO_MOVIL' || method === 'PUNTO_VENTA_DEBITO' || method === 'TARJETA_CREDITO' || method === 'EFECTIVO') {
       this.selectedPaymentCurrency.set('VES');
@@ -2286,6 +2342,15 @@ export default class SalesPosComponent {
   isCashPayment(): boolean {
     const m = this.selectedPaymentMethod();
     return m === 'EFECTIVO' || m === 'EFECTIVO_USD' || m === 'EFECTIVO_EUR';
+  }
+
+  requiresPaymentReference(method: PaymentMethod): boolean {
+    return method === 'PAGO_MOVIL'
+      || method === 'PUNTO_VENTA_DEBITO'
+      || method === 'TARJETA_CREDITO'
+      || method === 'TRANSFERENCIA'
+      || method === 'ZELLE'
+      || method === 'CRIPTO';
   }
 
   formatPaymentMethod(method?: PaymentMethod): string {
@@ -2407,6 +2472,15 @@ export default class SalesPosComponent {
   async checkout() {
     if (this.cartItems().length === 0) return;
 
+    if (this.paymentReferencesMissing()) {
+      this.stateService.notify(
+        'warning',
+        'Comprobante de Pago Requerido',
+        'Ingrese el número de comprobante o referencia para cada pago electrónico antes de emitir la factura.'
+      );
+      return;
+    }
+
     if (this.isMixedPayment()) {
       const bal = this.mixedBalanceDetails();
       if (bal.isDeficit && !this.hasCreditPayment()) {
@@ -2432,7 +2506,7 @@ export default class SalesPosComponent {
           method: sp.method,
           amount: sp.amount,
           currency: sp.currency,
-          reference: sp.reference || (sp.method.startsWith('EFECTIVO') ? 'CONTADO_CAJA' : 'REF-' + Math.floor(Math.random() * 90000 + 10000)),
+          reference: sp.method.startsWith('EFECTIVO') ? 'CONTADO_CAJA' : sp.reference?.trim() || undefined,
           isForeignCurrency: isDiv && !isBs
         };
       });
@@ -2531,7 +2605,7 @@ export default class SalesPosComponent {
         method: paymentMethod,
         amount: paymentAmount,
         currency: paymentMethod === 'CREDITO' ? 'USD' : paymentCurrency,
-        reference: this.isCashPayment() ? 'CONTADO_CAJA' : 'REF-' + Math.floor(Math.random() * 90000 + 10000),
+        reference: this.isCashPayment() ? 'CONTADO_CAJA' : this.paymentReference().trim() || undefined,
         isForeignCurrency: isDivisas && !isBolivares
       }
     ];
