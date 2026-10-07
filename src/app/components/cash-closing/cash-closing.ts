@@ -544,6 +544,12 @@ import { CashSessionPaymentMethodBreakdown, PaymentMethod, CurrencyCode, Warehou
                 class="px-2.5 py-1 rounded-lg transition-colors cursor-pointer text-[11px] flex items-center space-x-1">
                 <span>Zelle & Bancos</span>
               </button>
+              <button 
+                (click)="selectedBreakdownFilter.set('OTRO')"
+                [class]="selectedBreakdownFilter() === 'OTRO' ? 'bg-amber-600 text-white font-bold' : 'text-slate-600 hover:text-slate-900'"
+                class="px-2.5 py-1 rounded-lg transition-colors cursor-pointer text-[11px] flex items-center space-x-1">
+                <span>Cobros CxC</span>
+              </button>
             </div>
           </div>
 
@@ -621,12 +627,12 @@ import { CashSessionPaymentMethodBreakdown, PaymentMethod, CurrencyCode, Warehou
                     <td class="py-3 px-4 text-right">
                       <div class="flex items-center justify-end space-x-2">
                         <span class="font-mono font-semibold text-slate-600 text-[11px] min-w-[42px]">
-                          {{ calculatePercentage(item.amountUsd, sess.totalSales) }}%
+                          {{ calculatePercentage(item.amountUsd, totalCollectedInUsdEquivalent()) }}%
                         </span>
                         <div class="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                           <div class="h-full rounded-full transition-all"
                             [class]="item.currency === 'VES' ? 'bg-sky-500' : 'bg-emerald-500'"
-                            [style.width.%]="calculatePercentage(item.amountUsd, sess.totalSales)"></div>
+                            [style.width.%]="calculatePercentage(item.amountUsd, totalCollectedInUsdEquivalent())"></div>
                         </div>
                       </div>
                     </td>
@@ -1075,7 +1081,7 @@ export default class CashClosingComponent {
 
   showOpenSessionModal = signal<boolean>(false);
   showZReportModal = signal<boolean>(false);
-  selectedBreakdownFilter = signal<'ALL' | 'EFECTIVO' | 'TARJETA' | 'TRANSFERENCIA'>('ALL');
+  selectedBreakdownFilter = signal<'ALL' | 'EFECTIVO' | 'TARJETA' | 'TRANSFERENCIA' | 'OTRO'>('ALL');
   dashboardCurrencyMode = signal<'MULTI' | 'USD' | 'VES'>('MULTI');
 
   warehouses = computed(() => this.stateService.warehouses());
@@ -1093,7 +1099,7 @@ export default class CashClosingComponent {
   allBreakdownItems = computed<CashSessionPaymentMethodBreakdown[]>(() => {
     const sess = this.stateService.activeCashSession();
     if (sess.methodBreakdowns && sess.methodBreakdowns.length > 0) {
-      return sess.methodBreakdowns;
+      return [...sess.methodBreakdowns, ...this.cxcBreakdownItems()];
     }
 
     // Default synthesized breakdown from the session metrics
@@ -1194,8 +1200,47 @@ export default class CashClosingComponent {
       });
     }
 
-    return items;
+    return [...items, ...this.cxcBreakdownItems()];
   });
+
+  private cxcBreakdownItems(): CashSessionPaymentMethodBreakdown[] {
+    const sessionStart = new Date(this.stateService.activeCashSession().openedAt).getTime();
+    const rates = this.stateService.bcvState();
+    const usdRate = Number(rates.usdRate) > 0 ? Number(rates.usdRate) : 1;
+    const eurRate = Number(rates.eurRate) > 0 ? Number(rates.eurRate) : usdRate;
+    const grouped = new Map<string, CashSessionPaymentMethodBreakdown>();
+
+    for (const receipt of this.stateService.customerPaymentReceipts()) {
+      const receiptDate = new Date(receipt.date).getTime();
+      if (!Number.isFinite(receiptDate) || receiptDate < sessionStart || !Number(receipt.amountUsd) || !Number(receipt.amountVes)) continue;
+
+      const currency = receipt.currencyPaid;
+      const key = `${receipt.paymentMethod}:${currency}`;
+      const amount = currency === 'VES'
+        ? Number(receipt.amountVes)
+        : currency === 'EUR'
+          ? Number(receipt.amountUsd) * usdRate / eurRate
+          : Number(receipt.amountUsd);
+      const existing = grouped.get(key);
+      if (existing) {
+        existing.amount = Number((existing.amount + amount).toFixed(2));
+        existing.amountUsd = Number((existing.amountUsd + Number(receipt.amountUsd)).toFixed(2));
+        existing.transactionCount += 1;
+      } else {
+        grouped.set(key, {
+          method: receipt.paymentMethod,
+          label: `Cobro CxC realizado · ${receipt.paymentMethod.replace(/_/g, ' ')}`,
+          category: 'OTRO',
+          currency,
+          amount: Number(amount.toFixed(2)),
+          amountUsd: Number(Number(receipt.amountUsd).toFixed(2)),
+          transactionCount: 1,
+        });
+      }
+    }
+
+    return [...grouped.values()];
+  }
 
   // Granular Cash Inflow Specifics
   cashUsd = computed(() => {
@@ -1309,6 +1354,10 @@ export default class CashClosingComponent {
       .reduce((s, it) => Number(s) + Number(it.amount), 0);
   });
 
+  totalCollectedInUsdEquivalent = computed(() => {
+    return this.allBreakdownItems().reduce((sum, item) => sum + Number(item.amountUsd), 0);
+  });
+
   totalCollectedInVesOriginal = computed(() => {
     return this.allBreakdownItems()
       .filter(it => it.currency === 'VES')
@@ -1418,4 +1467,3 @@ export default class CashClosingComponent {
     }
   }
 }
-

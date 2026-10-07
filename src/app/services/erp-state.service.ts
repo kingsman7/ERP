@@ -5334,6 +5334,7 @@ export class ErpStateService {
     invoiceId: string;
     amountUsd: number;
     amountVes?: number;
+    currencyPaid?: CurrencyCode;
     paymentMethod: PaymentMethod;
     bankAccountId: string;
     referenceNumber: string;
@@ -5347,7 +5348,7 @@ export class ErpStateService {
         invoiceNumber: invoice?.invoiceNumber,
         receiptDate: new Date().toISOString(),
         amountVes: data.amountVes ?? Number((data.amountUsd * (invoice?.bcvRate || this.bcvState().usdRate)).toFixed(2)),
-        currencyPaid: bank?.currency ?? 'USD',
+        currencyPaid: data.currencyPaid ?? bank?.currency ?? 'USD',
         bcvRate: invoice?.bcvRate || this.bcvState().usdRate,
         receivedBy: this.authService.currentUser()?.name ?? 'Usuario autenticado',
       }));
@@ -5365,6 +5366,7 @@ export class ErpStateService {
     payableBillId: string;
     amountUsd: number;
     amountVes?: number;
+    currencyPaid?: CurrencyCode;
     paymentMethod: PaymentMethod;
     bankAccountId: string;
     referenceNumber: string;
@@ -5376,7 +5378,7 @@ export class ErpStateService {
         ...data,
         paymentDate: new Date().toISOString(),
         amountVes: data.amountVes ?? Number((data.amountUsd * this.bcvState().usdRate).toFixed(2)),
-        currencyPaid: bank?.currency ?? 'USD',
+        currencyPaid: data.currencyPaid ?? bank?.currency ?? 'USD',
         bcvRate: this.bcvState().usdRate,
         approvedBy: this.authService.currentUser()?.name ?? 'Usuario autenticado',
       }));

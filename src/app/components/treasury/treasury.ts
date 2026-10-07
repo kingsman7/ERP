@@ -8,7 +8,8 @@ import {
   PayableBill, 
   PaymentMethod,
   Invoice,
-  PurchaseOrder
+  PurchaseOrder,
+  CurrencyCode
 } from '../../models/erp.models';
 import { DecimalPipe } from '@angular/common';
 
@@ -890,6 +891,7 @@ export interface DetailItemRow {
               <div>
                 <p class="text-[10px] uppercase font-semibold text-slate-400">Saldo Pendiente</p>
                 <p class="text-lg font-bold text-slate-900">\${{ selectedCxc()?.balanceUsd  | number: '1.2-2' }}</p>
+                <p class="text-[11px] text-slate-500">Equivalente: Bs. {{ ((selectedCxc()?.balanceUsd || 0) * stateService.bcvState().usdRate) | number: '1.2-2' }}</p>
               </div>
               <div class="text-right">
                 <p class="text-[10px] uppercase font-semibold text-slate-400">Tasa Oficial BCV</p>
@@ -899,13 +901,16 @@ export interface DetailItemRow {
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label for="cxc-amount-usd" class="block font-semibold text-slate-700 mb-1">Monto a Cobrar (USD) *</label>
+                <label for="cxc-amount-paid" class="block font-semibold text-slate-700 mb-1">Monto a Cobrar ({{ collectionCurrency() }}) *</label>
                 <input 
-                  id="cxc-amount-usd"
-                  formControlName="amountUsd" 
+                  id="cxc-amount-paid"
+                  formControlName="amountPaid" 
                   type="number" 
                   step="0.01"
                   class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800" />
+                <p class="mt-1 text-[10px] text-slate-500">
+                  Equivalente USD: {{ collectionAmountUsd() | number: '1.2-2' }} / VES: {{ collectionAmountVes() | number: '1.2-2' }}
+                </p>
               </div>
 
               <div>
@@ -913,6 +918,7 @@ export interface DetailItemRow {
                 <select 
                   id="cxc-payment-method"
                   formControlName="paymentMethod" 
+                  (change)="onCollectionPaymentSettingsChange()"
                   class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800">
                   <option value="EFECTIVO_USD">Efectivo USD (Divisas)</option>
                       <option value="EFECTIVO">Efectivo Bolívares (VES)</option>
@@ -931,6 +937,7 @@ export interface DetailItemRow {
               <select 
                 id="cxc-bank-account-id"
                 formControlName="bankAccountId" 
+                (change)="onCollectionPaymentSettingsChange()"
                 class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800">
                 @for (bank of stateService.bankAccounts(); track bank.id) {
                   <option [value]="bank.id">{{ bank.accountName }} ({{ bank.currency }}) - Saldo: {{ bank.currency === 'VES' ? 'Bs. ' : '$' }}{{ bank.balance  | number: '1.2-2' }}</option>
@@ -1004,6 +1011,7 @@ export interface DetailItemRow {
               <div>
                 <p class="text-[10px] uppercase font-semibold text-slate-400">Saldo por Pagar</p>
                 <p class="text-lg font-bold text-slate-900">\${{ selectedBill()?.balanceUsd  | number: '1.2-2' }}</p>
+                <p class="text-[11px] text-slate-500">Equivalente: Bs. {{ ((selectedBill()?.balanceUsd || 0) * stateService.bcvState().usdRate) | number: '1.2-2' }}</p>
               </div>
               <div class="text-right">
                 <p class="text-[10px] uppercase font-semibold text-slate-400">Tasa Oficial BCV</p>
@@ -1013,13 +1021,16 @@ export interface DetailItemRow {
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label for="cxp-amount-usd" class="block font-semibold text-slate-700 mb-1">Monto a Desembolsar (USD) *</label>
+                <label for="cxp-amount-paid" class="block font-semibold text-slate-700 mb-1">Monto a Desembolsar ({{ paymentCurrency() }}) *</label>
                 <input 
-                  id="cxp-amount-usd"
-                  formControlName="amountUsd" 
+                  id="cxp-amount-paid"
+                  formControlName="amountPaid" 
                   type="number" 
                   step="0.01"
                   class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500 font-bold text-slate-800" />
+                <p class="mt-1 text-[10px] text-slate-500">
+                  Equivalente USD: {{ paymentAmountUsd() | number: '1.2-2' }} / VES: {{ paymentAmountVes() | number: '1.2-2' }}
+                </p>
               </div>
 
               <div>
@@ -1027,12 +1038,16 @@ export interface DetailItemRow {
                 <select 
                   id="cxp-payment-method"
                   formControlName="paymentMethod" 
+                  (change)="onPaymentSettingsChange()"
                   class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500 text-slate-800">
+                  <option value="EFECTIVO_USD">Efectivo USD (Divisas)</option>
+                  <option value="EFECTIVO">Efectivo Bolívares (VES)</option>
+                  <option value="PAGO_MOVIL">Pago Móvil (VES)</option>
+                  <option value="PUNTO_VENTA_DEBITO">Punto de Venta Débito (VES)</option>
+                  <option value="TARJETA_CREDITO">Tarjeta de Crédito (VES)</option>
                   <option value="TRANSFERENCIA">Transferencia Bancaria</option>
-                  <option value="PAGO_MOVIL">Pago Móvil</option>
-                  <option value="ZELLE">Zelle Corporativo</option>
-                  <option value="EFECTIVO_USD">Efectivo Divisas</option>
-                  <option value="EFECTIVO_BS">Efectivo Bolívares</option>
+                  <option value="ZELLE">Zelle / Wire (USD)</option>
+                  <option value="CRIPTO">Criptomonedas / USDT</option>
                 </select>
               </div>
             </div>
@@ -1042,6 +1057,7 @@ export interface DetailItemRow {
               <select 
                 id="cxp-bank-account-id"
                 formControlName="bankAccountId" 
+                (change)="onPaymentSettingsChange()"
                 class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500 text-slate-800">
                 @for (bank of stateService.bankAccounts(); track bank.id) {
                   <option [value]="bank.id">{{ bank.accountName }} ({{ bank.currency }}) - Saldo: {{ bank.currency === 'VES' ? 'Bs. ' : '$' }}{{ bank.balance  | number: '1.2-2' }}</option>
@@ -1179,17 +1195,19 @@ export interface DetailItemRow {
               </div>
             </div>
 
-            <div>
-              <label for="bill-expense-account" class="block font-semibold text-slate-700 mb-1">Cuenta contable de compra / gasto *</label>
-              <select
-                id="bill-expense-account"
-                formControlName="glAccountExpenseCode"
-                class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500">
-                @for (account of payableExpenseAccounts(); track account.id) {
-                  <option [value]="account.code">{{ account.code }} — {{ account.name }}</option>
-                }
-              </select>
-            </div>
+            @if (accountingEnabled()) {
+              <div>
+                <label for="bill-expense-account" class="block font-semibold text-slate-700 mb-1">Cuenta contable de compra / gasto *</label>
+                <select
+                  id="bill-expense-account"
+                  formControlName="glAccountExpenseCode"
+                  class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500">
+                  @for (account of payableExpenseAccounts(); track account.id) {
+                    <option [value]="account.code">{{ account.code }} — {{ account.name }}</option>
+                  }
+                </select>
+              </div>
+            }
 
             <div>
               <label for="bill-notes" class="block font-semibold text-slate-700 mb-1">Descripción / Concepto</label>
@@ -1386,7 +1404,7 @@ export interface DetailItemRow {
                   <option value="EXTRANJERA_USD">Cuenta Internacional / Extranjera (USD)</option>
                   <option value="BILLETERA_DIGITAL">Billetera Digital (Zelle / PayPal)</option>
                   <option value="CAJA_EFECTIVO_USD">Caja Bóveda Efectivo (USD)</option>
-                  <option value="CAJA_EFECTIVO_VES">Caja Menor Efectivo (VES)</option>
+                  <option value="CAJA_EFECTIVO_VES">Caja Bóveda Efectivo (VES)</option>
                 </select>
               </div>
 
@@ -1790,7 +1808,7 @@ export interface DetailItemRow {
     <!-- ========================================================================= -->
     @if (showCxpDetailModal()) {
       <div id="modal-cxp-detail" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-3xl max-w-4xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-slate-100 overflow-hidden">
+        <div class="print-document bg-white rounded-3xl max-w-4xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-slate-100 overflow-hidden">
           
           <!-- Encabezado de Documento Odoo -->
           <div class="p-5 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between">
@@ -1816,7 +1834,7 @@ export interface DetailItemRow {
               </div>
             </div>
 
-            <div class="flex items-center space-x-2">
+            <div class="flex items-center space-x-2 no-print">
               <button 
                 id="btn-print-cxp-detail"
                 (click)="printDocument()" 
@@ -1840,7 +1858,7 @@ export interface DetailItemRow {
                 <button 
                   id="btn-pay-from-detail-modal"
                   (click)="openPaymentFromDetail()" 
-                  class="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs shadow-sm flex items-center space-x-1.5 transition-all">
+                  class="px-3.5 no-print py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs shadow-sm flex items-center space-x-1.5 transition-all">
                   <mat-icon class="text-sm">payment</mat-icon>
                   <span>Registrar Pago a Proveedor</span>
                 </button>
@@ -1849,7 +1867,7 @@ export interface DetailItemRow {
             </div>
 
             <!-- Navegación de Sub-Pestañas del Documento -->
-            <div class="flex items-center space-x-1 bg-slate-100 p-1 rounded-xl">
+            <div class="no-print flex items-center space-x-1 bg-slate-100 p-1 rounded-xl">
               <button 
                 id="tab-cxp-lines"
                 (click)="cxpDetailTab.set('lines')" 
@@ -2126,6 +2144,7 @@ export default class TreasuryComponent {
   // Modales
   showCollectionModal = signal<boolean>(false);
   selectedCxc = signal<CustomerReceivableItem | null>(null);
+  selectedCxp = signal<PayableBill | null>(null);
 
   showPaymentModal = signal<boolean>(false);
   selectedBill = signal<PayableBill | null>(null);
@@ -2147,20 +2166,22 @@ export default class TreasuryComponent {
 
   // Formularios Reactivos
   collectionForm = this.fb.group({
-    amountUsd: [0, [Validators.required, Validators.min(0.01)]],
+    amountPaid: [0, [Validators.required, Validators.min(0.01)]],
     paymentMethod: ['TRANSFERENCIA' as PaymentMethod, Validators.required],
     bankAccountId: ['', Validators.required],
     referenceNumber: ['', [Validators.required, Validators.minLength(3)]],
     notes: ['']
   });
+  collectionCurrency = signal<CurrencyCode>('USD');
 
   paymentForm = this.fb.group({
-    amountUsd: [0, [Validators.required, Validators.min(0.01)]],
+    amountPaid: [0, [Validators.required, Validators.min(0.01)]],
     paymentMethod: ['TRANSFERENCIA' as PaymentMethod, Validators.required],
     bankAccountId: ['', Validators.required],
     referenceNumber: ['', [Validators.required, Validators.minLength(3)]],
     notes: ['']
   });
+  paymentCurrency = signal<CurrencyCode>('USD');
 
   newBillForm = this.fb.group({
     billNumber: ['', [Validators.required, Validators.minLength(3)]],
@@ -2238,6 +2259,7 @@ export default class TreasuryComponent {
       return true;
     });
   });
+  readonly accountingEnabled = computed(() => this.stateService.isTabAllowedInPlan('accounting'));
   readonly payableExpenseAccounts = computed(() => this.stateService.accounts().filter(account => account.isDebitNormal));
 
   handleCxcSearchInput(event: Event) {
@@ -2254,14 +2276,40 @@ export default class TreasuryComponent {
   openCollectionModal(cxc: CustomerReceivableItem) {
     this.selectedCxc.set(cxc);
     const defaultBank = this.stateService.bankAccounts().find(b => b.isDefault) || this.stateService.bankAccounts()[0];
+    const currency = defaultBank?.currency || 'USD';
+    this.collectionCurrency.set(currency);
     this.collectionForm.patchValue({
-      amountUsd: cxc.balanceUsd,
+      amountPaid: this.convertCollectionAmount(cxc.balanceUsd, 'USD', currency),
       bankAccountId: defaultBank ? defaultBank.id : '',
       paymentMethod: 'TRANSFERENCIA',
       referenceNumber: '',
       notes: `Cobro de Factura ${cxc.invoiceNumber}`
     });
     this.showCollectionModal.set(true);
+  }
+
+  onCollectionPaymentSettingsChange() {
+    const method = this.collectionForm.controls.paymentMethod.value;
+    const bankAccountId = this.collectionForm.controls.bankAccountId.value;
+    const nextCurrency = this.getCollectionCurrency(method, bankAccountId);
+    const previousCurrency = this.collectionCurrency();
+
+    if (nextCurrency !== previousCurrency) {
+      const enteredAmount = Number(this.collectionForm.controls.amountPaid.value) || 0;
+      const amountUsd = this.convertCollectionAmount(enteredAmount, previousCurrency, 'USD');
+      this.collectionForm.controls.amountPaid.setValue(this.convertCollectionAmount(amountUsd, 'USD', nextCurrency));
+      this.collectionCurrency.set(nextCurrency);
+    }
+  }
+
+  collectionAmountUsd() {
+    const amount = Number(this.collectionForm.controls.amountPaid.value) || 0;
+    return this.convertCollectionAmount(amount, this.collectionCurrency(), 'USD');
+  }
+
+  collectionAmountVes() {
+    const amount = Number(this.collectionForm.controls.amountPaid.value) || 0;
+    return this.convertCollectionAmount(amount, this.collectionCurrency(), 'VES');
   }
 
   closeCollectionModal() {
@@ -2272,9 +2320,13 @@ export default class TreasuryComponent {
   async submitCollection() {
     if (this.collectionForm.invalid || !this.selectedCxc()) return;
     const val = this.collectionForm.value;
+    const amountUsd = this.collectionAmountUsd();
+    const amountVes = this.collectionAmountVes();
     const res = await this.stateService.recordCxcCollectionFromApi({
       invoiceId: this.selectedCxc()!.invoiceId,
-      amountUsd: Number(val.amountUsd),
+      amountUsd,
+      amountVes,
+      currencyPaid: this.collectionCurrency(),
       paymentMethod: val.paymentMethod as PaymentMethod,
       bankAccountId: val.bankAccountId!,
       referenceNumber: val.referenceNumber!,
@@ -2286,18 +2338,71 @@ export default class TreasuryComponent {
     }
   }
 
+  private getCollectionCurrency(method: PaymentMethod | null, bankAccountId: string | null): CurrencyCode {
+    if (method === 'EFECTIVO' || method === 'PAGO_MOVIL' || method === 'PUNTO_VENTA_DEBITO' || method === 'TARJETA_CREDITO') {
+      return 'VES';
+    }
+    if (method === 'EFECTIVO_USD' || method === 'ZELLE' || method === 'CRIPTO') {
+      return 'USD';
+    }
+    return this.stateService.bankAccounts().find(bank => bank.id === bankAccountId)?.currency || 'USD';
+  }
+
+  private convertCollectionAmount(amount: number, from: CurrencyCode, to: CurrencyCode): number {
+    const { usdRate, eurRate } = this.stateService.bcvState();
+    const safeUsdRate = Number(usdRate) > 0 ? Number(usdRate) : 1;
+    const safeEurRate = Number(eurRate) > 0 ? Number(eurRate) : safeUsdRate;
+    const amountUsd = from === 'VES'
+      ? amount / safeUsdRate
+      : from === 'EUR'
+        ? amount * safeEurRate / safeUsdRate
+        : amount;
+    const converted = to === 'VES'
+      ? amountUsd * safeUsdRate
+      : to === 'EUR'
+        ? amountUsd * safeUsdRate / safeEurRate
+        : amountUsd;
+    return Number(converted.toFixed(2));
+  }
+
   // Payment Modal Handlers
   openPaymentModal(bill: PayableBill) {
     this.selectedBill.set(bill);
     const defaultBank = this.stateService.bankAccounts().find(b => b.isDefault) || this.stateService.bankAccounts()[0];
+    const currency = this.getPaymentCurrency('TRANSFERENCIA', defaultBank?.id || '');
+    this.paymentCurrency.set(currency);
     this.paymentForm.patchValue({
-      amountUsd: bill.balanceUsd,
+      amountPaid: this.convertCollectionAmount(bill.balanceUsd, 'USD', currency),
       bankAccountId: defaultBank ? defaultBank.id : '',
       paymentMethod: 'TRANSFERENCIA',
       referenceNumber: '',
       notes: `Pago a Factura Proveedor ${bill.billNumber}`
     });
     this.showPaymentModal.set(true);
+  }
+
+  onPaymentSettingsChange() {
+    const method = this.paymentForm.controls.paymentMethod.value;
+    const bankAccountId = this.paymentForm.controls.bankAccountId.value;
+    const nextCurrency = this.getPaymentCurrency(method, bankAccountId);
+    const previousCurrency = this.paymentCurrency();
+
+    if (nextCurrency !== previousCurrency) {
+      const enteredAmount = Number(this.paymentForm.controls.amountPaid.value) || 0;
+      const amountUsd = this.convertCollectionAmount(enteredAmount, previousCurrency, 'USD');
+      this.paymentForm.controls.amountPaid.setValue(this.convertCollectionAmount(amountUsd, 'USD', nextCurrency));
+      this.paymentCurrency.set(nextCurrency);
+    }
+  }
+
+  paymentAmountUsd() {
+    const amount = Number(this.paymentForm.controls.amountPaid.value) || 0;
+    return this.convertCollectionAmount(amount, this.paymentCurrency(), 'USD');
+  }
+
+  paymentAmountVes() {
+    const amount = Number(this.paymentForm.controls.amountPaid.value) || 0;
+    return this.convertCollectionAmount(amount, this.paymentCurrency(), 'VES');
   }
 
   closePaymentModal() {
@@ -2310,7 +2415,9 @@ export default class TreasuryComponent {
     const val = this.paymentForm.value;
     const res = await this.stateService.recordCxpPaymentFromApi({
       payableBillId: this.selectedBill()!.id,
-      amountUsd: Number(val.amountUsd),
+      amountUsd: this.paymentAmountUsd(),
+      amountVes: this.paymentAmountVes(),
+      currencyPaid: this.paymentCurrency(),
       paymentMethod: val.paymentMethod as PaymentMethod,
       bankAccountId: val.bankAccountId!,
       referenceNumber: val.referenceNumber!,
@@ -2320,6 +2427,16 @@ export default class TreasuryComponent {
     if (res.success) {
       this.closePaymentModal();
     }
+  }
+
+  private getPaymentCurrency(method: PaymentMethod | null, bankAccountId: string | null): CurrencyCode {
+    if (method === 'EFECTIVO' || method === 'PAGO_MOVIL' || method === 'PUNTO_VENTA_DEBITO' || method === 'TARJETA_CREDITO') {
+      return 'VES';
+    }
+    if (method === 'EFECTIVO_USD' || method === 'ZELLE' || method === 'CRIPTO') {
+      return 'USD';
+    }
+    return this.stateService.bankAccounts().find(bank => bank.id === bankAccountId)?.currency || 'USD';
   }
 
   // New Bill Handlers
@@ -2350,7 +2467,7 @@ export default class TreasuryComponent {
       issueDate: val.issueDate!,
       dueDate: val.dueDate!,
       totalAmountUsd: Number(val.totalAmountUsd),
-      glAccountExpenseCode: val.glAccountExpenseCode!,
+      ...(this.accountingEnabled() ? { glAccountExpenseCode: val.glAccountExpenseCode! } : {}),
       category: val.category || 'Mercancía e Insumos',
       notes: val.notes || undefined
     });
