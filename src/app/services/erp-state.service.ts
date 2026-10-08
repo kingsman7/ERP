@@ -128,7 +128,7 @@ export class ErpStateService {
   }
 
   loadBcvCurrency(): Observable<boolean> {
-    return this.apiService.getCurrentBcv().pipe(
+    return this.apiService.syncCurrentRate().pipe(
       tap(bcv => {
         const data = {
           usdRate: Number(bcv.usdRate) ?? 872.39,
@@ -3145,6 +3145,7 @@ export class ErpStateService {
       `${invoiceNumber} registrada: $${grandTotalUsd.toFixed(2)} / Bs. ${totalVes.toLocaleString('es-VE', { minimumFractionDigits: 2 })}`
     );
     this.saveState();
+    await this.refreshTreasuryAfterWrite();
     return { success: true, invoiceNumber, invoice: newInvoice };
   }
 
@@ -4425,6 +4426,7 @@ export class ErpStateService {
 
       this.activeCashSession.set(persistedSession);
       this.cashSessionHistory.update(hist => [persistedSession, ...hist]);
+      await this.refreshTreasuryAfterWrite();
 
       this.logAudit(
         'CASH_CLOSING',

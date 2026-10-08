@@ -534,6 +534,10 @@ export class ApiService {
     return this.http.get<Partial<BcvExchangeRateState>>(`${this.baseUrl}/bcv/current`);
   }
 
+  syncCurrentRate(): Observable<Partial<BcvExchangeRateState>> {
+    return this.http.post<Partial<BcvExchangeRateState>>(`${this.baseUrl}/bcv/sync`, {});
+  }
+
   updateCurrentBcv(rate: Partial<BcvExchangeRateState>): Observable<Partial<BcvExchangeRateState>> {  
     return this.http.post<Partial<BcvExchangeRateState>>(`${this.baseUrl}/bcv/manual`, rate);
   }

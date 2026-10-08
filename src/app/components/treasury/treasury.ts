@@ -273,6 +273,9 @@ export interface DetailItemRow {
                     <p class="text-[11px] text-slate-500 font-medium">
                       {{ acc.currency === 'VES' ? '≈ $' + acc.balanceUsd.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '≈ Bs. ' + acc.balanceVes.toLocaleString('es-VE', { minimumFractionDigits: 2 }) }}
                     </p>
+                    <p class="text-[10px] text-slate-400 font-mono">
+                      Tasa BCV: Bs. {{ stateService.bcvState().usdRate.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }} / USD
+                    </p>
                   </div>
 
                   <!-- Footer Actions -->
@@ -491,9 +494,15 @@ export interface DetailItemRow {
                       </td>
                       <td class="py-3.5 px-4 text-right font-semibold text-emerald-600">
                         \${{ acc.balanceUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+                        <span class="block text-[10px] text-slate-400 font-normal">
+                          Tasa: Bs. {{ stateService.bcvState().usdRate.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }} / USD
+                        </span>
                       </td>
                       <td class="py-3.5 px-4 text-right font-semibold text-sky-600">
                         Bs. {{ acc.balanceVes.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+                        <span class="block text-[10px] text-slate-400 font-normal">
+                          Tasa: Bs. {{ stateService.bcvState().usdRate.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }} / USD
+                        </span>
                       </td>
                       <td class="py-3.5 px-4 text-center">
                         <div class="flex items-center justify-center space-x-1.5">
@@ -1398,6 +1407,7 @@ export interface DetailItemRow {
                 <select 
                   id="acc-type"
                   formControlName="accountType" 
+                  (change)="syncAccountCurrency()"
                   class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500">
                   <option value="CORRIENTE_VES">Cuenta Corriente (VES)</option>
                   <option value="CUSTODIA_USD">Cuenta Custodia / Divisa Nacional (USD)</option>
@@ -1494,7 +1504,7 @@ export interface DetailItemRow {
     <!-- ========================================================================= -->
     @if (showCxcDetailModal()) {
       <div id="modal-cxc-detail" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-3xl max-w-4xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-slate-100 overflow-hidden">
+        <div class="print-document bg-white rounded-3xl max-w-4xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-slate-100 overflow-hidden">
           
           <!-- Encabezado de Documento Odoo -->
           <div class="p-5 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between">
@@ -2532,6 +2542,16 @@ export default class TreasuryComponent {
 
   closeNewAccountModal() {
     this.showNewAccountModal.set(false);
+  }
+
+  syncAccountCurrency() {
+    const accountType = this.newAccountForm.controls.accountType.value;
+    const currency = accountType === 'CAJA_EFECTIVO_USD' || accountType === 'EXTRANJERA_USD' || accountType === 'BILLETERA_DIGITAL'
+      ? 'USD'
+      : accountType === 'CAJA_EFECTIVO_VES' || accountType === 'CORRIENTE_VES' || accountType === 'AHORRO_VES' || accountType === 'CUSTODIA_DIVISAS_VES'
+        ? 'VES'
+        : undefined;
+    if (currency) this.newAccountForm.controls.currency.setValue(currency);
   }
 
   async submitNewAccount() {

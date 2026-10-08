@@ -140,6 +140,7 @@ El módulo de **POS** está optimizado para la atención rápida en caja con sop
 3. **Agregar Productos**: Búsqueda por SKU, código de barras o nombre.
 4. **Procesar Pago**:
    - Ingrese los montos combinando múltiples formas de pago: Efectivo USD, Efectivo EUR, Efectivo VES, Pago Móvil, Punto de Venta (Débito/Crédito), Zelle o Crédito.
+   - Los cobros electrónicos se reflejan inmediatamente en Tesorería: los pagos electrónicos en VES van al banco principal en VES; Zelle se asigna a la billetera digital USD configurada (o, si no existe, al banco USD principal); las demás transferencias electrónicas en USD van al banco USD principal. Configure cuentas activas para esos destinos.
    - **Aplicación de IGTF (3%)**: Si el pago incluye divisas en efectivo (USD/EUR Cash), el sistema calculará automáticamente el 3% de IGTF sobre la base en divisa correspondiente.
 5. **Finalizar y Generar Comprobante**: Se abre el modal con la vista de impresión oficial de la factura electrónica/boleta, mostrando el desglose en USD y el equivalente en VES a la tasa BCV del día.
 
@@ -212,7 +213,12 @@ Control de seguridad financiera para cada turno de caja.
 3. **Proceso de Arqueo**:
    - El cajero ingresa el monto total en efectivo físico contado en bóveda/caja.
    - El sistema calcula la diferencia (`Conteo Físico - (Monto Inicial + Ventas en Efectivo)`).
+   - Al cerrar, el efectivo contado menos el fondo inicial concilia los saldos de las cajas `CAJA_EFECTIVO_USD` y `CAJA_EFECTIVO_VES`. Debe existir una cuenta activa de cada moneda utilizada; el efectivo de las ventas no se vuelve a sumar al cerrar.
    - Generación de informe de descuadre (sobrante o faltante) y registro de notas de cierre antes de bloquear el turno.
+
+### Equivalentes por moneda en Tesorería:
+- Cada cuenta bancaria o caja muestra su saldo en moneda principal, el equivalente convertido y la tasa BCV actual utilizada (Bs. por USD).
+- Los saldos en VES se convierten a USD con la tasa BCV; los saldos USD muestran su equivalente en VES con esa misma tasa.
 
 ---
 
