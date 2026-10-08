@@ -1273,6 +1273,14 @@ import { forkJoin, switchMap } from 'rxjs';
                     {{ newProductForm.get('itemType')?.value === 'SERVICE' ? 'Costo Base / Nómina ($)' : 'Costo Compra ($) *' }}
                   </span>
                   <input type="number" step="0.01" formControlName="costPrice" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono" />
+                  @if (newProductForm.get('itemType')?.value === 'GOODS') {
+                    <div class="mt-1.5 flex flex-wrap items-center gap-1 text-[10px]">
+                      <span class="text-slate-400">Margen rápido:</span>
+                      <button type="button" (click)="applyMargin(25)" aria-label="Calcular precio de venta con margen del 25%" class="px-1.5 py-0.5 bg-slate-200 hover:bg-slate-300 rounded font-semibold text-slate-700 cursor-pointer">+25%</button>
+                      <button type="button" (click)="applyMargin(35)" aria-label="Calcular precio de venta con margen del 35%" class="px-1.5 py-0.5 bg-slate-200 hover:bg-slate-300 rounded font-semibold text-slate-700 cursor-pointer">+35%</button>
+                      <button type="button" (click)="applyMargin(50)" aria-label="Calcular precio de venta con margen del 50%" class="px-1.5 py-0.5 bg-slate-200 hover:bg-slate-300 rounded font-semibold text-slate-700 cursor-pointer">+50%</button>
+                    </div>
+                  }
                 </div>
               </div>
 
@@ -1522,6 +1530,15 @@ export default class InventoryComponent {
       });
       const firstCat = this.stateService.categories()[0]?.name || 'Herramientas Eléctricas';
       this.selectedNewProductCategories.set([firstCat]);
+    }
+  }
+
+  applyMargin(percent: number) {
+    const cost = Number(this.newProductForm.value.costPrice || 0);
+    if (cost > 0 && percent < 100) {
+      // Mirror the express product form: calculate sale price from gross margin.
+      const sale = Number((cost / (1 - percent / 100)).toFixed(2));
+      this.newProductForm.patchValue({ salePrice: sale });
     }
   }
 
@@ -1960,9 +1977,15 @@ export default class InventoryComponent {
         { warehouseId: targetWhId, warehouseName: targetWhName, quantity: Number(val.initialStock || 0) }
       ],
       status: 'ACTIVE'
-    });
+    }).subscribe({
+      next: () => {
+        this.showNewProductModal.set(false);
+      },
+      error: (err) => {
+        console.log('error al crear producto', err)
+      }
+    })
 
-    this.showNewProductModal.set(false);
   }
 
   downloadInventoryCsv() {
