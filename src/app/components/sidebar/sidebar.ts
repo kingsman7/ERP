@@ -27,13 +27,15 @@ export type NavTab =
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [MatIconModule],
   template: `
+    
+  @if(stateService.sidebarOpen()) {
     <aside class="w-64 bg-[#0f172a] text-slate-300 flex flex-col justify-between h-[calc(100vh-4rem)] sticky top-0 border-r border-slate-800 select-none">
       
       <!-- Top Navigation Links (Bento Style) -->
       <div class="py-3 px-3 space-y-1 overflow-y-auto">
         
         <!-- Active Plan Banner & Indicator -->
-        <div class="mb-3 p-2.5 rounded-xl border flex items-center justify-between"
+        <!-- <div class="mb-3 p-2.5 rounded-xl border flex items-center justify-between"
           [class]="stateService.isBasePlan() 
             ? 'bg-blue-950/40 border-blue-800/80 text-blue-300' 
             : 'bg-emerald-950/40 border-emerald-800/80 text-emerald-300'">
@@ -48,7 +50,7 @@ export type NavTab =
             [class]="stateService.isBasePlan() ? 'bg-blue-900 border-blue-600 text-blue-200' : 'bg-emerald-900 border-emerald-600 text-emerald-200'">
             {{ stateService.isBasePlan() ? 'PYME' : 'CORP' }}
           </span>
-        </div>
+        </div> -->
 
         <div class="px-3 pb-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
           Operaciones Core (Plan Base)
@@ -353,6 +355,7 @@ export type NavTab =
       </div>
 
     </aside>
+  }
   `
 })
 export class SidebarComponent {

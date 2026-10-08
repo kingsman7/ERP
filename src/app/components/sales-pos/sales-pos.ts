@@ -16,6 +16,7 @@ import {
 import { exportSalesToCsv, exportSaleItemLinesToCsv } from '../../utils/csv-exporter';
 import { DecimalPipe } from '@angular/common';
 import { InvoiceModal } from '../invoice-modal/invoice-modal';
+import { matchesEntitySearch } from '../../utils/entity-search';
 
 interface CartItem {
   product: Product;
@@ -412,14 +413,38 @@ export interface SplitPaymentLine {
                   </button>
                 </div>
 
-                <select 
-                  [value]="selectedCustomerId()"
-                  (change)="selectedCustomerId.set($any($event.target).value)"
-                  class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:bg-white">
-                  @for (c of stateService.customers(); track c.id) {
-                    <option [value]="c.id">{{ c.name }} ({{ c.taxId }})</option>
+                <div class="relative">
+                  <input
+                    type="search"
+                    [value]="customerSearchQuery()"
+                    (input)="customerSearchQuery.set($any($event.target).value); customerSearchOpen.set(true)"
+                    (focus)="customerSearchOpen.set(true)"
+                    (keydown.escape)="customerSearchOpen.set(false)"
+                    placeholder="Buscar cliente por RIF / cédula o nombre..."
+                    autocomplete="off"
+                    role="combobox"
+                    [attr.aria-expanded]="customerSearchOpen()"
+                    aria-label="Buscar cliente por RIF, cédula o nombre"
+                    class="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:bg-white" />
+
+                  @if (customerSearchOpen()) {
+                    <div role="listbox" class="absolute z-30 mt-1 w-full max-h-56 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
+                      @for (c of filteredCustomers(); track c.id) {
+                        <button
+                          type="button"
+                          role="option"
+                          [attr.aria-selected]="selectedCustomerId() === c.id"
+                          (click)="selectCustomer(c.id)"
+                          class="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left hover:bg-emerald-50 cursor-pointer">
+                          <span class="min-w-0 truncate text-xs font-semibold text-slate-800">{{ c.name }}</span>
+                          <span class="shrink-0 font-mono text-[10px] text-slate-500">{{ c.taxId }}</span>
+                        </button>
+                      } @empty {
+                        <p class="px-3 py-2 text-xs text-slate-500">No hay clientes que coincidan con la búsqueda.</p>
+                      }
+                    </div>
                   }
-                </select>
+                </div>
 
                 @if (selectedCustomer(); as cust) {
                   <div class="flex items-center justify-between text-[10px] text-slate-500 px-0.5 pt-0.5">
@@ -1541,6 +1566,8 @@ export default class SalesPosComponent {
   selectedWarehouseId = signal<string>(this.stateService.warehouses()[0]?.id || '');
   warehouseFilterMode = signal<'STOCK_AVAILABLE' | 'IN_WAREHOUSE' | 'ALL'>('STOCK_AVAILABLE');
   selectedCustomerId = signal<string>(this.stateService.customers()[0]?.id || '');
+  customerSearchQuery = signal<string>('');
+  customerSearchOpen = signal<boolean>(false);
   selectedCategoryFilter = signal<string>('ALL');
   searchQuery = signal<string>('');
   
@@ -1701,6 +1728,19 @@ export default class SalesPosComponent {
   selectedCustomer = computed(() => {
     return this.stateService.customers().find(c => c.id === this.selectedCustomerId());
   });
+
+  filteredCustomers = computed(() => {
+    const query = this.customerSearchQuery();
+    return this.stateService.customers().filter(customer =>
+      matchesEntitySearch(query, customer.name, customer.taxId)
+    );
+  });
+
+  selectCustomer(customerId: string): void {
+    this.selectedCustomerId.set(customerId);
+    this.customerSearchQuery.set('');
+    this.customerSearchOpen.set(false);
+  }
 
   // Filtered Sales Invoices
   filteredInvoices = computed(() => {

@@ -38,6 +38,23 @@ import { ApiService } from '../../services/api.service';
                 <mat-icon class="text-[12px]">{{ stateService.isBasePlan() ? 'storefront' : 'verified' }}</mat-icon>
                 <span>{{ stateService.isBasePlan() ? 'PLAN BASE' : 'PLAN FULL' }}</span>
               </button>
+              <!-- Mobile hamburger toggle -->
+              <button
+                id="btn-mobile-menu"
+                (click)="stateService.toggleMobileSidebar()"
+                class="lg:hidden p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                aria-label="Abrir menú">
+                <mat-icon>menu</mat-icon>
+              </button>
+
+              <!-- Desktop Pin/Unpin or Collapse button -->
+              <button
+                id="btn-toggle-sidebar"
+                (click)="stateService.toggleSidebarCollapse()"
+                class="hidden lg:flex p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+                [title]="stateService.sidebarOpen() ? 'Colapsar menú lateral' : 'Expandir menú lateral'">
+                <mat-icon>{{ stateService.sidebarOpen() ? 'menu_open' : 'menu' }}</mat-icon>
+              </button>
             </div>
           </div>
         </div>
@@ -45,37 +62,7 @@ import { ApiService } from '../../services/api.service';
 
       <!-- Quick Metrics, BCV Ticker, Cash Status, Command Palette, Notification Center & Role Switcher -->
       <div class="flex items-center space-x-2 sm:space-x-3">
-        <!-- Mobile hamburger toggle -->
-        <button
-          id="btn-mobile-menu"
-          (click)="stateService.toggleMobileSidebar()"
-          class="lg:hidden p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-          aria-label="Abrir menú">
-          <mat-icon>menu</mat-icon>
-        </button>
-
-        <!-- Desktop Pin/Unpin or Collapse button -->
-        <button
-          id="btn-toggle-sidebar"
-          (click)="stateService.toggleSidebarCollapse()"
-          class="hidden lg:flex p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
-          [title]="stateService.sidebarOpen() ? 'Colapsar menú lateral' : 'Expandir menú lateral'">
-          <mat-icon>{{ stateService.sidebarOpen() ? 'menu_open' : 'menu' }}</mat-icon>
-        </button>
-
-        <!-- Pin toggle -->
-        <button
-          id="btn-pin-sidebar"
-          (click)="stateService.toggleSidebarPin()"
-          class="hidden lg:flex p-2 rounded-xl text-xs transition-colors"
-          [class.text-teal-600]="stateService.sidebarPinned()"
-          [class.dark:text-teal-400]="stateService.sidebarPinned()"
-          [class.bg-teal-50]="stateService.sidebarPinned()"
-          [class.dark:bg-teal-950/40]="stateService.sidebarPinned()"
-          [class.text-slate-400]="!stateService.sidebarPinned()"
-          [title]="stateService.sidebarPinned() ? 'Menú lateral fijado (Haz clic para desanclar)' : 'Fijar menú lateral'">
-          <mat-icon class="text-sm">{{ stateService.sidebarPinned() ? 'push_pin' : 'lock_open' }}</mat-icon>
-        </button>
+        
         
         <!-- Command Palette Trigger Chip -->
         <button 

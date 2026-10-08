@@ -14,6 +14,7 @@ import {
 } from '../../models/erp.models';
 import { InvoiceModal } from '../invoice-modal/invoice-modal';
 import { DecimalPipe } from '@angular/common';
+import { matchesEntitySearch } from '../../utils/entity-search';
 
 @Component({
   selector: 'app-logistics',
@@ -722,17 +723,49 @@ import { DecimalPipe } from '@angular/common';
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div>
+                  <div class="relative">
                     <span class="block text-slate-600 text-[10px] font-bold uppercase mb-1">Seleccionar Cliente Registrado</span>
-                    <select 
-                      [value]="newGuideCustomerId()"
-                      (change)="onSelectCustomerForGuide($any($event.target).value)"
-                      class="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-500">
-                      <option value="">-- Cliente Manual / Traslado --</option>
-                      @for (c of stateService.customers(); track c.id) {
-                        <option [value]="c.id">{{ c.name }} ({{ c.taxId }})</option>
-                      }
-                    </select>
+                    <input
+                      type="search"
+                      [value]="newGuideCustomerSearchQuery()"
+                      (input)="newGuideCustomerSearchQuery.set($any($event.target).value); newGuideCustomerSearchOpen.set(true)"
+                      (focus)="newGuideCustomerSearchOpen.set(true)"
+                      (keydown.escape)="newGuideCustomerSearchOpen.set(false)"
+                      placeholder="Buscar por RIF / cédula o nombre..."
+                      autocomplete="off"
+                      role="combobox"
+                      [attr.aria-expanded]="newGuideCustomerSearchOpen()"
+                      aria-label="Buscar cliente registrado por RIF, cédula o nombre"
+                      class="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                    @if (newGuideCustomerSearchOpen()) {
+                      <div role="listbox" class="absolute z-30 mt-1 w-full max-h-56 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
+                        @for (c of filteredGuideCustomers(); track c.id) {
+                          <button
+                            type="button"
+                            role="option"
+                            [attr.aria-selected]="newGuideCustomerId() === c.id"
+                            (click)="onSelectCustomerForGuide(c.id)"
+                            class="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left hover:bg-amber-50 cursor-pointer">
+                            <span class="min-w-0 truncate text-xs font-semibold text-slate-800">{{ c.name }}</span>
+                            <span class="shrink-0 font-mono text-[10px] text-slate-500">{{ c.taxId }}</span>
+                          </button>
+                        } @empty {
+                          <p class="px-3 py-2 text-xs text-slate-500">No hay clientes que coincidan con la búsqueda.</p>
+                        }
+                        <button
+                          type="button"
+                          (click)="clearGuideCustomerSelection()"
+                          class="w-full rounded-lg border-t border-slate-100 px-3 py-2 text-left text-[11px] font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer">
+                          Ingreso manual / traslado
+                        </button>
+                      </div>
+                    }
+                    @if (selectedGuideCustomer(); as customer) {
+                      <p class="mt-1 text-[10px] text-slate-500">
+                        Seleccionado: <span class="font-semibold text-slate-700">{{ customer.name }}</span>
+                        <span class="font-mono">· {{ customer.taxId }}</span>
+                      </p>
+                    }
                   </div>
 
                   <div>
@@ -1344,6 +1377,8 @@ export default class LogisticsComponent {
   newGuideControlNumber = signal<string>('');
   newGuideOriginQuoteId = signal<string>('');
   newGuideCustomerId = signal<string>('');
+  newGuideCustomerSearchQuery = signal<string>('');
+  newGuideCustomerSearchOpen = signal<boolean>(false);
   newGuideCustomerName = signal<string>('');
   newGuideCustomerTaxId = signal<string>('');
   newGuideDestinationAddress = signal<string>('');
@@ -1361,6 +1396,17 @@ export default class LogisticsComponent {
     packagesCount: number;
     weightKg: number;
   }[]>([]);
+
+  filteredGuideCustomers = computed(() => {
+    const query = this.newGuideCustomerSearchQuery();
+    return this.stateService.customers().filter(customer =>
+      matchesEntitySearch(query, customer.name, customer.taxId)
+    );
+  });
+
+  selectedGuideCustomer = computed(() =>
+    this.stateService.customers().find(customer => customer.id === this.newGuideCustomerId())
+  );
 
   // Receipt Modal State
   receiptPersonName = signal<string>('');
@@ -1450,6 +1496,8 @@ export default class LogisticsComponent {
     this.newGuideControlNumber.set(this.stateService.generateNextDispatchControlNumber());
     this.newGuideOriginQuoteId.set('');
     this.newGuideCustomerId.set('');
+    this.newGuideCustomerSearchQuery.set('');
+    this.newGuideCustomerSearchOpen.set(false);
     this.newGuideCustomerName.set('');
     this.newGuideCustomerTaxId.set('');
     this.newGuideDestinationAddress.set('');
@@ -1493,6 +1541,8 @@ export default class LogisticsComponent {
   onSelectCustomerForGuide(customerId: string) {
     this.newGuideOriginQuoteId.set('');
     this.newGuideCustomerId.set(customerId);
+    this.newGuideCustomerSearchQuery.set('');
+    this.newGuideCustomerSearchOpen.set(false);
     const cust = this.stateService.customers().find(c => c.id === customerId);
     if (cust) {
       this.newGuideCustomerName.set(cust.name);
@@ -1500,6 +1550,12 @@ export default class LogisticsComponent {
       this.newGuideDestinationAddress.set(cust.address || 'Caracas, Venezuela');
       this.newGuideRecipientContact.set(`${cust.name} (${cust.phone || ''})`);
     }
+  }
+
+  clearGuideCustomerSelection(): void {
+    this.newGuideCustomerId.set('');
+    this.newGuideCustomerSearchQuery.set('');
+    this.newGuideCustomerSearchOpen.set(false);
   }
 
   onSelectQuoteForGuide(quoteId: string) {
@@ -1513,6 +1569,8 @@ export default class LogisticsComponent {
     this.newGuideOriginWarehouseId.set(quote.warehouseId);
     this.newGuideDestinationWarehouseId.set('');
     this.newGuideCustomerId.set(quote.customerId);
+    this.newGuideCustomerSearchQuery.set('');
+    this.newGuideCustomerSearchOpen.set(false);
     this.newGuideCustomerName.set(quote.customerName);
     this.newGuideCustomerTaxId.set(quote.customerTaxId);
     this.newGuideDestinationAddress.set(

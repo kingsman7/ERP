@@ -170,7 +170,7 @@ import { CompanyPlanTier, CompanyFiscalProfile } from '../../models/erp.models';
                   </div>
 
                   <div class="mt-5 pt-3 border-t border-slate-200">
-                    <button 
+                    <!-- <button 
                       (click)="changePlan('BASE')"
                       [disabled]="stateService.isBasePlan()"
                       class="w-full py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center space-x-2 transition-all cursor-pointer"
@@ -179,7 +179,7 @@ import { CompanyPlanTier, CompanyFiscalProfile } from '../../models/erp.models';
                         : 'bg-slate-900 hover:bg-slate-800 text-white shadow-sm'">
                       <mat-icon class="text-sm">{{ stateService.isBasePlan() ? 'check' : 'toggle_on' }}</mat-icon>
                       <span>{{ stateService.isBasePlan() ? 'Plan Base Activo' : 'Activar / Probar Versión Base (PyME)' }}</span>
-                    </button>
+                    </button> -->
                   </div>
 
                 </div>
@@ -260,7 +260,7 @@ import { CompanyPlanTier, CompanyFiscalProfile } from '../../models/erp.models';
                   </div>
 
                   <div class="mt-5 pt-3 border-t border-slate-200">
-                    <button 
+                  <!--   <button 
                       (click)="changePlan('FULL')"
                       [disabled]="stateService.isFullPlan()"
                       class="w-full py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center space-x-2 transition-all cursor-pointer"
@@ -269,7 +269,7 @@ import { CompanyPlanTier, CompanyFiscalProfile } from '../../models/erp.models';
                         : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm'">
                       <mat-icon class="text-sm">{{ stateService.isFullPlan() ? 'verified' : 'rocket_launch' }}</mat-icon>
                       <span>{{ stateService.isFullPlan() ? 'Plan Full Activo' : 'Activar Versión Full / Enterprise' }}</span>
-                    </button>
+                    </button> -->
                   </div>
 
                 </div>

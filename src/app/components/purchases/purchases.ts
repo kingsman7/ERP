@@ -7,6 +7,7 @@ import { KeyboardShortcutsService } from '../../services/keyboard-shortcuts.serv
 import { ProductPrices, PurchaseOrder } from '../../models/erp.models';
 import { DatePipe } from '@angular/common';
 import { DecimalPipe } from '@angular/common';
+import { matchesEntitySearch } from '../../utils/entity-search';
 
 interface TempItem {
   productId: string;
@@ -212,16 +213,43 @@ interface TempItem {
               
               <!-- Form Top Grid: Supplier & Warehouse -->
               <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
+                <div class="relative">
                   <span class="block font-semibold text-slate-700 mb-1">Proveedor *</span>
-                  <select 
-                    [value]="selectedSupplierId()"
-                    (change)="selectedSupplierId.set($any($event.target).value)"
-                    class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800">
-                    @for (sup of suppliers(); track sup.id) {
-                      <option [value]="sup.id">{{ sup.name }} ({{ sup.taxId }})</option>
-                    }
-                  </select>
+                  <input
+                    type="search"
+                    [value]="supplierSearchQuery()"
+                    (input)="supplierSearchQuery.set($any($event.target).value); supplierSearchOpen.set(true)"
+                    (focus)="supplierSearchOpen.set(true)"
+                    (keydown.escape)="supplierSearchOpen.set(false)"
+                    placeholder="Buscar proveedor por RIF / cédula o nombre..."
+                    autocomplete="off"
+                    role="combobox"
+                    [attr.aria-expanded]="supplierSearchOpen()"
+                    aria-label="Buscar proveedor por RIF, cédula o nombre"
+                    class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                  @if (supplierSearchOpen()) {
+                    <div role="listbox" class="absolute z-30 mt-1 w-full max-h-56 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
+                      @for (sup of filteredSuppliers(); track sup.id) {
+                        <button
+                          type="button"
+                          role="option"
+                          [attr.aria-selected]="selectedSupplierId() === sup.id"
+                          (click)="selectSupplier(sup.id)"
+                          class="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left hover:bg-amber-50 cursor-pointer">
+                          <span class="min-w-0 truncate text-xs font-semibold text-slate-800">{{ sup.name }}</span>
+                          <span class="shrink-0 font-mono text-[10px] text-slate-500">{{ sup.taxId }}</span>
+                        </button>
+                      } @empty {
+                        <p class="px-3 py-2 text-xs text-slate-500">No hay proveedores que coincidan con la búsqueda.</p>
+                      }
+                    </div>
+                  }
+                  @if (selectedSupplier(); as supplier) {
+                    <p class="mt-1 text-[10px] text-slate-500">
+                      Seleccionado: <span class="font-semibold text-slate-700">{{ supplier.name }}</span>
+                      <span class="font-mono">· {{ supplier.taxId }}</span>
+                    </p>
+                  }
                 </div>
 
                 <div>
@@ -717,8 +745,27 @@ export default class PurchasesComponent implements OnDestroy {
   }
 
   selectedSupplierId = signal<string>(this.suppliers()[0]?.id || '');
+  supplierSearchQuery = signal<string>('');
+  supplierSearchOpen = signal<boolean>(false);
   selectedWarehouseId = signal<string>(this.warehouses()[0]?.id || '');
   itemsList = signal<TempItem[]>([]);
+
+  selectedSupplier = computed(() =>
+    this.suppliers().find(supplier => supplier.id === this.selectedSupplierId())
+  );
+
+  filteredSuppliers = computed(() => {
+    const query = this.supplierSearchQuery();
+    return this.suppliers().filter(supplier =>
+      matchesEntitySearch(query, supplier.name, supplier.taxId)
+    );
+  });
+
+  selectSupplier(supplierId: string): void {
+    this.selectedSupplierId.set(supplierId);
+    this.supplierSearchQuery.set('');
+    this.supplierSearchOpen.set(false);
+  }
 
   filteredProducts = computed(() => {
     const q = this.productSearchQuery().trim().toLowerCase();
