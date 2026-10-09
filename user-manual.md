@@ -95,6 +95,8 @@ Gestión centralizada del catálogo de productos y servicios con arquitectura mu
   - **Precio 4 (VIP)**: Tarifa preferencial para clientes frecuentes (ej. 30%).
   - **Precio 5 (Especial)**: Tarifa de remate, empleados o convenios (ej. 35%).
 - **Multi-Almacén**: Visualización del stock desglosado por depósito principal y secundario.
+- **Importación desde Excel**: Los usuarios con rol **ADMIN** o **SUPERADMIN** pueden usar **Importar Excel** para cargar un archivo `.xlsx` de hasta 5 MB. Las columnas obligatorias son `SKU`, `Nombre`, `Categoría` y `Unidad` (también se aceptan sus encabezados equivalentes en español). Como columnas opcionales se admiten código de barras, costo, precios 1–5, alícuota de IVA en porcentaje, stock mínimo y tipo de producto (`GOODS` o `SERVICE`). Las unidades permitidas son `UND`, `KG`, `LT`, `CJ`, `MT`, `PQ`, `HRA`, `SRV` y `GLB`.
+- La importación crea productos nuevos y categorías que todavía no existan. No sobrescribe productos: los SKU ya registrados se omiten y se informan al terminar. Los errores de formato o de validación cancelan toda la importación. El stock inicial no se carga desde esta función.
 
 ---
 

@@ -52,6 +52,11 @@ export interface StockAdjustmentResponse {
   stock: unknown;
 }
 
+export interface ProductImportResult {
+  imported: number;
+  skippedDuplicates: number;
+}
+
 export interface KardexReportFilters {
   from?: string;
   to?: string;
@@ -297,6 +302,12 @@ export class ApiService {
     return this.http.post<Product>(`${this.baseUrl}/products`, this.productPayload(product)).pipe(
       map(response => this.normalizeProduct(response as Product & { stocks?: { warehouseId: string; quantity: number; warehouse?: { name: string } }[] }))
     );
+  }
+
+  importProductsFromExcel(file: File): Observable<ProductImportResult> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post<ProductImportResult>(`${this.baseUrl}/products/import/excel`, formData);
   }
 
   createPurchaseOrder(purchaseOrder: Partial<PurchaseOrder>): Observable<PurchaseOrder> {

@@ -89,6 +89,24 @@ import { forkJoin, switchMap } from 'rxjs';
             <span>Descargar CSV</span>
           </button>
 
+          @if (canImportProducts()) {
+            <input
+              #productExcelInput
+              type="file"
+              accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              class="hidden"
+              (change)="importProductsFromExcel($event)" />
+            <button
+              type="button"
+              (click)="productExcelInput.click()"
+              [disabled]="importingProducts()"
+              title="Importar productos desde un archivo Excel (.xlsx)"
+              class="px-3.5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 disabled:opacity-50 text-blue-800 border border-blue-200 text-xs font-semibold flex items-center space-x-1.5 transition-colors cursor-pointer">
+              <mat-icon class="text-base text-blue-600">{{ importingProducts() ? 'sync' : 'upload_file' }}</mat-icon>
+              <span>{{ importingProducts() ? 'Importando...' : 'Importar Excel' }}</span>
+            </button>
+          }
+
           <!-- Adjust Stock Button -->
           <button 
             (click)="openAdjustModal()"
@@ -1367,6 +1385,9 @@ export default class InventoryComponent {
   shortcutService = inject(KeyboardShortcutsService);
   apiService = inject(ApiService);
 
+  canImportProducts = computed(() => ['ADMIN', 'SUPERADMIN']
+    .includes(String(this.authService.currentUser().role).toUpperCase()));
+  importingProducts = signal<boolean>(false);
   searchTerm = signal<string>('');
   selectedCategory = signal<string>('ALL');
   selectedWarehouse = signal<string>('ALL');
@@ -1437,17 +1458,16 @@ export default class InventoryComponent {
   });
 
   filteredProducts = computed(() => {
-    const term = this.searchTerm().toLowerCase().trim();
+    const term = (this.searchTerm() ?? '').toLowerCase().trim();
     const cat = this.selectedCategory();
     const wh = this.selectedWarehouse();
     const low = this.onlyLowStock();
-
     return this.stateService.products().filter(prod => {
       // Search
       const matchesSearch = !term ||
-        prod.name.toLowerCase().includes(term) ||
-        prod.sku.toLowerCase().includes(term) ||
-        prod.barcode.toLowerCase().includes(term);
+        (prod.name ?? '').toLowerCase().includes(term) ||
+        (prod.sku ?? '').toLowerCase().includes(term) ||
+        (prod.barcode ?? '').toLowerCase().includes(term);
 
       // Category (handles single category and categories array)
       const matchesCat = cat === 'ALL' || 
@@ -2001,5 +2021,55 @@ export default class InventoryComponent {
     } else {
       this.stateService.notify('error', 'Error de Exportación', 'No fue posible generar el archivo CSV.');
     }
+  }
+
+  importProductsFromExcel(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file || !this.canImportProducts()) return;
+    if (!file.name.toLowerCase().endsWith('.xlsx')) {
+      this.stateService.notify('warning', 'Formato no válido', 'Seleccione un archivo de Excel con extensión .xlsx.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      this.stateService.notify('warning', 'Archivo demasiado grande', 'El archivo no puede superar los 5 MB.');
+      return;
+    }
+
+    this.importingProducts.set(true);
+    this.apiService.importProductsFromExcel(file).subscribe({
+      next: (result) => {
+        this.stateService.loadInventory().subscribe({
+          next: () => {
+            const summary = `${result.imported} productos importados${result.skippedDuplicates ? `; ${result.skippedDuplicates} SKU existentes omitidos` : ''}.`;
+            this.stateService.notify(
+              result.imported ? 'success' : 'warning',
+              result.imported ? 'Importación completada' : 'Sin productos nuevos',
+              summary
+            );
+            this.importingProducts.set(false);
+          },
+          error: () => {
+            this.stateService.notify(
+              'warning',
+              'Importación guardada',
+              `Se importaron ${result.imported} productos, pero no se pudo actualizar la vista del inventario.`
+            );
+            this.importingProducts.set(false);
+          }
+        });
+      },
+      error: (error) => {
+        const backendMessage = error?.error?.message;
+        const message = Array.isArray(backendMessage)
+          ? backendMessage.join(' ')
+          : typeof backendMessage === 'string'
+            ? backendMessage
+            : 'No se pudo importar el archivo. Verifique el formato y las columnas.';
+        this.stateService.notify('error', 'Error al importar productos', message);
+        this.importingProducts.set(false);
+      }
+    });
   }
 }

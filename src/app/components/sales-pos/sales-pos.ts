@@ -1682,14 +1682,15 @@ export default class SalesPosComponent {
     const whId = this.selectedWarehouseId();
     const mode = this.warehouseFilterMode();
 
-    return this.stateService.products().filter(p => {
-      if (p.status !== 'ACTIVE') return false;
+    return this.stateService.products().filter(product => {
+      const p = product;
+      if (!p || p.status !== 'ACTIVE') return false;
 
       // 1. Text Search Filter (Name, SKU, Barcode)
       if (q) {
-        const matchQ = p.name.toLowerCase().includes(q) || 
-                       p.sku.toLowerCase().includes(q) || 
-                       p.barcode.includes(q);
+        const matchQ = (p.name ?? '').toLowerCase().includes(q) || 
+                       (p.sku ?? '').toLowerCase().includes(q) || 
+                       (p.barcode ?? '').toLowerCase().includes(q);
         if (!matchQ) return false;
       }
 
