@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, catchError, forkJoin, map, of, throwError } from 'rxjs';
-import { Account, AuditLog, BankAccount, BcvExchangeRateState, Bom, CashRegisterSession, CompanyFiscalProfile, CrmDeal, CurrencyCode, Customer, CustomerPaymentReceipt, DeliveryOrder, DispatchGuide, Invoice, InvoiceItem, InvoiceTaxDetails, JournalEntry, KardexMovement, PayableBill, PaymentRecord, PriceLevelKey, Product, ProductCategory, ProductionOrder, PurchaseOrder, Quote, Supplier, SupplierPaymentReceipt, TreasuryTransaction, Warehouse } from '../models/erp.models';
+import { Account, AuditLog, BankAccount, BcvExchangeRateState, Bom, CashRegisterSession, CompanyFiscalProfile, CrmDeal, CurrencyCode, Customer, CustomerPaymentReceipt, DeliveryOrder, DispatchGuide, Invoice, InvoiceItem, InvoiceTaxDetails, JournalEntry, KardexMovement, PayableBill, PaymentRecord, PriceLevelKey, Product, ProductCategory, ProductionOrder, PurchaseOrder, Quote, Supplier, SupplierPaymentReceipt, TreasuryCashOut, TreasuryTransaction, Warehouse } from '../models/erp.models';
 
 export interface DispatchWorkflowResponse {
   dispatchGuide: DispatchGuide;
@@ -662,6 +662,49 @@ export class ApiService {
 
   createSupplierPaymentReceipt(newReceipt: Partial<SupplierPaymentReceipt> & { paymentDate?: string }): Observable<SupplierPaymentReceipt> {
     return this.http.post<SupplierPaymentReceipt>(`${this.baseUrl}/treasury/supplier-receipts`, newReceipt);
+  }
+
+  // Treasury Cash Out Vouchers
+  getTreasuryCashOuts(): Observable<TreasuryCashOut[]> {
+    return this.http.get<Record<string, unknown>[]>(`${this.baseUrl}/treasury/cash-outs`).pipe(
+      map(cashOuts => cashOuts.map(cashOut => this.mapTreasuryCashOut(cashOut)))
+    );
+  }
+
+  createTreasuryCashOut(newCashOut: {
+    sourceBankAccountId: string;
+    amount: number;
+    currency: 'USD' | 'VES';
+    category: string;
+    beneficiaryName: string;
+    concept: string;
+    voucherNumber?: string;
+    notes?: string;
+    transactionDate?: string;
+  }): Observable<TreasuryCashOut> {
+    return this.http.post<Record<string, unknown>>(`${this.baseUrl}/treasury/cash-outs`, newCashOut).pipe(
+      map(cashOut => this.mapTreasuryCashOut(cashOut))
+    );
+  }
+
+  private mapTreasuryCashOut(cashOut: Record<string, unknown>): TreasuryCashOut {
+    const transaction = cashOut['transaction'] as Record<string, unknown>;
+    return {
+      ...cashOut,
+      transactionDate: String(cashOut['transactionDate'] ?? ''),
+      amount: Number(cashOut['amount'] ?? 0),
+      amountUsd: Number(cashOut['amountUsd'] ?? 0),
+      amountVes: Number(cashOut['amountVes'] ?? 0),
+      bcvRate: Number(cashOut['bcvRate'] ?? 0),
+      transaction: {
+        ...transaction,
+        date: String(transaction['date'] ?? transaction['transactionDate'] ?? ''),
+        amount: Number(transaction['amount'] ?? 0),
+        amountUsd: Number(transaction['amountUsd'] ?? 0),
+        amountVes: Number(transaction['amountVes'] ?? 0),
+        bcvRate: Number(transaction['bcvRate'] ?? 0),
+      } as unknown as TreasuryTransaction,
+    } as unknown as TreasuryCashOut;
   }
 
 }

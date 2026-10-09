@@ -9,11 +9,12 @@ import {
   PaymentMethod,
   Invoice,
   PurchaseOrder,
-  CurrencyCode
+  CurrencyCode,
+  TreasuryTransaction
 } from '../../models/erp.models';
-import { DecimalPipe } from '@angular/common';
+import { DatePipe, DecimalPipe } from '@angular/common';
 
-export type TreasurySubTab = 'overview' | 'bank-accounts' | 'cxc' | 'cxp' | 'transactions';
+export type TreasurySubTab = 'overview' | 'bank-accounts' | 'cxc' | 'cxp' | 'cash-outs' | 'transactions';
 
 export interface CustomerReceivableItem {
   id: string;
@@ -47,7 +48,7 @@ export interface DetailItemRow {
 @Component({
   selector: 'app-treasury',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatIconModule, ReactiveFormsModule, DecimalPipe],
+  imports: [MatIconModule, ReactiveFormsModule, DecimalPipe, DatePipe],
   template: `
     <div class="space-y-6">
       
@@ -68,6 +69,14 @@ export interface DetailItemRow {
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
+          <button 
+            id="btn-treasury-cash-out-top"
+            (click)="openCashOutModal()" 
+            class="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-xl shadow-sm hover:shadow flex items-center space-x-1.5 transition-all cursor-pointer">
+            <mat-icon class="text-base">payments</mat-icon>
+            <span>Salida de Efectivo / Vale de Caja</span>
+          </button>
+
           <button 
             id="btn-treasury-transfer-top"
             (click)="openTransferModal()" 
@@ -207,6 +216,15 @@ export interface DetailItemRow {
           class="pb-3 text-xs sm:text-sm border-b-2 flex items-center space-x-2 whitespace-nowrap transition-colors">
           <mat-icon class="text-lg">payment</mat-icon>
           <span>Cuentas por Pagar - CxP ({{ pendingPayableBillsCount() }})</span>
+        </button>
+
+        <button 
+          id="tab-treasury-cash-outs"
+          (click)="activeSubTab.set('cash-outs')"
+          [class]="activeSubTab() === 'cash-outs' ? 'border-rose-600 text-rose-600 font-bold' : 'border-transparent text-slate-500 hover:text-slate-700 font-medium'"
+          class="pb-3 text-xs sm:text-sm border-b-2 flex items-center space-x-2 whitespace-nowrap transition-colors">
+          <mat-icon class="text-lg">payments</mat-icon>
+          <span>Salida de Efectivo / Vale de Caja ({{ stateService.treasuryCashOuts().length }})</span>
         </button>
 
         <button 
@@ -798,7 +816,80 @@ export interface DetailItemRow {
       }
 
       <!-- ========================================================================= -->
-      <!-- TAB 5: MOVIMIENTOS & BITÁCORA DE TESORERÍA -->
+      <!-- TAB 5: SALIDAS DE EFECTIVO / VALES DE CAJA -->
+      <!-- ========================================================================= -->
+      @if (activeSubTab() === 'cash-outs') {
+        <div class="space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+            <div>
+              <h2 class="text-sm font-bold text-slate-800">Salidas de Efectivo / Vales de Caja</h2>
+              <p class="text-xs text-slate-500 mt-1">Egresos directos sin crear una cuenta de proveedor.</p>
+            </div>
+            <button
+              id="btn-new-cash-out-tab"
+              (click)="openCashOutModal()"
+              class="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-xl shadow-sm flex items-center space-x-1 whitespace-nowrap transition-all">
+              <mat-icon class="text-sm">add</mat-icon>
+              <span>Nueva salida de efectivo</span>
+            </button>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead class="bg-slate-50 text-slate-600 font-semibold uppercase text-[10px] tracking-wider border-b border-slate-200">
+                  <tr>
+                    <th class="py-3 px-4">Nº Vale</th>
+                    <th class="py-3 px-4">Fecha</th>
+                    <th class="py-3 px-4">Beneficiario</th>
+                    <th class="py-3 px-4">Categoría / Concepto</th>
+                    <th class="py-3 px-4">Caja de origen</th>
+                    <th class="py-3 px-4 text-right">Monto</th>
+                    <th class="py-3 px-4 text-center">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 font-medium text-slate-700">
+                  @for (cashOut of stateService.treasuryCashOuts(); track cashOut.id) {
+                    <tr [id]="'row-cash-out-' + cashOut.id" class="hover:bg-slate-50/70 transition-colors">
+                      <td class="py-3.5 px-4 font-bold text-slate-900 font-mono">{{ cashOut.voucherNumber }}</td>
+                      <td class="py-3.5 px-4 font-mono text-[11px] text-slate-500">{{ cashOut.transactionDate | date: 'dd/MM/yyyy' }}</td>
+                      <td class="py-3.5 px-4 font-semibold text-slate-800">{{ cashOut.beneficiaryName }}</td>
+                      <td class="py-3.5 px-4">
+                        <span class="text-slate-700 block">{{ cashOut.category }}</span>
+                        <span class="text-[10px] text-slate-400">{{ cashOut.concept }}</span>
+                      </td>
+                      <td class="py-3.5 px-4 text-slate-600">{{ cashOut.sourceBankAccountName }}</td>
+                      <td class="py-3.5 px-4 text-right font-bold text-slate-900">
+                        {{ cashOut.currency === 'VES' ? 'Bs. ' : '$ ' }}{{ cashOut.amount | number: '1.2-2' }}
+                        <span class="block text-[10px] text-slate-400 font-normal">Equiv. \${{ cashOut.amountUsd | number: '1.2-2' }}</span>
+                      </td>
+                      <td class="py-3.5 px-4 text-center">
+                        <button
+                          [id]="'btn-view-cash-out-' + cashOut.id"
+                          (click)="openVoucherFromTransaction(cashOut.transaction)"
+                          title="Ver / Imprimir Vale de Caja"
+                          class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-xs inline-flex items-center space-x-1 transition-all">
+                          <mat-icon class="text-sm">visibility</mat-icon>
+                          <span>Ver</span>
+                        </button>
+                      </td>
+                    </tr>
+                  } @empty {
+                    <tr>
+                      <td colspan="7" class="py-8 text-center text-slate-400 text-xs font-medium">
+                        No hay salidas de efectivo registradas. Use «Nueva salida de efectivo» para crear un vale.
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- ========================================================================= -->
+      <!-- TAB 6: MOVIMIENTOS & BITÁCORA DE TESORERÍA -->
       <!-- ========================================================================= -->
       @if (activeSubTab() === 'transactions') {
         <div class="space-y-4">
@@ -833,14 +924,14 @@ export interface DetailItemRow {
                       <td class="py-3.5 px-4">
                         <span 
                           class="px-2 py-0.5 text-[10px] font-bold rounded-full border"
-                          [class]="tx.type === 'COBRO_CXC' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : (tx.type === 'PAGO_CXP' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-blue-50 text-blue-700 border-blue-200')">
-                          {{ tx.type.replace(/_/g, ' ') }}
+                          [class]="tx.type === 'COBRO_CXC' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : (tx.type === 'PAGO_CXP' ? 'bg-amber-50 text-amber-700 border-amber-200' : (tx.type === 'GASTO_OPERATIVO' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-blue-50 text-blue-700 border-blue-200'))">
+                          {{ tx.type === 'GASTO_OPERATIVO' ? 'VALE DE CAJA' : tx.type.replace(/_/g, ' ') }}
                         </span>
                       </td>
                       <td class="py-3.5 px-4">
                         <span class="font-medium text-slate-800 block">{{ tx.concept }}</span>
                         @if (tx.entityName) {
-                          <span class="text-[10px] text-slate-400">{{ tx.entityType }}: {{ tx.entityName }}</span>
+                          <span class="text-[10px] text-slate-400">Entregado a: {{ tx.entityName }}</span>
                         }
                       </td>
                       <td class="py-3.5 px-4 text-slate-600 font-medium">{{ tx.bankAccountName }}</td>
@@ -854,10 +945,20 @@ export interface DetailItemRow {
                         Bs. {{ tx.amountVes.toLocaleString('es-VE', { minimumFractionDigits: 2 }) }}
                       </td>
                       <td class="py-3.5 px-4 text-center">
-                        <span class="px-2 py-0.5 text-[9px] font-bold rounded-full border"
-                          [class]="tx.status === 'PENDIENTE_CONTABILIDAD' ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-slate-100 text-slate-700 border-slate-200'">
-                          {{ tx.status === 'PENDIENTE_CONTABILIDAD' ? 'Pendiente contabilidad' : tx.status }}
-                        </span>
+                        <div class="flex items-center justify-center space-x-1">
+                          <span class="px-2 py-0.5 text-[9px] font-bold rounded-full border"
+                            [class]="tx.status === 'PENDIENTE_CONTABILIDAD' ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-slate-100 text-slate-700 border-slate-200'">
+                            {{ tx.status === 'PENDIENTE_CONTABILIDAD' ? 'Pendiente contabilidad' : tx.status }}
+                          </span>
+                          @if (tx.type === 'GASTO_OPERATIVO') {
+                            <button 
+                              (click)="openVoucherFromTransaction(tx)" 
+                              title="Ver / Imprimir Vale de Caja"
+                              class="p-1 hover:bg-rose-50 text-rose-600 rounded-lg transition-colors cursor-pointer">
+                              <mat-icon class="text-sm">receipt</mat-icon>
+                            </button>
+                          }
+                        </div>
                       </td>
                     </tr>
                   } @empty {
@@ -1500,6 +1601,295 @@ export interface DetailItemRow {
     }
 
     <!-- ========================================================================= -->
+    <!-- MODAL 5B: SALIDA DE EFECTIVO / VALE DE CAJA (SIN CREAR PROVEEDOR) -->
+    <!-- ========================================================================= -->
+    @if (showCashOutModal()) {
+      <div id="modal-cash-out" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in fade-in zoom-in-95">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div class="flex items-center space-x-2.5">
+              <div class="w-9 h-9 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center font-bold">
+                <mat-icon>payments</mat-icon>
+              </div>
+              <div>
+                <h3 class="text-base font-bold text-slate-900">Salida de Efectivo / Vale de Caja</h3>
+                <p class="text-xs text-slate-500">Egreso directo para jornales, mandados e insumos menores (sin crear proveedor)</p>
+              </div>
+            </div>
+            <button (click)="closeCashOutModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+
+          <form [formGroup]="cashOutForm" (ngSubmit)="submitCashOut()" class="space-y-4 text-xs">
+            
+            <!-- Quick Category Selection -->
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1.5">Tipo de Egreso / Motivo Rápido *</label>
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                <button 
+                  type="button" 
+                  (click)="setQuickCategory('JORNAL_NOMINA', 'Pago de jornal diario')"
+                  [class]="cashOutForm.value.category === 'JORNAL_NOMINA' ? 'bg-rose-50 border-rose-300 text-rose-800 font-bold' : 'bg-slate-50 border-slate-200 text-slate-600'"
+                  class="p-2 rounded-xl border text-[11px] text-left transition-colors cursor-pointer flex items-center space-x-1.5">
+                  <mat-icon class="text-sm text-rose-600">badge</mat-icon>
+                  <span>Jornal / Empleado</span>
+                </button>
+
+                <button 
+                  type="button" 
+                  (click)="setQuickCategory('INSUMOS_LIMPIEZA', 'Compra de insumos de limpieza y aseo')"
+                  [class]="cashOutForm.value.category === 'INSUMOS_LIMPIEZA' ? 'bg-rose-50 border-rose-300 text-rose-800 font-bold' : 'bg-slate-50 border-slate-200 text-slate-600'"
+                  class="p-2 rounded-xl border text-[11px] text-left transition-colors cursor-pointer flex items-center space-x-1.5">
+                  <mat-icon class="text-sm text-sky-600">cleaning_services</mat-icon>
+                  <span>Insumos Limpieza</span>
+                </button>
+
+                <button 
+                  type="button" 
+                  (click)="setQuickCategory('TRANSPORTE_FLETE', 'Transporte / Taxi / Flete menor')"
+                  [class]="cashOutForm.value.category === 'TRANSPORTE_FLETE' ? 'bg-rose-50 border-rose-300 text-rose-800 font-bold' : 'bg-slate-50 border-slate-200 text-slate-600'"
+                  class="p-2 rounded-xl border text-[11px] text-left transition-colors cursor-pointer flex items-center space-x-1.5">
+                  <mat-icon class="text-sm text-amber-600">local_taxi</mat-icon>
+                  <span>Flete / Mandado</span>
+                </button>
+
+                <button 
+                  type="button" 
+                  (click)="setQuickCategory('ALMUERZOS_REFRIGERIOS', 'Almuerzo / Refrigerio de personal')"
+                  [class]="cashOutForm.value.category === 'ALMUERZOS_REFRIGERIOS' ? 'bg-rose-50 border-rose-300 text-rose-800 font-bold' : 'bg-slate-50 border-slate-200 text-slate-600'"
+                  class="p-2 rounded-xl border text-[11px] text-left transition-colors cursor-pointer flex items-center space-x-1.5">
+                  <mat-icon class="text-sm text-orange-600">restaurant</mat-icon>
+                  <span>Refrigerio / Comida</span>
+                </button>
+
+                <button 
+                  type="button" 
+                  (click)="setQuickCategory('REPARACION_MANTENIMIENTO', 'Reparación / Ferretería menor')"
+                  [class]="cashOutForm.value.category === 'REPARACION_MANTENIMIENTO' ? 'bg-rose-50 border-rose-300 text-rose-800 font-bold' : 'bg-slate-50 border-slate-200 text-slate-600'"
+                  class="p-2 rounded-xl border text-[11px] text-left transition-colors cursor-pointer flex items-center space-x-1.5">
+                  <mat-icon class="text-sm text-indigo-600">handyman</mat-icon>
+                  <span>Ferretería / Taller</span>
+                </button>
+
+                <button 
+                  type="button" 
+                  (click)="setQuickCategory('GASTO_OPERATIVO_GENERAL', 'Gasto operativo menor')"
+                  [class]="cashOutForm.value.category === 'GASTO_OPERATIVO_GENERAL' ? 'bg-rose-50 border-rose-300 text-rose-800 font-bold' : 'bg-slate-50 border-slate-200 text-slate-600'"
+                  class="p-2 rounded-xl border text-[11px] text-left transition-colors cursor-pointer flex items-center space-x-1.5">
+                  <mat-icon class="text-sm text-slate-600">receipt</mat-icon>
+                  <span>Otro Gasto</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Source Cash Drawer / Account -->
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Caja o Cuenta de Origen (De dónde sale el dinero) *</label>
+              <select 
+                formControlName="sourceBankAccountId"
+                class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500 font-medium">
+                @for (acc of stateService.bankAccounts(); track acc.id) {
+                  <option [value]="acc.id">
+                    {{ acc.accountName }} (Saldo: {{ acc.currency === 'VES' ? 'Bs. ' + acc.balance.toLocaleString('es-VE') : '$ ' + acc.balance |  number:  '1.2-2' }})
+                  </option>
+                }
+              </select>
+            </div>
+
+            <!-- Amount and Currency Row -->
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Monto a Retirar *</label>
+                <div class="relative">
+                  <input 
+                    formControlName="amount" 
+                    type="number" 
+                    step="0.01" 
+                    placeholder="0.00"
+                    class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500 font-mono font-bold text-base text-slate-900" />
+                </div>
+              </div>
+
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Moneda del Egreso *</label>
+                <select 
+                  formControlName="currency"
+                  class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500 font-bold">
+                  <option value="USD">Dólares ($ USD)</option>
+                  <option value="VES">Bolívares (Bs. VES)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Beneficiary Free Text (Entregado a) -->
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Entregado a / Beneficiario *</label>
+              <input 
+                formControlName="beneficiaryName"
+                type="text" 
+                placeholder="Ej. Juan Carlos (Mandadero), Pedro Gómez (Jornalero), José Almacén..."
+                class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500 font-medium" />
+              
+              <!-- Quick Suggestions -->
+             <!--  <div class="flex items-center space-x-1.5 mt-1.5 text-[10px] text-slate-500">
+                <span class="text-slate-400">Sugerencias:</span>
+                <button type="button" (click)="setQuickBeneficiary('Pedro Gómez (Jornalero)')" class="px-2 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer"></button>
+                <button type="button" (click)="setQuickBeneficiary('Juan Carlos (Mandadero)')" class="px-2 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer">Mandadero</button>
+                <button type="button" (click)="setQuickBeneficiary('Personal de Limpieza')" class="px-2 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer">Limpieza</button>
+              </div> -->
+            </div>
+
+            <!-- Concept and Voucher Number -->
+            <div class="grid grid-cols-3 gap-3">
+              <div class="col-span-2">
+                <label class="block font-semibold text-slate-700 mb-1">Concepto / Justificación del Gasto *</label>
+                <input 
+                  formControlName="concept"
+                  type="text" 
+                  placeholder="Ej. Compra de cloro, detergente y bolsas negras..."
+                  class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500" />
+              </div>
+
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Nº Vale</label>
+                <input 
+                  formControlName="voucherNumber"
+                  type="text" 
+                  placeholder="VALE-2026-0001"
+                  class="w-full px-3 py-2 rounded-xl border border-slate-200 font-mono text-[11px] bg-slate-50" />
+              </div>
+            </div>
+
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Observaciones</label>
+              <input
+                formControlName="notes"
+                type="text"
+                placeholder="Opcional"
+                class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500" />
+            </div>
+
+            <div class="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
+              <button 
+                type="button" 
+                (click)="closeCashOutModal()"
+                class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl font-semibold transition-colors cursor-pointer">
+                Cancelar
+              </button>
+              <button 
+                type="submit" 
+                [disabled]="cashOutForm.invalid"
+                class="px-5 py-2 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-xl font-semibold shadow-md flex items-center space-x-1.5 transition-all cursor-pointer">
+                <mat-icon class="text-base">check_circle</mat-icon>
+                <span>Registrar Salida de Caja</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    }
+
+    <!-- ========================================================================= -->
+    <!-- MODAL 5C: COMPROBANTE / VALE DE CAJA IMPRIMIBLE -->
+    <!-- ========================================================================= -->
+    @if (showVoucherPrintModal() && createdVoucher()) {
+      @let v = createdVoucher()!;
+      <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in fade-in zoom-in-95">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3 no-print">
+            <div class="flex items-center space-x-2">
+              <mat-icon class="text-rose-600">receipt</mat-icon>
+              <span class="font-bold text-sm text-slate-900">Vale de Caja Emitido</span>
+            </div>
+            <div class="flex items-center space-x-1.5">
+              <button (click)="printDocument()" class="px-3 py-1.5 bg-slate-900 hover:bg-black text-white text-xs font-semibold rounded-lg flex items-center space-x-1 cursor-pointer">
+                <mat-icon class="text-xs">print</mat-icon>
+                <span>Imprimir Vale</span>
+              </button>
+              <button (click)="closeVoucherPrintModal()" class="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+          </div>
+
+          <!-- Printable Area -->
+          <div class="print-document border border-slate-200 rounded-2xl p-5 space-y-4 bg-slate-50/50 font-sans text-xs">
+            <!-- Header -->
+            <div class="text-center border-b border-slate-200 pb-3">
+              <h2 class="font-bold text-sm text-slate-900 uppercase tracking-wider">{{ stateService.companyProfile().legalName }}</h2>
+              <p class="text-[10px] text-slate-500 font-mono">RIF: {{ stateService.companyProfile().taxId }}</p>
+              <div class="inline-block px-3 py-0.5 bg-rose-100 text-rose-800 rounded-full font-bold text-[10px] mt-1 font-mono">
+                VALE DE CAJA CHICA & EGRESO DE EFECTIVO
+              </div>
+            </div>
+
+            <!-- Details -->
+            <div class="grid grid-cols-2 gap-2 text-[11px] font-mono">
+              <div>
+                <span class="text-slate-400 block text-[9px]">COMPROBANTE:</span>
+                <span class="font-bold text-slate-900">{{ v.referenceNumber }}</span>
+              </div>
+              <div class="text-right">
+                <span class="text-slate-400 block text-[9px]">FECHA & HORA:</span>
+                <span class="text-slate-800">{{ v.date | date: 'dd-MM-yyyy HH:mm' }}</span>
+              </div>
+              <div>
+                <span class="text-slate-400 block text-[9px]">CAJA DE ORIGEN:</span>
+                <span class="text-slate-800 font-medium">{{ v.bankAccountName }}</span>
+              </div>
+              <div class="text-right">
+                <span class="text-slate-400 block text-[9px]">TASA BCV:</span>
+                <span class="text-slate-800">Bs. {{ v.bcvRate |  number:  '1.2-2' }}</span>
+              </div>
+            </div>
+
+            <!-- Amount Highlight Box -->
+            <div class="p-3 bg-white rounded-xl border border-slate-200 text-center space-y-0.5">
+              <span class="text-[10px] font-bold text-slate-400 uppercase">Monto Retirado en Efectivo</span>
+              <p class="font-mono font-black text-2xl text-slate-900">
+                {{ v.currency === 'VES' ? 'Bs. ' + (v.amount |  number:  '1.2-2') : '$ ' + (v.amount |  number:  '1.2-2') }}
+              </p>
+              <p class="text-[10px] text-slate-500 font-mono">
+                Equivalente: {{ v.currency === 'VES' ? '$ ' + (v.amountUsd |  number:  '1.2-2') : 'Bs. ' + (v.amountVes |  number:  '1.2-2') }}
+              </p>
+            </div>
+
+            <!-- Concept and Receiver -->
+            <div class="space-y-1.5 text-[11px]">
+              <div>
+                <strong class="text-slate-700">Entregado a:</strong>
+                <span class="ml-1 text-slate-900 font-semibold">{{ v.entityName }}</span>
+              </div>
+              <div>
+                <strong class="text-slate-700">Concepto:</strong>
+                <span class="ml-1 text-slate-800">{{ v.concept }}</span>
+              </div>
+            </div>
+
+            <!-- Signatures -->
+            <div class="grid grid-cols-2 gap-6 pt-6 text-center text-[10px] text-slate-500 font-mono">
+              <div class="border-t border-slate-300 pt-1">
+                <p class="font-bold text-slate-800">{{ v.entityName }}</p>
+                <p>Firma / Cédula Receptor</p>
+              </div>
+              <div class="border-t border-slate-300 pt-1">
+                <p class="font-bold text-slate-800">{{ v.registeredBy }}</p>
+                <p>Autorizado / Entrega Caja</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="text-right no-print">
+            <button (click)="closeVoucherPrintModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold text-xs cursor-pointer">
+              Cerrar
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- ========================================================================= -->
     <!-- MODAL 6: DETALLE DE FACTURA DE VENTA / CXC (ESTILO ODOO ERP) -->
     <!-- ========================================================================= -->
     @if (showCxcDetailModal()) {
@@ -1604,9 +1994,9 @@ export interface DetailItemRow {
               <div>
                 <p class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Fechas de Gestión</p>
                 <div class="mt-1 space-y-1">
-                  <p class="text-slate-700"><span class="text-slate-400">Emisión:</span> <strong class="font-mono">{{ (selectedCxcDetailInvoice()?.date || selectedCxcItem()?.date || '').substring(0, 10) }}</strong></p>
+                  <p class="text-slate-700"><span class="text-slate-400">Emisión:</span> <strong class="font-mono">{{ (selectedCxcDetailInvoice()?.date || selectedCxcItem()?.date || '') | date: 'dd-MM-yyyy  hh:mm' }}</strong></p>
                   <p [class]="selectedCxcItem()?.status === 'VENCIDO' ? 'text-rose-600 font-bold' : 'text-slate-700'">
-                    <span class="text-slate-400">Vencimiento:</span> <strong class="font-mono">{{ selectedCxcItem()?.dueDate }}</strong>
+                    <span class="text-slate-400">Vencimiento:</span> <strong class="font-mono">{{ selectedCxcItem()?.dueDate | date: 'dd-MM-yyyy  hh:mm' }}</strong>
                   </p>
                   <p class="text-slate-700"><span class="text-slate-400">Vendedor:</span> {{ selectedCxcDetailInvoice()?.sellerName || 'Ventas General' }}</p>
                 </div>
@@ -1918,9 +2308,9 @@ export interface DetailItemRow {
               <div>
                 <p class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Fechas & Referencia</p>
                 <div class="mt-1 space-y-1">
-                  <p class="text-slate-700"><span class="text-slate-400">Emisión Factura:</span> <strong class="font-mono">{{ selectedCxpBill()?.issueDate }}</strong></p>
+                  <p class="text-slate-700"><span class="text-slate-400">Emisión Factura:</span> <strong class="font-mono"> {{ selectedCxpBill()?.issueDate | date: 'dd-MM-yyyy  hh:mm' }}</strong></p>
                   <p [class]="selectedCxpBill()?.status === 'VENCIDO' ? 'text-rose-600 font-bold' : 'text-slate-700'">
-                    <span class="text-slate-400">Vencimiento:</span> <strong class="font-mono">{{ selectedCxpBill()?.dueDate }}</strong>
+                    <span class="text-slate-400">Vencimiento:</span> <strong class="font-mono"> {{ selectedCxpBill()?.dueDate | date: 'dd-MM-yyyy  hh:mm' }}</strong>
                   </p>
                   <p class="text-slate-700"><span class="text-slate-400">Orden de Compra:</span> <strong class="font-mono text-sky-700">{{ selectedCxpBill()?.purchaseOrderNumber || 'Compra Directa / Servicios' }}</strong></p>
                 </div>
@@ -2162,6 +2552,14 @@ export default class TreasuryComponent {
   showNewBillModal = signal<boolean>(false);
   showTransferModal = signal<boolean>(false);
   showNewAccountModal = signal<boolean>(false);
+  showCashOutModal = signal<boolean>(false);
+  showVoucherPrintModal = signal<boolean>(false);
+  createdVoucher = signal<TreasuryTransaction | null>(null);
+
+  //encontrar user por el registeredBy
+  findUserByRegisteredBy(registeredBy: string) {
+    return this.authService.users().find(user => user.id === registeredBy) ?? '';
+  }
 
   // Modales de Detalle (Estilo Odoo ERP)
   showCxcDetailModal = signal<boolean>(false);
@@ -2224,6 +2622,19 @@ export default class TreasuryComponent {
     holderTaxId: ['J-50493821-4'],
     isDefault: [false]
   });
+
+  cashOutForm = this.fb.group({
+    sourceBankAccountId: ['', Validators.required],
+    amount: [null as number | null, [Validators.required, Validators.min(0.01)]],
+    currency: ['USD' as 'USD' | 'VES', Validators.required],
+    category: ['INSUMOS_LIMPIEZA' as 'JORNAL_NOMINA' | 'INSUMOS_LIMPIEZA' | 'TRANSPORTE_FLETE' | 'ALMUERZOS_REFRIGERIOS' | 'REPARACION_MANTENIMIENTO' | 'GASTO_OPERATIVO_GENERAL', Validators.required],
+    beneficiaryName: ['', [Validators.required, Validators.minLength(2)]],
+    concept: ['', [Validators.required, Validators.minLength(3)]],
+    voucherNumber: [''],
+    notes: [''],
+  });
+
+  
 
   // Computed Lists
   readonly pendingPayableBills = computed(() => {
@@ -2737,6 +3148,70 @@ export default class TreasuryComponent {
         credit: total
       }
     ];
+  }
+
+  // Métodos para Salida de Efectivo Directa / Vale de Caja Chica
+  openCashOutModal() {
+    const defaultCash = this.stateService.bankAccounts().find(b => b.accountType.includes('CAJA') || b.accountName.toLowerCase().includes('caja')) || this.stateService.bankAccounts()[0];
+    this.cashOutForm.reset({
+      sourceBankAccountId: defaultCash ? defaultCash.id : '',
+      amount: null,
+      currency: defaultCash?.currency === 'VES' ? 'VES' : 'USD',
+      category: 'INSUMOS_LIMPIEZA',
+      beneficiaryName: '',
+      concept: 'Compra de insumos de limpieza y aseo',
+      voucherNumber: ''
+    });
+    this.showCashOutModal.set(true);
+  }
+
+  closeCashOutModal() {
+    this.showCashOutModal.set(false);
+  }
+
+  setQuickCategory(
+    category: 'JORNAL_NOMINA' | 'INSUMOS_LIMPIEZA' | 'TRANSPORTE_FLETE' | 'ALMUERZOS_REFRIGERIOS' | 'REPARACION_MANTENIMIENTO' | 'GASTO_OPERATIVO_GENERAL', 
+    defaultConcept: string
+  ) {
+    this.cashOutForm.patchValue({
+      category,
+      concept: defaultConcept
+    });
+  }
+
+  setQuickBeneficiary(name: string) {
+    this.cashOutForm.patchValue({ beneficiaryName: name });
+  }
+
+  async submitCashOut() {
+    if (this.cashOutForm.invalid) return;
+    const val = this.cashOutForm.value;
+    const res = await this.stateService.recordCashOut({
+      sourceBankAccountId: val.sourceBankAccountId!,
+      amount: Number(val.amount),
+      currency: (val.currency as 'USD' | 'VES') || 'USD',
+      category: (val.category as 'JORNAL_NOMINA' | 'INSUMOS_LIMPIEZA' | 'TRANSPORTE_FLETE' | 'ALMUERZOS_REFRIGERIOS' | 'REPARACION_MANTENIMIENTO' | 'GASTO_OPERATIVO_GENERAL') || 'INSUMOS_LIMPIEZA',
+      beneficiaryName: val.beneficiaryName!.trim(),
+      concept: val.concept!.trim(),
+      voucherNumber: val.voucherNumber ? val.voucherNumber.trim() : undefined,
+      notes: val.notes?.trim() || undefined,
+    });
+
+    if (res.success && res.transaction) {
+      this.closeCashOutModal();
+      this.createdVoucher.set(res.transaction);
+      this.showVoucherPrintModal.set(true);
+    }
+  }
+
+  openVoucherFromTransaction(tx: TreasuryTransaction) {
+    this.createdVoucher.set(tx);
+    this.showVoucherPrintModal.set(true);
+  }
+
+  closeVoucherPrintModal() {
+    this.showVoucherPrintModal.set(false);
+    this.createdVoucher.set(null);
   }
 
   printDocument() {

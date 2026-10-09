@@ -1093,6 +1093,27 @@ export interface TreasuryTransaction {
   createdAt: string;
 }
 
+export interface TreasuryCashOut {
+  id: string;
+  voucherNumber: string;
+  category: string;
+  beneficiaryName: string;
+  sourceBankAccountId: string;
+  sourceBankAccountName: string;
+  transactionDate: string;
+  amount: number;
+  currency: 'USD' | 'VES';
+  amountUsd: number;
+  amountVes: number;
+  bcvRate: number;
+  concept: string;
+  notes?: string | null;
+  registeredBy: string;
+  transactionId: string;
+  transaction: TreasuryTransaction;
+  createdAt?: string | null;
+}
+
 export interface CustomerPaymentReceipt {
   id: string;
   receiptNumber: string; // e.g. "REC-2026-0012"
@@ -1155,5 +1176,4 @@ export interface PayableBill {
   payments: SupplierPaymentReceipt[];
   createdAt: string;
 }
-
 

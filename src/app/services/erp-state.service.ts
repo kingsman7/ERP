@@ -47,6 +47,7 @@ import {
   TransportReason,
   DeliveryReceptionDetails,
   BankAccount,
+  TreasuryCashOut,
   TreasuryTransaction,
   CustomerPaymentReceipt,
   SupplierPaymentReceipt,
@@ -237,8 +238,8 @@ export class ErpStateService {
   }
 
   private loadLogistics(): Observable<boolean> {
-    return forkJoin({ dispatches: this.apiService.getDispatchGuides(), deliveries: this.apiService.getDeliveryOrders(), customers: this.apiService.getCustomers() }).pipe(
-      tap(({ dispatches, deliveries, customers }) => { this.dispatchGuides.set(dispatches); this.deliveryOrders.set(deliveries); this.customers.set(customers); }), map(() => true)
+    return forkJoin({ dispatches: this.apiService.getDispatchGuides(), deliveries: this.apiService.getDeliveryOrders(), customers: this.apiService.getCustomers(), companyProfile: this.apiService.getCompanyProfile(), invoices: this.apiService.getInvoices(), }).pipe(
+      tap(({ dispatches, deliveries, customers, companyProfile, invoices }) => { this.dispatchGuides.set(dispatches); this.deliveryOrders.set(deliveries); this.customers.set(customers); this.companyProfile.update(current => ({ ...current, ...companyProfile })); this.invoices.set(invoices); }), map(() => true)
     );
   }
 
@@ -262,6 +263,7 @@ export class ErpStateService {
     return forkJoin({
       banks: this.apiService.getBankAccounts(),
       transactions: this.apiService.getTreasuryTransactions(),
+      cashOuts: this.apiService.getTreasuryCashOuts(),
       bills: this.apiService.getPayableBills(),
       invoices: this.apiService.getInvoices(),
       customerReceipts: this.apiService.getCustomerReceipts(),
@@ -270,9 +272,10 @@ export class ErpStateService {
       purchaseOrders: this.apiService.getPurchaseOrders(),
       accounts: this.apiService.getAccounts(),
     }).pipe(
-      tap(({ banks, transactions, bills, invoices, customerReceipts, supplierReceipts, suppliers, purchaseOrders, accounts }) => {
+      tap(({ banks, transactions, cashOuts, bills, invoices, customerReceipts, supplierReceipts, suppliers, purchaseOrders, accounts }) => {
         this.bankAccounts.set(banks);
         this.treasuryTransactions.set(transactions);
+        this.treasuryCashOuts.set(cashOuts);
         this.payableBills.set(bills);
         this.invoices.set(invoices);
         this.customerPaymentReceipts.set(customerReceipts);
@@ -1730,6 +1733,8 @@ export class ErpStateService {
       createdAt: '2026-08-15 11:00:00'
     }
   ]);
+
+  readonly treasuryCashOuts = signal<TreasuryCashOut[]>([]);
 
   // Computed Treasury & Banking Metrics
   readonly totalBankLiquidityUsd = computed(() => {
@@ -5836,7 +5841,9 @@ export class ErpStateService {
     // Asiento contable de compra a crédito: Debe Inventario/Costo, Haber CxP Proveedores
     const expenseGl = this.accounts().find(a => a.code === '1.1.03.01') || this.accounts().find(a => a.code === '5.1.01.01')!;
     const cxpGl = this.accounts().find(a => a.code === '2.1.01.01')!;
-
+    debugger
+    console.log('expenseGl', expenseGl)
+    console.log('cxpGl', cxpGl)
     const journal = this.generateAutomatedJournalEntry(
       'COMPRA',
       newBill.billNumber,
@@ -6061,6 +6068,36 @@ export class ErpStateService {
     this.notify('success', 'Transferencia Completada', `Se transfirieron $${amountUsd.toFixed(2)} entre cuentas exitosamente.`);
     this.saveState();
     return { success: true };
+  }
+
+  // 5. Salida de Efectivo Directa / Vale de Caja Chica (Sin requerir crear Proveedor)
+  async recordCashOut(data: {
+    sourceBankAccountId: string;
+    amount: number;
+    currency: 'USD' | 'VES';
+    category: 'JORNAL_NOMINA' | 'INSUMOS_LIMPIEZA' | 'TRANSPORTE_FLETE' | 'ALMUERZOS_REFRIGERIOS' | 'REPARACION_MANTENIMIENTO' | 'GASTO_OPERATIVO_GENERAL';
+    beneficiaryName: string;
+    concept: string;
+    voucherNumber?: string;
+    notes?: string;
+  }): Promise<{ success: boolean; message?: string; transaction?: TreasuryTransaction; voucherNumber?: string }> {
+    try {
+      const cashOut = await firstValueFrom(this.apiService.createTreasuryCashOut({
+        ...data,
+        transactionDate: new Date().toISOString(),
+      }));
+      await this.refreshTreasuryAfterWrite();
+      this.notify('success', 'Salida de Efectivo Registrada', `Vale ${cashOut.voucherNumber} procesado exitosamente.`);
+      return {
+        success: true,
+        transaction: cashOut.transaction,
+        voucherNumber: cashOut.voucherNumber,
+      };
+    } catch (error) {
+      const message = this.treasuryApiError(error);
+      this.notify('error', 'No se pudo registrar la salida de efectivo', message);
+      return { success: false, message };
+    }
   }
 
   // ============================================================================

@@ -2,7 +2,7 @@ import { Component, ChangeDetectionStrategy, input, output, inject, OnDestroy, s
 import { MatIconModule } from '@angular/material/icon';
 import { Invoice } from '../../models/erp.models';
 import { ErpStateService } from '../../services/erp-state.service';
-import { DecimalPipe } from '@angular/common'
+import { DecimalPipe, DatePipe } from '@angular/common'
 
 type InvoiceWithWithholdings = Invoice & {
   withholdingIvaPercent?: number;
@@ -15,7 +15,7 @@ type InvoiceWithWithholdings = Invoice & {
 @Component({
   selector: 'app-invoice-modal',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatIconModule, DecimalPipe],
+  imports: [MatIconModule, DecimalPipe, DatePipe],
   template: `
      @if (invoice(); as inv) {
       <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
@@ -74,7 +74,7 @@ type InvoiceWithWithholdings = Invoice & {
                   }
                 </div>
                 <p class="font-mono text-base font-bold text-slate-900">{{ inv.invoiceNumber }}</p>
-                <p class="text-[11px] text-slate-500">Fecha de Emisión: {{ inv.date }}</p>
+                <p class="text-[11px] text-slate-500">Fecha de Emisión: {{ inv.date | date: 'dd-MM-yyyy HH:mm' }}</p>
                 @if (inv.quoteOriginNumber) {
                   <p class="text-[11px] text-emerald-700 font-medium mt-0.5">Ref. Cotización: {{ inv.quoteOriginNumber }}</p>
                 }
@@ -98,7 +98,7 @@ type InvoiceWithWithholdings = Invoice & {
               <div class="border-l-0 sm:border-l sm:border-slate-200 sm:pl-3">
                 <span class="font-bold text-slate-400 uppercase tracking-wider block text-[10px] mb-0.5">Tipo de Cambio Oficial</span>
                 <p class="font-mono font-bold text-slate-800">
-                  Tasa BCV: Bs. {{ (inv.bcvRate || 36.50) | number:'1.2-2' }} / USD
+                  Tasa BCV: Bs. {{ (inv.bcvRate) | number:'1.2-2' }} / USD
                 </p>
                 <p class="text-[10px] text-slate-500">
                   Origen: {{ inv.rateOrigin === 'API_BCV' ? 'Oficial BCV' : 'Manual' }} • Base: {{ inv.paymentCurrency || 'USD' }}

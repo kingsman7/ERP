@@ -53,7 +53,7 @@ import { DecimalPipe, DatePipe } from '@angular/common';
           <div class="flex flex-col sm:flex-row justify-between items-start gap-4 pb-6 border-b border-slate-200">
             <div class="space-y-1">
               <div class="flex items-center space-x-2">
-                <span class="p-1.5 bg-violet-600 text-white rounded-lg font-black text-sm">ERP</span>
+                <!-- <span class="p-1.5 bg-violet-600 text-white rounded-lg font-black text-sm">ERP</span> -->
                 <h2 class="text-lg font-black text-slate-900 tracking-tight">{{ company().legalName }}</h2>
               </div>
               <p class="text-slate-500 font-mono text-xs font-semibold">RIF: {{ company().taxId }}</p>
