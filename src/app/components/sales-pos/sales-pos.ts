@@ -171,49 +171,32 @@ export interface SplitPaymentLine {
           <!-- Left Column: Search, Scanner, Quick Products (7 cols) -->
           <div class="lg:col-span-7 space-y-3">
             
-            <!-- Barcode Quick-Scanner & Search Bar -->
+            <!-- Search field doubles as a barcode/SKU scanner input -->
             <div class="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-xs space-y-2.5">
               <div class="relative">
-                <mat-icon class="absolute left-3 top-2.5 text-emerald-600">qr_code_scanner</mat-icon>
-                <input 
+                <mat-icon aria-hidden="true" class="absolute left-3 top-3 text-emerald-700">qr_code_scanner</mat-icon>
+                <input
                   #barcodeInput
-                  type="text" 
-                  (keydown.enter)="onBarcodeScanned(barcodeInput.value); barcodeInput.value = ''"
-                  placeholder="Escanear código de barras o escribir SKU/nombre y presionar [ENTER]..." 
-                  class="w-full pl-10 pr-24 py-2 bg-emerald-50/30 border border-emerald-200 rounded-xl text-xs font-mono text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30" />
-                <span class="absolute right-3 top-2.5 text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-mono font-bold">
-                  ESCÁNER ACTIVO
+                  type="search"
+                  [value]="searchQuery()"
+                  (input)="searchQuery.set($any($event.target).value)"
+                  (keydown.enter)="onBarcodeScanned(barcodeInput.value)"
+                  aria-label="Buscar productos o escanear código de barras"
+                  autocomplete="off"
+                  spellcheck="false"
+                  placeholder="Buscar por nombre, SKU o código de barras…"
+                  class="min-h-11 w-full rounded-xl border border-emerald-200 bg-emerald-50/30 py-2 pl-10 pr-3 text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2" />
+                <span class="pointer-events-none absolute right-3 top-3 hidden rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-900 sm:inline-flex">
+                  ESCÁNER / BÚSQUEDA
                 </span>
               </div>
-
-              <!-- Filter Categories & Search Query -->
-              <div class="flex items-center justify-between gap-2 text-xs">
-                <div class="flex items-center space-x-1 overflow-x-auto pb-0.5 max-w-[65%]">
-                  <button 
-                    (click)="selectedCategoryFilter.set('ALL')"
-                    [class]="selectedCategoryFilter() === 'ALL' ? 'bg-slate-900 text-white font-semibold' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
-                    class="px-2.5 py-1 rounded-lg transition-colors whitespace-nowrap text-xs cursor-pointer">
-                    Todos
-                  </button>
-                  @for (cat of categories(); track cat) {
-                    <button 
-                      (click)="selectedCategoryFilter.set(cat)"
-                      [class]="selectedCategoryFilter() === cat ? 'bg-slate-900 text-white font-semibold' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
-                      class="px-2.5 py-1 rounded-lg transition-colors whitespace-nowrap text-xs cursor-pointer">
-                      {{ cat }}
-                    </button>
-                  }
-                </div>
-
-                <div class="relative min-w-[130px]">
-                  <input 
-                    type="text" 
-                    [value]="searchQuery()"
-                    (input)="searchQuery.set($any($event.target).value)"
-                    placeholder="Filtrar catálogo..." 
-                    class="w-full pl-7 pr-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500" />
-                  <mat-icon class="absolute left-1.5 top-1.5 text-slate-400 text-sm">search</mat-icon>
-                </div>
+              <div class="flex flex-wrap items-center justify-between gap-1 text-[11px] text-slate-600">
+                <p>Escribe para filtrar; al escanear un código o SKU exacto, el producto se agrega al carrito.</p>
+                @if (searchQuery().trim()) {
+                  <span class="font-semibold text-slate-700" aria-live="polite">
+                    {{ filteredCatalog().length }} {{ filteredCatalog().length === 1 ? 'resultado' : 'resultados' }}
+                  </span>
+                }
               </div>
 
               <!-- Dedicated Warehouse Filter Bar -->
@@ -225,7 +208,7 @@ export interface SplitPaymentLine {
                     Almacén: <strong class="text-emerald-800">{{ selectedWarehouseName() }}</strong>
                   </span>
                   <span class="text-[10px] font-mono font-bold bg-emerald-200/70 text-emerald-900 px-1.5 py-0.2 rounded-full">
-                    {{ filteredCatalog().length }} disp.
+                    {{ filteredCatalog().length }} coinc.
                   </span>
                 </div>
 
@@ -262,15 +245,16 @@ export interface SplitPaymentLine {
               </div>
             </div>
 
-            <!-- Product Quick Grid -->
-            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-[520px] overflow-y-auto p-1">
+            @if (searchQuery().trim()) {
+            <!-- Product Search Results -->
+            <div class="grid grid-cols-2 gap-2.5 overflow-y-auto p-1 sm:grid-cols-3 max-h-[520px]">
               @for (product of filteredCatalog(); track product.id) {
                 @let whStock = getProductWarehouseStock(product);
                 <button 
                   type="button"
                   (click)="addToCart(product)"
                   [title]="product.itemType !== 'SERVICE' && whStock <= 0 ? 'Sin stock en ' + selectedWarehouseName() : 'Agregar ' + product.name"
-                  class="text-left bg-white p-3 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between group"
+                  class="min-h-11 text-left bg-white p-3 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
                   [class]="product.itemType !== 'SERVICE' && whStock <= 0 ? 'border-rose-200 bg-rose-50/20 opacity-80 hover:border-rose-400' : 'border-slate-200/80 hover:border-emerald-500/60 hover:shadow-md'">
                   
                   <div class="w-full">
@@ -333,29 +317,38 @@ export interface SplitPaymentLine {
 
                 </button>
               } @empty {
-                <div class="col-span-full py-10 px-4 text-center bg-white rounded-2xl border border-dashed border-slate-200 text-xs">
-                  <mat-icon class="text-4xl text-slate-300 mb-1">storefront</mat-icon>
-                  <p class="font-bold text-slate-700">No hay productos disponibles en {{ selectedWarehouseName() }}</p>
-                  <p class="text-[11px] text-slate-400 mt-1 max-w-md mx-auto">
-                    No se encontraron productos con existencias en este almacén para la búsqueda o categoría seleccionada.
+                <div class="col-span-full rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-10 text-center" role="status">
+                  <mat-icon aria-hidden="true" class="mb-1 text-4xl text-slate-400">search_off</mat-icon>
+                  <p class="text-sm font-bold text-slate-800">No encontramos productos para “{{ searchQuery() }}”</p>
+                  <p class="mx-auto mt-1 max-w-md text-xs text-slate-600">
+                    Prueba con otro nombre, SKU o código de barras. Revisa también el almacén y el filtro de existencias.
                   </p>
-                  <div class="flex items-center justify-center space-x-2 mt-3">
-                    <button 
+                  <div class="mt-3 flex items-center justify-center gap-2">
+                    <button
                       type="button"
                       (click)="warehouseFilterMode.set('ALL')"
-                      class="px-2.5 py-1 text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition-colors cursor-pointer">
+                      class="min-h-11 rounded-lg bg-slate-100 px-3 py-2 text-xs font-medium text-slate-800 transition-colors hover:bg-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2">
                       Ver catálogo global
                     </button>
-                    <button 
+                    <button
                       type="button"
-                      (click)="selectedCategoryFilter.set('ALL'); searchQuery.set('')"
-                      class="px-2.5 py-1 text-[11px] bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-colors cursor-pointer">
-                      Restablecer filtros
+                      (click)="searchQuery.set(''); barcodeInput.focus()"
+                      class="min-h-11 rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2">
+                      Limpiar búsqueda
                     </button>
                   </div>
                 </div>
               }
             </div>
+            } @else {
+              <div class="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-8 text-center sm:py-10">
+                <mat-icon aria-hidden="true" class="mb-1 text-4xl text-emerald-700">manage_search</mat-icon>
+                <p class="text-sm font-bold text-slate-800">Busca un producto para comenzar</p>
+                <p class="mx-auto mt-1 max-w-md text-xs leading-relaxed text-slate-600">
+                  Escribe un nombre, SKU o código de barras, o usa el lector. El catálogo aparecerá aquí al encontrar coincidencias.
+                </p>
+              </div>
+            }
 
           </div>
 
@@ -424,11 +417,12 @@ export interface SplitPaymentLine {
                     autocomplete="off"
                     role="combobox"
                     [attr.aria-expanded]="customerSearchOpen()"
+                    aria-controls="pos-customer-options"
                     aria-label="Buscar cliente por RIF, cédula o nombre"
                     class="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:bg-white" />
 
                   @if (customerSearchOpen()) {
-                    <div role="listbox" class="absolute z-30 mt-1 w-full max-h-56 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
+                    <div id="pos-customer-options" role="listbox" class="absolute z-30 mt-1 w-full max-h-56 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
                       @for (c of filteredCustomers(); track c.id) {
                         <button
                           type="button"
@@ -1568,7 +1562,6 @@ export default class SalesPosComponent {
   selectedCustomerId = signal<string>(this.stateService.customers()[0]?.id || '');
   customerSearchQuery = signal<string>('');
   customerSearchOpen = signal<boolean>(false);
-  selectedCategoryFilter = signal<string>('ALL');
   searchQuery = signal<string>('');
   
   // Multi-Currency & Pricing Signals
@@ -1667,18 +1660,15 @@ export default class SalesPosComponent {
   salesStatusFilter = signal<string>('ALL');
   salesPaymentFilter = signal<string>('ALL');
 
-  categories = computed(() => {
-    return Array.from(new Set(this.stateService.products().map(p => p.category)));
-  });
-
   selectedPriceTierLabel = computed(() => {
     const config = this.stateService.priceLevelConfigs.find(c => c.key === this.selectedPriceTier());
     return config ? config.label : 'P1 Detal';
   });
 
   filteredCatalog = computed(() => {
-    const cat = this.selectedCategoryFilter();
     const q = this.searchQuery().toLowerCase().trim();
+    if (!q) return [];
+
     const whId = this.selectedWarehouseId();
     const mode = this.warehouseFilterMode();
 
@@ -1688,25 +1678,17 @@ export default class SalesPosComponent {
 
       // 1. Text Search Filter (Name, SKU, Barcode)
       if (q) {
-        const matchQ = (p.name ?? '').toLowerCase().includes(q) || 
-                       (p.sku ?? '').toLowerCase().includes(q) || 
-                       (p.barcode ?? '').toLowerCase().includes(q);
+        const matchQ = matchesEntitySearch(q, p.name, p.sku, p.barcode);
         if (!matchQ) return false;
       }
 
-      // 2. Category Filter
-      if (cat !== 'ALL') {
-        const matchCat = p.category === cat || (p.categories && p.categories.includes(cat));
-        if (!matchCat) return false;
-      }
-
-      // 3. Services are universally available
+      // Services are universally available.
       const isService = p.itemType === 'SERVICE' || p.unit === 'HRA' || p.unit === 'SRV' || p.unit === 'GLB';
       if (isService) {
         return true;
       }
 
-      // 4. Warehouse Filtering
+      // Keep warehouse stock filters independent from the text search.
       if (whId === 'ALL' || mode === 'ALL') {
         return true;
       }
@@ -2414,17 +2396,20 @@ export default class SalesPosComponent {
     if (!code || !code.trim()) return;
     const cleanCode = code.trim().toLowerCase();
     
-    const prod = this.stateService.products().find(p => 
-      p.barcode.toLowerCase() === cleanCode || 
-      p.sku.toLowerCase() === cleanCode ||
-      p.name.toLowerCase().includes(cleanCode)
+    const prod = this.stateService.products().find(p =>
+      p.barcode?.trim().toLowerCase() === cleanCode ||
+      p.sku?.trim().toLowerCase() === cleanCode
     );
 
     if (prod) {
       this.addToCart(prod);
       this.stateService.notify('info', 'Producto Agregado', `${prod.name} sumado al carrito.`);
-    } else {
-      this.stateService.notify('warning', 'No Encontrado', `No existe producto con código/SKU "${code}".`);
+      this.searchQuery.set('');
+      return;
+    }
+
+    if (this.filteredCatalog().length === 0) {
+      this.stateService.notify('warning', 'No Encontrado', `No se encontraron productos para "${code}".`);
     }
   }
 
