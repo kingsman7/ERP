@@ -2,7 +2,9 @@ import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/cor
 import { ReactiveFormsModule, FormGroup, FormControl, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
+import { of, switchMap } from 'rxjs';
 import { AuthService } from '../../services/auth.service';
+import { ErpStateService } from '../../services/erp-state.service';
 import { UserRole } from '../../models/erp.models';
 
 @Component({
@@ -225,6 +227,7 @@ import { UserRole } from '../../models/erp.models';
 })
 export default class LoginComponent {
   authService = inject(AuthService);
+  private stateService = inject(ErpStateService);
   private router = inject(Router);
 
   showPassword = signal<boolean>(false);
@@ -251,6 +254,12 @@ export default class LoginComponent {
     const { email, password } = this.loginForm.value;
 
     this.authService.login(email || '', password || '')
+      .pipe(switchMap(authenticated => {
+        if (!authenticated || this.authService.currentUser().mustChangePassword) {
+          return of(authenticated);
+        }
+        return this.stateService.loadSharedData(true);
+      }))
       .subscribe({
         next: (result)=> {
           if (result) {
@@ -270,7 +279,7 @@ export default class LoginComponent {
         error: (err) => {
           this.isLoading.set(false);
           console.error('Error during login:', err);
-          this.errorMessage.set('Error al validar credenciales. Por favor, intente nuevamente.');
+          this.errorMessage.set('La autenticación fue exitosa, pero no fue posible cargar los datos iniciales. Intente ingresar nuevamente.');
         },
       });
 

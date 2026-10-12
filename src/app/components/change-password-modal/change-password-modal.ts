@@ -2,6 +2,7 @@ import { Component, ChangeDetectionStrategy, inject, signal, computed } from '@a
 import { ReactiveFormsModule, FormGroup, FormControl, Validators } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { Router } from '@angular/router';
+import { of, switchMap } from 'rxjs';
 import { AuthService } from '../../services/auth.service';
 import { ErpStateService } from '../../services/erp-state.service';
 
@@ -277,7 +278,9 @@ export class ChangePasswordModalComponent {
     this.errorMessage.set(null);
 
     const mustChangePassword = user.mustChangePassword === true;
-    this.authService.changePassword(currentPwd, newPwd).subscribe({
+    this.authService.changePassword(currentPwd, newPwd).pipe(
+      switchMap(() => mustChangePassword ? this.stateService.loadSharedData(true) : of(true))
+    ).subscribe({
       next: () => {
       this.isSubmitting.set(false);
         this.successMessage.set('Contraseña actualizada exitosamente. Tu nueva clave está activa.');
@@ -305,7 +308,9 @@ export class ChangePasswordModalComponent {
       },
       error: () => {
         this.isSubmitting.set(false);
-        this.errorMessage.set('No fue posible cambiar la contraseña. Verifica la clave actual e inténtalo nuevamente.');
+        this.errorMessage.set(mustChangePassword
+          ? 'La contraseña se actualizó, pero no fue posible cargar los datos iniciales. Recarga la aplicación para intentarlo nuevamente.'
+          : 'No fue posible cambiar la contraseña. Verifica la clave actual e inténtalo nuevamente.');
       }
     });
   }

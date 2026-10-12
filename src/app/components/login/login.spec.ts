@@ -4,9 +4,11 @@ import { signal } from '@angular/core';
 import { of } from 'rxjs';
 import LoginComponent from './login';
 import { AuthService } from '../../services/auth.service';
+import { ErpStateService } from '../../services/erp-state.service';
 
 describe('LoginComponent destination', () => {
   let navigate: ReturnType<typeof vi.fn>;
+  let loadSharedData: ReturnType<typeof vi.fn>;
   let authService: {
     login: ReturnType<typeof vi.fn>;
     isSuperAdmin: ReturnType<typeof signal<boolean>>;
@@ -17,6 +19,7 @@ describe('LoginComponent destination', () => {
 
   beforeEach(async () => {
     navigate = vi.fn().mockResolvedValue(true);
+    loadSharedData = vi.fn().mockReturnValue(of(true));
     authService = {
       login: vi.fn().mockReturnValue(of(true)),
       isSuperAdmin: signal(false),
@@ -29,6 +32,7 @@ describe('LoginComponent destination', () => {
       imports: [LoginComponent],
       providers: [
         { provide: AuthService, useValue: authService },
+        { provide: ErpStateService, useValue: { loadSharedData } },
         { provide: Router, useValue: { navigate } },
         provideRouter([])
       ]
@@ -48,6 +52,7 @@ describe('LoginComponent destination', () => {
   it('keeps company users on the operational dashboard', () => {
     submit();
 
+    expect(loadSharedData).toHaveBeenCalledWith(true);
     expect(navigate).toHaveBeenCalledWith(['/app/dashboard']);
   });
 
@@ -62,6 +67,7 @@ describe('LoginComponent destination', () => {
     authService.currentUser.set({ mustChangePassword: true });
     submit();
 
+    expect(loadSharedData).not.toHaveBeenCalled();
     expect(navigate).toHaveBeenCalledWith(['/app/change-password']);
   });
 });

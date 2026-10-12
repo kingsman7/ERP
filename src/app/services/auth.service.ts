@@ -278,21 +278,26 @@ export class AuthService {
       withCredentials: true
     }).subscribe(
       {
-        next: ({success}) => {
-          if(success) {
-            this.tokenSignal.set('');
-            this.isAuthenticatedSignal.set(false);
-            this.clearPersistedSession();
-            this.currentUserSignal.set(null as unknown as User);
-            this.sessionExpired.set(false);
-            this.router.navigate(['/login']);
-          }
-        },
+        next: () => this.completeLogout(),
         error: (err) => {
-          console.error('Error during logout:', err);
+          if (!(err instanceof HttpErrorResponse && err.status === 401)) {
+            console.error('Error during logout:', err);
+          }
+          this.completeLogout();
         }
       }
     );
+  }
+
+  private completeLogout(): void {
+    this.tokenSignal.set('');
+    this.isAuthenticatedSignal.set(false);
+    this.clearPersistedSession();
+    this.currentUserSignal.set(UNAUTHENTICATED_USER);
+    this.sessionExpired.set(false);
+    this.showChangePasswordModal.set(false);
+    this.targetUserForPasswordChange.set(null);
+    void this.router.navigate(['/']);
   }
 
   setAuthenticated(authenticated: boolean): void {

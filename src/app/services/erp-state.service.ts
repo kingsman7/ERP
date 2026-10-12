@@ -1,5 +1,5 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
-import { catchError, defer, finalize, firstValueFrom, forkJoin, map, Observable, of, switchMap, tap } from 'rxjs';
+import { catchError, defer, finalize, firstValueFrom, forkJoin, map, Observable, of, shareReplay, switchMap, tap } from 'rxjs';
 import {
   Product,
   ProductCategory,
@@ -66,6 +66,8 @@ const STORAGE_KEY = 'nexus_erp_state_v1';
 export class ErpStateService {
   private authService = inject(AuthService);
   private apiService = inject(ApiService);
+  private sharedDataLoaded = false;
+  private sharedDataLoad$: Observable<boolean> | null = null;
 
   readonly products = signal<Product[]>([]);
   readonly inventoryLoading = signal(false);
@@ -114,18 +116,75 @@ export class ErpStateService {
         warehouses: this.apiService.getWarehouses()
       });
     }).pipe(
-      tap(({ products, categories, warehouses }) => {
-        this.products.set(products.map(product => ({
-          ...product,
-          categories: product.categories?.length ? product.categories : [product.category].filter(Boolean),
-          primaryWarehouseId: product.primaryWarehouseId || product.stockByWarehouse?.[0]?.warehouseId || this.warehouses()[0]?.id
-        })));
-        this.categories.set(categories);
-        this.warehouses.set(warehouses);
-      }),
+      tap(({ products, categories, warehouses }) => this.setInventoryData(products, categories, warehouses)),
       map(() => true),
       finalize(() => this.inventoryLoading.set(false))
     );
+  }
+
+  loadSharedData(force = false): Observable<boolean> {
+    if (this.sharedDataLoad$) return this.sharedDataLoad$;
+    if (this.sharedDataLoaded && !force) return of(true);
+
+    this.sharedDataLoad$ = forkJoin({
+      products: this.apiService.getProducts(),
+      categories: this.apiService.getCategories(),
+      warehouses: this.apiService.getWarehouses(),
+      suppliers: this.apiService.getSuppliers(),
+      customers: this.apiService.getCustomers(),
+      purchaseOrders: this.apiService.getPurchaseOrders(),
+      invoices: this.apiService.getInvoices(),
+      companyProfile: this.apiService.getCompanyProfile(),
+      cashSessions: this.apiService.getCashSessions(),
+      accounts: this.apiService.getAccounts()
+    }).pipe(
+      tap(({ products, categories, warehouses, suppliers, customers, purchaseOrders, invoices, companyProfile, cashSessions, accounts }) => {
+        this.setInventoryData(products, categories, warehouses);
+        this.suppliers.set(suppliers);
+        this.customers.set(customers);
+        this.purchaseOrders.set(purchaseOrders);
+        this.invoices.set(invoices);
+        this.companyProfile.update(current => ({ ...current, ...companyProfile }));
+        this.setCashSessions(cashSessions);
+        this.accounts.set(accounts);
+        this.sharedDataLoaded = true;
+      }),
+      map(() => true),
+      finalize(() => this.sharedDataLoad$ = null),
+      shareReplay({ bufferSize: 1, refCount: false })
+    );
+    return this.sharedDataLoad$;
+  }
+
+  private setInventoryData(products: Product[], categories: ProductCategory[], warehouses: Warehouse[]): void {
+    this.products.set(products.map(product => ({
+      ...product,
+      categories: product.categories?.length ? product.categories : [product.category].filter(Boolean),
+      primaryWarehouseId: product.primaryWarehouseId || product.stockByWarehouse?.[0]?.warehouseId || warehouses[0]?.id
+    })));
+    this.categories.set(categories);
+    this.warehouses.set(warehouses);
+  }
+
+  private setCashSessions(sessions: CashRegisterSession[]): void {
+    this.cashSessionHistory.set(sessions.filter(session => session.status !== 'ABIERTA'));
+    const active = sessions.find(session => session.status === 'ABIERTA');
+    if (active) this.activeCashSession.set(active);
+    else this.activeCashSession.update(session => ({
+      ...session,
+      id: '',
+      sessionCode: '',
+      cashierId: '',
+      cashierName: '',
+      openDate: '',
+      status: 'CERRADA',
+      initialAmount: 0,
+      totalCashSales: 0,
+      totalCardSales: 0,
+      totalTransferSales: 0,
+      totalCreditSales: 0,
+      totalSales: 0
+    }));
   }
 
   loadBcvCurrency(): Observable<boolean> {
@@ -148,32 +207,20 @@ export class ErpStateService {
 
   loadRouteData(route: string): Observable<boolean> {
     const loaders: Record<string, () => Observable<boolean>> = {
-      dashboard: () => this.loadDashboard(),
+      dashboard: () => of(true),
       kardex: () => this.loadKardex(),
-      purchases: () => this.loadPurchases(),
-      'sales-pos': () => this.loadSales(),
+      purchases: () => of(true),
+      'sales-pos': () => of(true),
       quotes: () => this.loadQuotes(),
       logistics: () => this.loadLogistics(),
       mrp: () => this.loadMrp(),
       crm: () => this.loadCrm(),
       accounting: () => this.loadAccounting(),
       treasury: () => this.loadTreasury(),
-      'cash-closing': () => this.loadCashSessions(),
+      'cash-closing': () => of(true),
       'audit-log': () => this.loadAudit(),
     };
     return loaders[route]?.() ?? of(true);
-  }
-
-  private loadDashboard(): Observable<boolean> {
-    return forkJoin({
-      invoices: this.apiService.getInvoices(),
-      companyProfile: this.apiService.getCompanyProfile()
-    }).pipe(
-      tap(({ invoices, companyProfile }) => {
-        this.invoices.set(invoices);
-        this.companyProfile.update(current => ({ ...current, ...companyProfile }));
-      }), map(() => true)
-    );
   }
 
   private loadKardex(): Observable<boolean> {
@@ -182,64 +229,17 @@ export class ErpStateService {
     );
   }
 
-  private loadPurchases(): Observable<boolean> {
-    return forkJoin({ 
-      suppliers: this.apiService.getSuppliers(), 
-      orders: this.apiService.getPurchaseOrders(),
-      warehouses: this.apiService.getWarehouses(),
-      products: this.apiService.getProducts(),
-      categories: this.apiService.getCategories(),
-    }).pipe(
-      tap(({ suppliers, orders, warehouses, products, categories }) => { 
-        this.suppliers.set(suppliers); 
-        this.purchaseOrders.set(orders); 
-        this.warehouses.set(warehouses);
-        this.products.set(products);
-        this.categories.set(categories);
-      }), map(() => true)
-    );
-  }
-
-  private loadSales(): Observable<boolean> {
-    return forkJoin({ 
-      invoices: this.apiService.getInvoices(), 
-      customers: this.apiService.getCustomers(), 
-      products: this.apiService.getProducts(), 
-      warehouses: this.apiService.getWarehouses(), 
-      companyProfile: this.apiService.getCompanyProfile(),
-      sessions: this.apiService.getCashSessions()
-     }).pipe(
-      tap(({ 
-        invoices, 
-        customers, 
-        products, 
-        warehouses, 
-        companyProfile,
-        sessions,
-
-       }) => { 
-        this.invoices.set(invoices); 
-        this.customers.set(customers); 
-        this.products.set(products); 
-        this.warehouses.set(warehouses); 
-        this.companyProfile.update(current => ({ ...current, ...companyProfile })); 
-        this.cashSessionHistory.set(sessions.filter(session => session.status !== 'ABIERTA'));
-        const active = sessions.find(session => session.status === 'ABIERTA');
-        if (active) this.activeCashSession.set(active);
-      }), map(() => true)
-    );
-  }
-
   private loadQuotes(): Observable<boolean> {
-    return forkJoin({ quotes: this.apiService.getQuotes(), customers: this.apiService.getCustomers(), 
-      products: this.apiService.getProducts(), warehouses: this.apiService.getWarehouses() }).pipe(
-      tap(({ quotes, customers, products, warehouses }) => { this.quotes.set(quotes); this.customers.set(customers); this.products.set(products); this.warehouses.set(warehouses); }), map(() => true)
+    return this.apiService.getQuotes().pipe(
+      tap(quotes => this.quotes.set(quotes)),
+      map(() => true)
     );
   }
 
   private loadLogistics(): Observable<boolean> {
-    return forkJoin({ dispatches: this.apiService.getDispatchGuides(), deliveries: this.apiService.getDeliveryOrders(), customers: this.apiService.getCustomers(), companyProfile: this.apiService.getCompanyProfile(), invoices: this.apiService.getInvoices(), }).pipe(
-      tap(({ dispatches, deliveries, customers, companyProfile, invoices }) => { this.dispatchGuides.set(dispatches); this.deliveryOrders.set(deliveries); this.customers.set(customers); this.companyProfile.update(current => ({ ...current, ...companyProfile })); this.invoices.set(invoices); }), map(() => true)
+    return forkJoin({ dispatches: this.apiService.getDispatchGuides(), deliveries: this.apiService.getDeliveryOrders() }).pipe(
+      tap(({ dispatches, deliveries }) => { this.dispatchGuides.set(dispatches); this.deliveryOrders.set(deliveries); }),
+      map(() => true)
     );
   }
 
@@ -254,8 +254,9 @@ export class ErpStateService {
   }
 
   private loadAccounting(): Observable<boolean> {
-    return forkJoin({ accounts: this.apiService.getAccounts(), entries: this.apiService.getJournalEntries() }).pipe(
-      tap(({ accounts, entries }) => { this.accounts.set(accounts); this.journalEntries.set(entries); }), map(() => true)
+    return this.apiService.getJournalEntries().pipe(
+      tap(entries => this.journalEntries.set(entries)),
+      map(() => true)
     );
   }
 
@@ -265,24 +266,16 @@ export class ErpStateService {
       transactions: this.apiService.getTreasuryTransactions(),
       cashOuts: this.apiService.getTreasuryCashOuts(),
       bills: this.apiService.getPayableBills(),
-      invoices: this.apiService.getInvoices(),
       customerReceipts: this.apiService.getCustomerReceipts(),
       supplierReceipts: this.apiService.getSupplierReceipts(),
-      suppliers: this.apiService.getSuppliers(),
-      purchaseOrders: this.apiService.getPurchaseOrders(),
-      accounts: this.apiService.getAccounts(),
     }).pipe(
-      tap(({ banks, transactions, cashOuts, bills, invoices, customerReceipts, supplierReceipts, suppliers, purchaseOrders, accounts }) => {
+      tap(({ banks, transactions, cashOuts, bills, customerReceipts, supplierReceipts }) => {
         this.bankAccounts.set(banks);
         this.treasuryTransactions.set(transactions);
         this.treasuryCashOuts.set(cashOuts);
         this.payableBills.set(bills);
-        this.invoices.set(invoices);
         this.customerPaymentReceipts.set(customerReceipts);
         this.supplierPaymentReceipts.set(supplierReceipts);
-        this.suppliers.set(suppliers);
-        this.purchaseOrders.set(purchaseOrders);
-        this.accounts.set(accounts);
       }),
       map(() => true)
     );
@@ -294,19 +287,6 @@ export class ErpStateService {
       users: this.authService.loadUsersFromBackend()
     }).pipe(
       tap(({ logs }) => { this.auditLogs.set(logs) }),
-      map(() => true)
-    );
-  }
-
-  private loadCashSessions(): Observable<boolean> {
-    return forkJoin({ sessions: this.apiService.getCashSessions(), warehouses: this.apiService.getWarehouses(), companyProfile: this.apiService.getCompanyProfile() }).pipe(
-      tap(({ sessions, warehouses, companyProfile }) => {
-        this.cashSessionHistory.set(sessions.filter(session => session.status !== 'ABIERTA'));
-        const active = sessions.find(session => session.status === 'ABIERTA');
-        if (active) this.activeCashSession.set(active);
-        this.warehouses.set(warehouses);
-        this.companyProfile.update(current => ({ ...current, ...companyProfile }));
-      }),
       map(() => true)
     );
   }

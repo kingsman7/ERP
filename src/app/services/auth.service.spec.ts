@@ -1,6 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { Router } from '@angular/router';
 import { AuthService } from './auth.service';
 
 const SESSION_KEY = '4inline_erp_session_v1';
@@ -19,12 +20,15 @@ function tokenWithExpiration(expiration: number): string {
 
 describe('AuthService session restoration', () => {
   let http: HttpTestingController;
+  let navigate: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     localStorage.clear();
+    navigate = vi.fn().mockResolvedValue(true);
     TestBed.configureTestingModule({
       providers: [
         AuthService,
+        { provide: Router, useValue: { navigate } },
         provideHttpClient(),
         provideHttpClientTesting()
       ]
@@ -118,6 +122,45 @@ describe('AuthService session restoration', () => {
     expect(service.authInitialized()).toBeTruthy();
     expect(service.isAuthenticated()).toBeFalsy();
     expect(localStorage.getItem(SESSION_KEY)).toBeNull();
+  });
+
+  it('clears the local session and redirects after a successful logout', () => {
+    const service = TestBed.inject(AuthService);
+    service.login('user@example.com', 'password123').subscribe();
+    http.expectOne('/api/auth/login').flush({
+      accessToken: tokenWithExpiration(Math.floor(Date.now() / 1000) + 3600),
+      user: TEST_USER
+    });
+
+    service.logout();
+    const request = http.expectOne('/api/auth/logout');
+    expect(request.request.withCredentials).toBe(true);
+    request.flush({ success: true });
+
+    expect(service.isAuthenticated()).toBe(false);
+    expect(service.token()).toBe('');
+    expect(localStorage.getItem(SESSION_KEY)).toBeNull();
+    expect(navigate).toHaveBeenCalledWith(['/']);
+  });
+
+  it('clears the local session and redirects when logout returns unauthorized', () => {
+    const service = TestBed.inject(AuthService);
+    service.login('user@example.com', 'password123').subscribe();
+    http.expectOne('/api/auth/login').flush({
+      accessToken: tokenWithExpiration(Math.floor(Date.now() / 1000) + 3600),
+      user: TEST_USER
+    });
+
+    service.logout();
+    http.expectOne('/api/auth/logout').flush(
+      { message: 'Unauthorized' },
+      { status: 401, statusText: 'Unauthorized' }
+    );
+
+    expect(service.isAuthenticated()).toBe(false);
+    expect(service.token()).toBe('');
+    expect(localStorage.getItem(SESSION_KEY)).toBeNull();
+    expect(navigate).toHaveBeenCalledWith(['/']);
   });
 
   it('does not grant super-admin access to an authenticated auditor', () => {

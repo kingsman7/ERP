@@ -84,18 +84,42 @@ describe('ErpStateService', () => {
     expect(service.products()).toMatchObject([{ id: 'product-1', categories: ['Insumos'], primaryWarehouseId: 'warehouse-1' }]);
   });
 
-  it('loads purchase orders, suppliers, products and warehouses together', () => {
-    let completed = false;
-    service.loadRouteData('purchases').subscribe(() => completed = true);
+  it('loads shared data once for use across ERP routes', () => {
+    service.loadSharedData().subscribe();
 
-    http.expectOne('/api/suppliers').flush([{ id: 'supplier-1', name: 'Proveedor de prueba' }]);
-    http.expectOne('/api/purchase-orders').flush([{ id: 'po-1', orderNumber: 'PO-001' }]);
+    http.expectOne('/api/products').flush([{
+      id: 'product-1',
+      sku: 'SKU-001',
+      name: 'Producto de prueba',
+      category: 'Insumos',
+      stocks: [{ warehouseId: 'warehouse-1', quantity: 8, warehouse: { name: 'Principal' } }],
+    }]);
+    http.expectOne('/api/categories').flush([{ id: 'category-1', code: 'INS', name: 'Insumos' }]);
     http.expectOne('/api/warehouses').flush([{ id: 'warehouse-1', code: 'MAIN', name: 'Principal' }]);
-    http.expectOne('/api/products').flush([{ id: 'product-1', sku: 'SKU-001', name: 'Producto de prueba' }]);
+    http.expectOne('/api/suppliers').flush([{ id: 'supplier-1', name: 'Proveedor de prueba' }]);
+    http.expectOne('/api/customers').flush([{ id: 'customer-1', name: 'Cliente de prueba' }]);
+    http.expectOne('/api/purchase-orders').flush([{ id: 'po-1', orderNumber: 'PO-001' }]);
+    http.expectOne('/api/invoices').flush([{ id: 'invoice-1', invoiceNumber: 'FAC-001', total: 125 }]);
+    http.expectOne('/api/fiscal/company-profile').flush({ legalName: 'Empresa de prueba', taxId: 'J-123' });
+    http.expectOne('/api/cash-sessions').flush([
+      { id: 'session-open', sessionCode: 'OPEN-001', status: 'ABIERTA' },
+      { id: 'session-closed', sessionCode: 'CLOSED-001', status: 'CERRADA' },
+    ]);
+    http.expectOne('/api/accounting/accounts').flush([{ id: 'account-1', name: 'Caja' }]);
 
-    expect(completed).toBe(true);
     expect(service.purchaseOrders()).toMatchObject([{ id: 'po-1', orderNumber: 'PO-001' }]);
     expect(service.suppliers()).toMatchObject([{ id: 'supplier-1', name: 'Proveedor de prueba' }]);
+    expect(service.products()).toMatchObject([{ id: 'product-1', primaryWarehouseId: 'warehouse-1' }]);
+    expect(service.invoices()).toMatchObject([{ id: 'invoice-1', invoiceNumber: 'FAC-001', total: 125 }]);
+    expect(service.customers()).toMatchObject([{ id: 'customer-1', name: 'Cliente de prueba' }]);
+    expect(service.companyProfile()).toMatchObject({ legalName: 'Empresa de prueba', taxId: 'J-123' });
+    expect(service.accounts()).toMatchObject([{ id: 'account-1', name: 'Caja' }]);
+    expect(service.activeCashSession()).toMatchObject({ id: 'session-open', status: 'ABIERTA' });
+    expect(service.cashSessionHistory()).toMatchObject([{ id: 'session-closed', status: 'CERRADA' }]);
+
+    service.loadSharedData().subscribe();
+    http.expectNone('/api/products');
+    http.expectNone('/api/fiscal/company-profile');
   });
 
   it('loads Kardex movements for purchase, POS and shrinkage traceability', () => {
@@ -116,16 +140,6 @@ describe('ErpStateService', () => {
       movementType: 'AJUSTE_MERMA',
       exitQty: 2,
     }]);
-  });
-
-  it('loads invoices and customers for the POS flow', () => {
-    service.loadRouteData('sales-pos').subscribe();
-
-    http.expectOne('/api/invoices').flush([{ id: 'invoice-1', invoiceNumber: 'FAC-001', total: 125 }]);
-    http.expectOne('/api/customers').flush([{ id: 'customer-1', name: 'Cliente de prueba' }]);
-
-    expect(service.invoices()).toMatchObject([{ id: 'invoice-1', invoiceNumber: 'FAC-001', total: 125 }]);
-    expect(service.customers()).toMatchObject([{ id: 'customer-1', name: 'Cliente de prueba' }]);
   });
 
   it('shows the POS down payment against the credit balance in CxC', () => {
@@ -184,18 +198,6 @@ describe('ErpStateService', () => {
     expect(service.bankAccounts()).toMatchObject([{ id: 'bank-1', accountName: 'Banco principal' }]);
     expect(service.treasuryTransactions()).toMatchObject([{ id: 'transaction-1', amount: 250 }]);
     expect(service.payableBills()).toMatchObject([{ id: 'bill-1', billNumber: 'CXP-001', balance: 75 }]);
-  });
-
-  it('separates closed cash sessions from the active POS session', () => {
-    service.loadRouteData('cash-closing').subscribe();
-
-    http.expectOne('/api/cash-sessions').flush([
-      { id: 'session-open', sessionCode: 'OPEN-001', status: 'ABIERTA' },
-      { id: 'session-closed', sessionCode: 'CLOSED-001', status: 'CERRADA' },
-    ]);
-
-    expect(service.activeCashSession()).toMatchObject({ id: 'session-open', status: 'ABIERTA' });
-    expect(service.cashSessionHistory()).toMatchObject([{ id: 'session-closed', status: 'CERRADA' }]);
   });
 
   it('loads audit records and keeps company management available in the base plan', () => {

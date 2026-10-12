@@ -5,5 +5,5 @@ import { ErpStateService } from '../services/erp-state.service';
 export const inventoryResolver: ResolveFn<boolean> = () => {
   const stateService = inject(ErpStateService);
 
-  return stateService.loadInventory();
+  return stateService.loadSharedData();
 };
