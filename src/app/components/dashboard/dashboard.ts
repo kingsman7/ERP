@@ -348,7 +348,7 @@ import { DecimalPipe } from '@angular/common';
               class="bg-gradient-to-br from-emerald-500/5 to-emerald-500/15 p-4 rounded-2xl border border-emerald-200/80 shadow-xs hover:shadow-md cursor-pointer transition-all flex items-center justify-between group text-left">
               <div>
                 <span class="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">Contabilidad NIIF</span>
-                <h4 class="text-base sm:text-lg font-bold text-slate-800 mt-0.5">\${{ stateService.totalAccountingAssets() | number: '1.2-2' }} Activos</h4>
+                <h4 class="text-base sm:text-lg font-bold text-slate-800 mt-0.5">\${{ stateService.totalAccountingAssets()  }} Activos</h4>
                 <p class="text-[11px] text-slate-500 mt-0.5">Partida Doble & P&L Automático</p>
               </div>
               <div class="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform shrink-0">

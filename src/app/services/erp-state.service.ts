@@ -1,5 +1,5 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
-import { catchError, defer, finalize, firstValueFrom, forkJoin, map, Observable, of, shareReplay, switchMap, tap } from 'rxjs';
+import { catchError, defer, finalize, firstValueFrom, forkJoin, map, Observable, of, shareReplay, switchMap, tap, throwError } from 'rxjs';
 import {
   Product,
   ProductCategory,
@@ -22,6 +22,8 @@ import {
   Invoice,
   InvoiceItem,
   Quote,
+  QuoteCompanySnapshot,
+  QuoteCustomerSnapshot,
   CashRegisterSession,
   AuditLog,
   PaymentRecord,
@@ -5187,31 +5189,85 @@ export class ErpStateService {
   }
 
   // Update Quote Status Helper (BORRADOR, ENVIADO, APROBADO, RECHAZADO)
-  updateQuoteStatus(quoteId: string, newStatus: Quote['status'], notes?: string): { success: boolean; message?: string } {
+  updateQuoteStatus(quoteId: string, newStatus: Quote['status'], notes?: string): Observable<Quote> {
     const q = this.quotes().find(item => item.id === quoteId);
-    if (!q) return { success: false, message: 'Presupuesto no encontrado.' };
+    if (!q) return throwError(() => new Error('Presupuesto no encontrado.'));
 
-    if (q.status === 'CONVERTIDO_A_FACTURA') {
-      return { success: false, message: 'No se puede modificar el estado de un presupuesto que ya fue facturado.' };
+    if (q.status === 'CONVERTIDO_A_FACTURA' && newStatus !== q.status) {
+      return throwError(() => new Error('No se puede modificar el estado de un presupuesto que ya fue facturado.'));
     }
 
-    const previousStatus = q.status;
-    this.quotes.update(qs =>
-      qs.map(item => item.id === quoteId ? { ...item, status: newStatus } : item)
-    );
+    const customer = this.customers().find(item => item.id === q.customerId)
+      ?? this.customers().find(item => item.taxId.trim().toLowerCase() === q.customerTaxId.trim().toLowerCase());
+    const company = this.companyProfile();
+    const shouldSnapshot = !q.customerSnapshot || !q.companySnapshot;
+    if (q.status === newStatus && !shouldSnapshot) return of(q);
 
-    this.logAudit(
-      'UPDATE_QUOTE_STATUS',
-      'SALES',
-      `Cambio de Estado Presupuesto ${q.quoteNumber}: ${newStatus}`,
-      `Estado actualizado de ${previousStatus} a ${newStatus}.${notes ? ' Nota: ' + notes : ''}`,
-      { statusAnterior: previousStatus },
-      { statusNuevo: newStatus, motivo: notes || null }
-    );
+    const customerSnapshot: QuoteCustomerSnapshot = q.customerSnapshot ?? (customer ? {
+      name: customer.name || q.customerName || 'Cliente',
+      taxId: customer.taxId || q.customerTaxId || '',
+      email: customer.email ?? '',
+      phone: customer.phone ?? '',
+      address: customer.address ?? ''
+    } : {
+      name: q.customerName || 'Cliente',
+      taxId: q.customerTaxId || '',
+      email: '',
+      phone: '',
+      address: ''
+    });
+    const companySnapshot: QuoteCompanySnapshot = q.companySnapshot ?? {
+      legalName: company.legalName,
+      tradeName: company.tradeName,
+      taxId: company.taxId,
+      address: company.address,
+      phone: company.phone,
+      email: company.email,
+      defaultIvaRate: company.defaultIvaRate,
+      isSpecialTaxpayer: company.isSpecialTaxpayer,
+      specialTaxpayerDesignationNumber: company.specialTaxpayerDesignationNumber ?? '',
+      igtfRate: company.igtfRate
+    };
+    const payload: Partial<Quote> = {
+      status: newStatus,
+      ...(shouldSnapshot ? {
+        customerSnapshot,
+        companySnapshot,
+        snapshotAt: q.snapshotAt || new Date().toISOString()
+      } : {})
+    };
 
-    this.notify('info', 'Estado Actualizado', `Presupuesto ${q.quoteNumber} marcado como "${newStatus.replace(/_/g, ' ')}".`);
-    this.saveState();
-    return { success: true };
+    return this.apiService.updateQuote(q.id, payload).pipe(
+      tap({
+        next: saved => {
+          const updated = { ...q, ...saved, ...payload };
+          this.quotes.update(quotes => quotes.map(item => item.id === q.id ? updated : item));
+          const statusChanged = q.status !== newStatus;
+          this.logAudit(
+            'UPDATE_QUOTE_STATUS',
+            'SALES',
+            statusChanged
+              ? `Cambio de Estado Presupuesto ${q.quoteNumber}: ${newStatus}`
+              : `Copia histórica del Presupuesto ${q.quoteNumber}`,
+            statusChanged
+              ? `Estado actualizado de ${q.status} a ${newStatus}.${notes ? ' Nota: ' + notes : ''}`
+              : `Copia histórica de cliente y emisor guardada.${notes ? ' Canal: ' + notes : ''}`,
+            { statusAnterior: q.status },
+            { statusNuevo: newStatus, motivo: notes || null, snapshotAt: updated.snapshotAt ?? null }
+          );
+          if (statusChanged) {
+            this.notify('info', 'Estado Actualizado', `Presupuesto ${q.quoteNumber} marcado como "${newStatus.replace(/_/g, ' ')}".`);
+          } else if (shouldSnapshot) {
+            this.notify('success', 'Copia Histórica Guardada', `Se guardaron los datos del documento ${q.quoteNumber}.`);
+          }
+          this.saveState();
+        },
+        error: error => {
+          this.notify('error', 'No se pudo actualizar el presupuesto', 'No se guardaron el estado ni la copia histórica del documento.');
+          console.error('Error updating quote status:', error);
+        }
+      })
+    );
   }
 
   // ============================================================================

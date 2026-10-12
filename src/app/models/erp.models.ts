@@ -418,6 +418,9 @@ export interface Quote {
   validUntil?: string;
   customerName: string;
   customerTaxId: string;
+  customerSnapshot?: QuoteCustomerSnapshot | null;
+  companySnapshot?: QuoteCompanySnapshot | null;
+  snapshotAt?: string | null;
   date: string;
   status: 'BORRADOR' | 'ENVIADO' | 'APROBADO' | 'CONVERTIDO_A_FACTURA' | 'ENVIADO_A_DESPACHO' | 'DESPACHADO' | 'RECHAZADO';
   items: InvoiceItem[];
@@ -437,6 +440,27 @@ export interface Quote {
   createdBy: string;
   sellerName: string;
   convertedInvoiceId?: string;
+}
+
+export interface QuoteCustomerSnapshot {
+  name: string;
+  taxId: string;
+  email: string;
+  phone: string;
+  address: string;
+}
+
+export interface QuoteCompanySnapshot {
+  legalName: string;
+  tradeName: string;
+  taxId: string;
+  address: string;
+  phone: string;
+  email: string;
+  defaultIvaRate: number;
+  isSpecialTaxpayer: boolean;
+  specialTaxpayerDesignationNumber: string;
+  igtfRate: number;
 }
 
 // ============================================================================
@@ -1176,4 +1200,3 @@ export interface PayableBill {
   payments: SupplierPaymentReceipt[];
   createdAt: string;
 }
-

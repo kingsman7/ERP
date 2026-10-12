@@ -3,28 +3,29 @@ import { MatIconModule } from '@angular/material/icon';
 import { Quote } from '../../models/erp.models';
 import { ErpStateService } from '../../services/erp-state.service';
 import { DecimalPipe, DatePipe } from '@angular/common';
+import { findQuoteCustomer, quoteCompanyDetails, quoteCustomerDetails } from './quote-document';
 
 @Component({
   selector: 'app-quote-print-modal',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [MatIconModule, DecimalPipe, DatePipe],
   template: `
-    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-      <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-3 backdrop-blur-sm sm:p-5">
+      <section role="dialog" aria-modal="true" aria-labelledby="quote-print-title" class="flex max-h-[94dvh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl animate-in fade-in zoom-in-95 duration-150">
         
         <!-- Header -->
-        <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between no-print">
+        <div class="flex items-center justify-between gap-3 bg-slate-900 px-4 py-4 text-white no-print sm:px-6">
           <div class="flex items-center space-x-2.5">
             <div class="p-2 rounded-xl bg-violet-600/30 text-violet-300 border border-violet-400/30 flex items-center justify-center">
               <mat-icon>print</mat-icon>
             </div>
             <div>
-              <h3 class="font-bold text-sm sm:text-base tracking-tight flex items-center space-x-2">
+              <h2 id="quote-print-title" class="flex items-center space-x-2 text-sm font-bold tracking-tight sm:text-base">
                 <span>Documento Comercial Proforma</span>
                 <span class="px-2 py-0.5 bg-violet-500/30 rounded-lg font-mono text-xs border border-violet-300/30">
                   {{ quote().quoteNumber }}
                 </span>
-              </h3>
+              </h2>
               <p class="text-[11px] text-slate-300">
                 Presupuesto listo para impresión oficial, descarga en PDF o envío al cliente
               </p>
@@ -33,34 +34,39 @@ import { DecimalPipe, DatePipe } from '@angular/common';
 
           <div class="flex items-center space-x-2">
             <button 
+              type="button"
               (click)="printDoc()" 
-              class="px-3.5 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-xs font-semibold flex items-center space-x-1 shadow-xs transition-colors cursor-pointer">
-              <mat-icon class="text-sm">print</mat-icon>
-              <span>Imprimir / Guardar PDF</span>
+              class="inline-flex min-h-10 items-center gap-1 rounded-xl bg-violet-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">
+              <mat-icon aria-hidden="true" class="text-sm">print</mat-icon>
+              <span class="hidden sm:inline">Imprimir / Guardar PDF</span>
             </button>
             <button 
+              type="button"
               (click)="closeModal.emit()" 
-              class="p-1 rounded-lg text-slate-400 hover:text-white transition-colors cursor-pointer">
-              <mat-icon>close</mat-icon>
+              aria-label="Cerrar vista de impresión"
+              class="flex h-10 w-10 items-center justify-center rounded-lg text-slate-300 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">
+              <mat-icon aria-hidden="true">close</mat-icon>
             </button>
           </div>
         </div>
 
         <!-- Printable Document Area -->
-        <div id="printable-quote-document" class="p-8 overflow-y-auto space-y-6 text-xs text-slate-800 bg-white print-document">
+        <div id="printable-quote-document" class="space-y-5 overflow-y-auto bg-white p-4 text-xs text-slate-800 print-document sm:space-y-6 sm:p-8">
           
           <!-- Company & Document Title Header -->
           <div class="flex flex-col sm:flex-row justify-between items-start gap-4 pb-6 border-b border-slate-200">
             <div class="space-y-1">
               <div class="flex items-center space-x-2">
                 <!-- <span class="p-1.5 bg-violet-600 text-white rounded-lg font-black text-sm">ERP</span> -->
-                <h2 class="text-lg font-black text-slate-900 tracking-tight">{{ company().legalName }}</h2>
+                <h2 class="text-lg font-black text-slate-900 tracking-tight">{{ issuer().legalName }}</h2>
               </div>
-              <p class="text-slate-500 font-mono text-xs font-semibold">RIF: {{ company().taxId }}</p>
-              <p class="text-slate-600 max-w-sm">{{ company().address }}</p>
-              <p class="text-slate-500">{{ company().phone }} | {{ company().email }}</p>
+              <p class="text-slate-500 font-mono text-xs font-semibold">RIF: {{ issuer().taxId }}</p>
+              <p class="text-slate-600 max-w-sm">{{ issuer().address }}</p>
+              @if (issuer().phone || issuer().email) {
+                <p class="text-slate-500">{{ issuer().phone }}{{ issuer().phone && issuer().email ? ' | ' : '' }}{{ issuer().email }}</p>
+              }
               <p class="text-[11px] text-violet-700 font-medium font-mono">
-                {{ company().isSpecialTaxpayer ? 'Contribuyente Especial' : 'Contribuyente Ordinario' }}
+                {{ issuer().isSpecialTaxpayer ? 'Contribuyente Especial' : 'Contribuyente Ordinario' }}
               </p>
             </div>
 
@@ -68,7 +74,7 @@ import { DecimalPipe, DatePipe } from '@angular/common';
               <span class="text-[10px] font-bold text-violet-700 uppercase tracking-widest block">Presupuesto / Cotización</span>
               <p class="font-mono text-xl font-black text-slate-900">{{ quote().quoteNumber }}</p>
               <div class="text-[11px] text-slate-500 space-y-0.5 pt-1">
-                <div>Fecha Emisión: <strong class="text-slate-800">{{ quote().issueDate | date: 'dd-M-yyyy' }}</strong></div>
+                <div>Fecha Emisión: <strong class="text-slate-800">{{ (quote().issueDate || quote().date) | date: 'dd-M-yyyy' }}</strong></div>
                 <div>Válido Hasta: <strong class="text-slate-800">{{ quote().validUntil | date: 'dd-M-yyyy' }}</strong></div>
                 <div>Estado: <strong class="uppercase text-violet-700">{{ quote().status.replace(/_/g, ' ') }}</strong></div>
               </div>
@@ -79,12 +85,10 @@ import { DecimalPipe, DatePipe } from '@angular/common';
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-200">
             <div class="space-y-1">
               <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Datos del Cliente / Receptor</span>
-              @if (customer(); as cust) {
-              @if (cust.name) { <p class="font-bold text-slate-900 text-sm">{{ cust.name }}</p> }
-              @if (cust.taxId) { <p class="font-mono text-slate-700 font-semibold">RIF/CI: {{ cust.taxId }}</p> }
-                @if (cust.address) { <p class="text-slate-600">{{ cust.address }}</p> }
-                @if (cust.phone || cust.email) { <p class="text-slate-500">{{ cust.phone }} {{ cust.email ? '• ' + cust.email : '' }}</p> }
-              }
+              <p class="font-bold text-slate-900 text-sm">{{ customer().name }}</p>
+              @if (customer().taxId) { <p class="font-mono text-slate-700 font-semibold">RIF/CI: {{ customer().taxId }}</p> }
+              @if (customer().address) { <p class="text-slate-600">{{ customer().address }}</p> }
+              @if (customer().phone || customer().email) { <p class="text-slate-500">{{ customer().phone }} {{ customer().email ? '• ' + customer().email : '' }}</p> }
             </div>
 
             <div class="sm:text-right space-y-1 sm:border-l sm:border-slate-200 sm:pl-4">
@@ -121,7 +125,7 @@ import { DecimalPipe, DatePipe } from '@angular/common';
                     <td class="py-2 px-3 text-right font-mono font-bold text-slate-800">{{ item.quantity }} {{ item.unit || 'UND' }}</td>
                     <td class="py-2 px-3 text-right font-mono text-slate-700">\${{ (item.unitPrice || 0)  | number: '1.2-2' }}</td>
                     <td class="py-2 px-3 text-right font-mono text-slate-500">
-                      {{ item.isTaxExempt ? 'E (0%)' : '16%' }}
+                      {{ item.isTaxExempt ? 'E (0%)' : formatTaxRate(item.taxRate) }}
                     </td>
                     <td class="py-2 px-3 text-right font-mono font-bold text-slate-900">\${{ (item.total || 0)  | number: '1.2-2' }}</td>
                   </tr>
@@ -144,7 +148,7 @@ import { DecimalPipe, DatePipe } from '@angular/common';
                 • Esta cotización no reserva mercancía en almacén hasta su confirmación y facturación.
               </p>
               <p class="text-slate-600">
-                • El cargo del 3% por concepto de IGTF aplica exclusivamente si el pago es procesado en divisas en efectivo o métodos no electrónicos de acuerdo a la Providencia SNAT/2022/00013
+                • El cargo del {{ issuer().igtfRate * 100 | number: '1.0-2' }}% por concepto de IGTF aplica exclusivamente si el pago es procesado en divisas en efectivo o métodos no electrónicos de acuerdo a la Providencia SNAT/2022/00013
               </p>
               <p class="text-slate-600">
                 • Todos los precios están sujetos a cambios sin previo aviso.
@@ -157,24 +161,20 @@ import { DecimalPipe, DatePipe } from '@angular/common';
             <div class="w-full sm:w-72 p-4 bg-slate-900 text-white rounded-2xl space-y-2">
               <div class="flex justify-between text-slate-300">
                 <span>Sub-Total (Base Imponible):</span>
-                <span class="font-mono">\${{ (quote().subtotal || 0)  | number: '1.2-2' }}</span>
+                <span class="font-mono">\${{ (quote().subtotal || 0) | number: '1.2-2' }}</span>
               </div>
               <div class="flex justify-between text-slate-300">
-                <span>IVA Estimado (16%):</span>
+                <span>IVA estimado:</span>
                 <span class="font-mono">\${{ (quote().taxTotal || 0)  | number: '1.2-2' }}</span>
               </div>
               <div class="flex justify-between text-slate-300">
                 <span>Descuento Global ({{ quote().discountGlobalPercent | number: '1.2-2' }}%):</span>
                 <span class="font-mono">\${{ (quote().discountTotal || 0)  | number: '1.2-2' }}</span>
               </div>
-              <div class="flex justify-between text-slate-300">
-                <span> IGTF (3%): (Solo pagos en divisas/efectivo)</span>
-                <span class="font-mono">\${{ (quote().total || 0) * 0.03 | number: '1.2-2' }}</span>
-              </div>
               <div class="pt-2 border-t border-slate-700 space-y-1">
                 <div class="flex justify-between items-baseline">
                   <span class="font-bold text-slate-200">TOTAL (USD):</span>
-                  <span class="font-mono font-black text-lg text-emerald-400">\${{ totalUSD(quote().total) }}</span>
+                  <span class="font-mono font-black text-lg text-emerald-400">\${{ quote().total | number: '1.2-2' }}</span>
                 </div>
                 <div class="flex justify-between items-baseline text-[11px]">
                   <span class="text-slate-400">TOTAL ESTIMADO BS:</span>
@@ -193,7 +193,7 @@ import { DecimalPipe, DatePipe } from '@angular/common';
           <button 
             type="button" 
             (click)="closeModal.emit()" 
-            class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold cursor-pointer">
+            class="min-h-11 rounded-xl bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-600">
             Cerrar
           </button>
 
@@ -201,14 +201,14 @@ import { DecimalPipe, DatePipe } from '@angular/common';
             <button 
               type="button"
               (click)="printDoc()" 
-              class="px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-xs cursor-pointer">
-              <mat-icon class="text-sm">print</mat-icon>
-              <span>Imprimir Documento / PDF</span>
+              class="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-violet-700 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-violet-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-700 focus-visible:ring-offset-2">
+              <mat-icon aria-hidden="true" class="text-sm">print</mat-icon>
+              <span>Imprimir / PDF</span>
             </button>
           </div>
         </div>
 
-      </div>
+      </section>
     </div>
   `,
   styles: [`
@@ -237,17 +237,17 @@ export class QuotePrintModal {
   
   closeModal = output<void>();
   stateService = inject(ErpStateService);
-  company = computed(() => this.stateService.companyProfile());
-  customer = computed(() => this.stateService.customers().find(c => c.id === this.quote().customerId));
+  issuer = computed(() => quoteCompanyDetails(this.quote(), this.stateService.companyProfile()));
+  customer = computed(() => quoteCustomerDetails(
+    this.quote(),
+    findQuoteCustomer(this.quote(), this.stateService.customers())
+  ));
   
-  ngOnInit() {
-    console.log('quote', this.quote());
+  formatTaxRate(rate: number): string {
+    const percent = rate <= 1 ? rate * 100 : rate;
+    return `${percent.toLocaleString('es-VE', { maximumFractionDigits: 2 })}%`;
   }
-  
-  totalUSD(arg0: number): string|number {
-    const total = Number(arg0);
-    return Number(total + (total * 0.03)).toFixed(2);
-  }
+
   printDoc() {
     window.print();
   }

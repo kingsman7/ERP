@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { Invoice } from '../models/erp.models';
+import { Invoice, Quote } from '../models/erp.models';
 import { ErpStateService } from './erp-state.service';
 
 describe('ErpStateService', () => {
@@ -60,6 +60,67 @@ describe('ErpStateService', () => {
       origin: 'MANUAL',
       status: 'FALLBACK_MANUAL',
     });
+  });
+
+  it('persists customer and company snapshots before marking a quote as sent', () => {
+    const quote: Quote = {
+      id: 'quote-1',
+      quoteNumber: 'COT-2026-001',
+      customerId: 'customer-1',
+      customerName: 'Cliente al emitir',
+      customerTaxId: 'J-12345678-9',
+      warehouseId: 'warehouse-1',
+      issueDate: '2026-10-11T12:00:00.000Z',
+      validUntil: '2026-10-20T00:00:00.000Z',
+      date: '2026-10-11T12:00:00.000Z',
+      status: 'BORRADOR',
+      items: [],
+      baseCurrency: 'USD',
+      bcvRate: 36.5,
+      priceLevelApplied: 'price1',
+      subtotal: 0,
+      discountTotal: 0,
+      taxTotal: 0,
+      total: 0,
+      totalVes: 0,
+      createdBy: 'Vendedor',
+      sellerName: 'Vendedor'
+    };
+    service.quotes.set([quote]);
+    service.customers.set([{
+      id: 'customer-1',
+      name: 'Cliente al emitir',
+      taxId: 'J-12345678-9',
+      email: 'cliente@ejemplo.test',
+      phone: '+58 412 1234567',
+      address: 'Dirección del cliente',
+      customerType: 'EMPRESA'
+    }]);
+
+    let result: Quote | undefined;
+    service.updateQuoteStatus(quote.id, 'ENVIADO').subscribe(saved => result = saved);
+    const request = http.expectOne('/api/quotes/quote-1');
+
+    expect(request.request.body).toMatchObject({
+      status: 'ENVIADO',
+      customerSnapshot: {
+        name: 'Cliente al emitir',
+        taxId: 'J-12345678-9',
+        email: 'cliente@ejemplo.test',
+        phone: '+58 412 1234567',
+        address: 'Dirección del cliente'
+      },
+      companySnapshot: {
+        legalName: service.companyProfile().legalName,
+        taxId: service.companyProfile().taxId
+      }
+    });
+    expect(request.request.body.snapshotAt).toEqual(expect.any(String));
+
+    request.flush({ ...quote, ...request.request.body });
+
+    expect(result?.customerSnapshot?.email).toBe('cliente@ejemplo.test');
+    expect(service.quotes()[0].companySnapshot?.legalName).toBe(service.companyProfile().legalName);
   });
 
   it('loads inventory data used for stock adjustments and shrinkage', () => {

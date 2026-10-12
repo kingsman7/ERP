@@ -7,6 +7,14 @@ import { Quote, PriceLevelKey, Invoice, PaymentMethod, PaymentRecord, CurrencyCo
 import { InvoiceModal } from '../invoice-modal/invoice-modal';
 import { QuotePrintModal } from './quote-print-modal';
 import { DecimalPipe, DatePipe } from '@angular/common';
+import { matchesEntitySearch } from '../../utils/entity-search';
+import {
+  buildQuoteEmail,
+  buildQuoteWhatsAppMessage,
+  filterQuoteCustomers,
+  findQuoteCustomer,
+  quoteCustomerDetails
+} from './quote-document';
 
 @Component({
   selector: 'app-quotes',
@@ -16,43 +24,48 @@ import { DecimalPipe, DatePipe } from '@angular/common';
     <div class="space-y-6 pb-12">
       
       <!-- Header -->
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div class="flex items-center space-x-2">
-          <span class="p-2 rounded-xl bg-violet-50 text-violet-600 border border-violet-100 flex items-center justify-center">
-            <mat-icon>request_quote</mat-icon>
-          </span>
-          <div>
-            <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
-              Presupuestos y Cotizaciones Comerciales
-            </h1>
-            <p class="text-xs text-slate-500">
-              Emisión de propuestas comerciales multimoneda con vista previa y totalización fiscal para emisión de factura SENIAT
-            </p>
+      <section class="relative overflow-hidden rounded-2xl border border-violet-100 bg-gradient-to-br from-white via-white to-violet-50/80 p-4 shadow-sm sm:p-6">
+        <div class="pointer-events-none absolute -right-12 -top-16 h-48 w-48 rounded-full bg-violet-100/70 blur-3xl"></div>
+        <div class="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+          <div class="flex min-w-0 items-start gap-3">
+            <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-violet-600 text-white shadow-md shadow-violet-200">
+              <mat-icon aria-hidden="true">request_quote</mat-icon>
+            </span>
+            <div class="min-w-0">
+              <p class="mb-1 text-[10px] font-bold uppercase tracking-[0.18em] text-violet-700">Ventas · Propuestas</p>
+              <h1 class="text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">
+                Presupuestos y cotizaciones
+              </h1>
+              <p class="mt-1 max-w-2xl text-xs leading-relaxed text-slate-600 sm:text-sm">
+                Prepare propuestas multimoneda, compártalas con sus clientes y conviértalas en factura cuando estén aprobadas.
+              </p>
+            </div>
           </div>
-        </div>
 
-        <div class="flex items-center space-x-2">
+          <div class="grid grid-cols-1 gap-2 sm:flex sm:shrink-0 sm:items-center">
           <button 
             (click)="openNewCustomerModal()"
-            class="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition-colors cursor-pointer shadow-2xs">
-            <mat-icon class="text-base text-emerald-600">person_add</mat-icon>
-            <span>+ Nuevo Cliente</span>
+            class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-xs font-semibold text-emerald-800 shadow-sm transition-colors hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2">
+            <mat-icon aria-hidden="true" class="text-base text-emerald-600">person_add</mat-icon>
+            <span>Nuevo cliente</span>
           </button>
 
           <button 
-            (click)="showNewQuoteModal.set(true)"
-            class="px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-xs font-semibold flex items-center space-x-1.5 shadow-xs transition-colors cursor-pointer">
-            <mat-icon class="text-base">add</mat-icon>
-            <span>Nuevo Presupuesto</span>
+            (click)="openNewQuote()"
+            class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-violet-700 px-4 py-2.5 text-xs font-semibold text-white shadow-md shadow-violet-200 transition-colors hover:bg-violet-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-700 focus-visible:ring-offset-2">
+            <mat-icon aria-hidden="true" class="text-base">add</mat-icon>
+            <span>Nuevo presupuesto</span>
           </button>
+          </div>
         </div>
-      </div>
+      </section>
 
       <!-- Quotes List Cards -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
         @for (q of stateService.quotes(); track q.id) {
-          @let bcvRate = stateService.bcvState().usdRate;
-          <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex flex-col justify-between space-y-4 hover:border-violet-300 transition-all">
+          @let bcvRate = q.bcvRate || stateService.bcvState().usdRate;
+          <article class="group relative flex flex-col justify-between space-y-4 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-violet-300 hover:shadow-md sm:p-5">
+            <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-violet-500 via-indigo-400 to-transparent opacity-70"></div>
             
             <div class="space-y-3">
               <!-- Top Row: Code & Status -->
@@ -121,19 +134,19 @@ import { DecimalPipe, DatePipe } from '@angular/common';
                 <button 
                   type="button"
                   (click)="openPrintQuote(q)"
-                  title="Ver / Imprimir Presupuesto Formal (PDF)"
-                  class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center space-x-1 transition-colors cursor-pointer">
-                  <mat-icon class="text-sm text-slate-600">print</mat-icon>
-                  <span class="hidden sm:inline">Imprimir</span>
+                  [attr.aria-label]="'Ver e imprimir presupuesto ' + q.quoteNumber"
+                  class="inline-flex min-h-10 items-center gap-1 rounded-xl bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600 focus-visible:ring-offset-2">
+                  <mat-icon aria-hidden="true" class="text-sm text-slate-600">print</mat-icon>
+                  <span>Imprimir</span>
                 </button>
 
                 <!-- Action: Enviar por WhatsApp -->
                 <button 
                   type="button"
                   (click)="shareViaWhatsApp(q)"
-                  title="Enviar Presupuesto por WhatsApp"
-                  class="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-semibold flex items-center space-x-1 transition-colors cursor-pointer">
-                  <mat-icon class="text-sm text-emerald-600">chat</mat-icon>
+                  [attr.aria-label]="'Compartir presupuesto ' + q.quoteNumber + ' por WhatsApp'"
+                  class="inline-flex min-h-10 items-center gap-1 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 transition-colors hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2">
+                  <mat-icon aria-hidden="true" class="text-sm text-emerald-600">chat</mat-icon>
                   <span>WhatsApp</span>
                 </button>
 
@@ -141,7 +154,7 @@ import { DecimalPipe, DatePipe } from '@angular/common';
                 <button 
                   type="button"
                   (click)="shareViaEmail(q)"
-                  title="Enviar por Correo Electrónico"
+                  [attr.aria-label]="'Compartir presupuesto ' + q.quoteNumber + ' por correo electrónico'"
                   class="px-2.5 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 rounded-xl text-xs font-semibold flex items-center space-x-1 transition-colors cursor-pointer">
                   <mat-icon class="text-sm text-sky-600">mail</mat-icon>
                   <span class="hidden sm:inline">Email</span>
@@ -151,7 +164,7 @@ import { DecimalPipe, DatePipe } from '@angular/common';
                   <button 
                     type="button"
                     (click)="changeQuoteStatus(q.id, 'ENVIADO')"
-                    title="Marcar cotización como enviada al cliente"
+                    [attr.aria-label]="'Marcar cotización ' + q.quoteNumber + ' como enviada al cliente'"
                     class="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-xl text-xs font-semibold flex items-center space-x-1 transition-colors cursor-pointer">
                     <mat-icon class="text-sm text-amber-600">send</mat-icon>
                     <span>Marcar Enviado</span>
@@ -165,8 +178,9 @@ import { DecimalPipe, DatePipe } from '@angular/common';
                     </span>
                     @if (q.convertedInvoiceNumber) {
                       <button 
+                        type="button"
                         (click)="viewFiscalInvoice(q.convertedInvoiceNumber)"
-                        title="Ver Comprobante Fiscal Emitido"
+                        [attr.aria-label]="'Ver factura ' + q.convertedInvoiceNumber"
                         class="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold flex items-center space-x-1 shadow-xs transition-colors cursor-pointer">
                         <mat-icon class="text-sm">receipt_long</mat-icon>
                         <span>Ver Factura</span>
@@ -175,7 +189,9 @@ import { DecimalPipe, DatePipe } from '@angular/common';
                   </div>
                 } @else {
                   <button 
+                    type="button"
                     (click)="openConversionPreview(q)"
+                    [attr.aria-label]="'Convertir presupuesto ' + q.quoteNumber + ' en factura'"
                     class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold flex items-center space-x-1 shadow-xs transition-colors cursor-pointer">
                     <mat-icon class="text-sm">sync_alt</mat-icon>
                     <span>Facturar</span>
@@ -184,10 +200,18 @@ import { DecimalPipe, DatePipe } from '@angular/common';
               </div>
             </div>
 
-          </div>
+          </article>
         } @empty {
-          <div class="col-span-2 py-12 text-center text-slate-400 text-xs bg-white rounded-2xl border border-slate-200">
-            No existen presupuestos registrados en el sistema.
+          <div class="col-span-full rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-12 text-center">
+            <span class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-50 text-violet-700">
+              <mat-icon aria-hidden="true">request_quote</mat-icon>
+            </span>
+            <h2 class="text-sm font-bold text-slate-900">Aún no hay presupuestos</h2>
+            <p class="mx-auto mt-1 max-w-sm text-xs leading-relaxed text-slate-500">Cree una propuesta para comenzar; podrá compartirla por correo o WhatsApp e imprimirla como PDF.</p>
+            <button type="button" (click)="openNewQuote()" class="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-violet-700 px-4 py-2.5 text-xs font-semibold text-white hover:bg-violet-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-700 focus-visible:ring-offset-2">
+              <mat-icon aria-hidden="true" class="text-base">add</mat-icon>
+              Crear presupuesto
+            </button>
           </div>
         }
       </div>
@@ -556,82 +580,152 @@ import { DecimalPipe, DatePipe } from '@angular/common';
       <!-- MODAL: NUEVO PRESUPUESTO -->
       <!-- ========================================================= -->
       @if (showNewQuoteModal()) {
-        <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-3 backdrop-blur-sm sm:p-5">
+          <section role="dialog" aria-modal="true" aria-labelledby="new-quote-title" (keydown.escape)="closeNewQuote()" class="flex max-h-[94dvh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl animate-in fade-in zoom-in-95 duration-150">
             
-            <div class="px-6 py-4 bg-violet-700 text-white flex items-center justify-between">
-              <div class="flex items-center space-x-2">
-                <mat-icon>request_quote</mat-icon>
-                <h3 class="font-semibold text-sm">Crear Presupuesto Comercial</h3>
+            <div class="flex items-center justify-between gap-3 bg-gradient-to-r from-violet-800 to-indigo-800 px-4 py-4 text-white sm:px-6">
+              <div class="flex min-w-0 items-center gap-2.5">
+                <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10">
+                  <mat-icon aria-hidden="true">request_quote</mat-icon>
+                </span>
+                <div class="min-w-0">
+                  <h2 id="new-quote-title" class="text-sm font-bold">Crear presupuesto comercial</h2>
+                  <p class="mt-0.5 text-[11px] text-violet-100">Seleccione un cliente y agregue los artículos de la propuesta.</p>
+                </div>
               </div>
-              <div class="flex items-center space-x-2">
-                <!-- select for bcvRate -->
-                <select 
-                  [value]="selectedBcvRateId()"
-                  (change)="selectedBcvRateId.set($any($event.target).value)"
-                  class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20">
-                    <option [value]="'usd'">USD: {{ stateService.bcvState().usdRate }}</option>
-                    <option [value]="'eur'">EUR: {{ stateService.bcvState().eurRate }}</option>
-                </select>
-                <button (click)="showNewQuoteModal.set(false)" class="text-white/80 hover:text-white cursor-pointer">
-                  <mat-icon>close</mat-icon>
+              <div class="flex shrink-0 items-center gap-2">
+                <div role="radiogroup" aria-label="Tasa de cambio BCV" class="rounded-xl border border-white/20 bg-white/10 p-1">
+                  <span class="block px-2 pb-1 text-[9px] font-bold uppercase tracking-wider text-violet-200">Tasas BCV · Bs.</span>
+                  <div class="flex items-center gap-1">
+                    <button
+                      type="button"
+                      role="radio"
+                      [attr.aria-checked]="selectedBcvRateId() === 'usd'"
+                      (click)="selectedBcvRateId.set('usd')"
+                      class="min-h-9 rounded-lg px-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                      [class.bg-white]="selectedBcvRateId() === 'usd'"
+                      [class.text-violet-900]="selectedBcvRateId() === 'usd'"
+                      [class.shadow-sm]="selectedBcvRateId() === 'usd'"
+                      [class.text-white]="selectedBcvRateId() !== 'usd'"
+                      [class.hover:bg-white/10]="selectedBcvRateId() !== 'usd'">
+                      <span class="block text-[9px] font-semibold uppercase">USD</span>
+                      <span class="block whitespace-nowrap font-mono text-[11px] font-bold">{{ stateService.bcvState().usdRate | number: '1.2-4' }}</span>
+                    </button>
+                    <button
+                      type="button"
+                      role="radio"
+                      [attr.aria-checked]="selectedBcvRateId() === 'eur'"
+                      (click)="selectedBcvRateId.set('eur')"
+                      class="min-h-9 rounded-lg px-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                      [class.bg-white]="selectedBcvRateId() === 'eur'"
+                      [class.text-violet-900]="selectedBcvRateId() === 'eur'"
+                      [class.shadow-sm]="selectedBcvRateId() === 'eur'"
+                      [class.text-white]="selectedBcvRateId() !== 'eur'"
+                      [class.hover:bg-white/10]="selectedBcvRateId() !== 'eur'">
+                      <span class="block text-[9px] font-semibold uppercase">EUR</span>
+                      <span class="block whitespace-nowrap font-mono text-[11px] font-bold">{{ stateService.bcvState().eurRate | number: '1.2-4' }}</span>
+                    </button>
+                  </div>
+                </div>
+                <button type="button" (click)="closeNewQuote()" aria-label="Cerrar presupuesto" class="flex h-10 w-10 items-center justify-center rounded-xl text-white/80 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">
+                  <mat-icon aria-hidden="true">close</mat-icon>
                 </button>
               </div>
             </div>
 
-            <div class="p-6 overflow-y-auto space-y-4 text-xs">
+            <div class="space-y-5 overflow-y-auto p-4 text-xs sm:p-6">
 
-              <div class="grid grid-cols-1 gap-3">
-                <select 
+              <div>
+                <label for="quote-warehouse" class="mb-1 block font-semibold text-slate-700">Almacén de despacho</label>
+                <select id="quote-warehouse"
                   [value]="selectedWarehouse()"
                   (change)="selectedWarehouse.set($any($event.target).value)"
-                  class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20">
-                  
+                  class="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600">
                   @for (wh of stateService.warehouses(); track wh.id) {
                     <option [value]="wh.id">{{ wh.name }}</option>
+                  } @empty {
+                    <option value="">Sin almacenes disponibles</option>
                   }
                 </select>
               </div>
               
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <div class="flex items-center justify-between mb-1">
-                    <span class="font-semibold text-slate-700">Cliente / Receptor *</span>
-                   
-                  </div>
-
-                  <div class="flex items-center gap-1.5">
-                    <select 
-                      [value]="selectedCustomerId()"
-                      (change)="selectedCustomerId.set($any($event.target).value)"
-                      class="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
-                      @for (cust of stateService.customers(); track cust.id) {
-                        <option [value]="cust.id">{{ cust.name }} ({{ cust.taxId }})</option>
-                      }
-                    </select>
+              <div class="grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
+                <div class="min-w-0">
+                  <div class="mb-1 flex items-center justify-between gap-2">
+                    <label for="quote-customer-search" class="font-semibold text-slate-800">Cliente / receptor fiscal <span class="text-rose-600">*</span></label>
                     <button
                       type="button"
                       (click)="openNewCustomerModal()"
-                      title="Registrar nuevo cliente"
-                      class="p-2 bg-slate-50 border border-slate-200 hover:border-emerald-500 hover:text-emerald-700 rounded-xl text-slate-600 transition-colors cursor-pointer shrink-0">
-                      <mat-icon class="text-base">person_add</mat-icon>
+                      aria-label="Registrar nuevo cliente"
+                      class="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-lg px-2 text-[10px] font-bold text-emerald-800 transition-colors hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600">
+                      <mat-icon aria-hidden="true" class="text-sm">person_add</mat-icon>
+                      Nuevo
                     </button>
                   </div>
 
+                  <div class="relative">
+                    <div class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-400">
+                      <mat-icon aria-hidden="true" class="text-lg">search</mat-icon>
+                    </div>
+                    <input
+                      id="quote-customer-search"
+                      type="search"
+                      [value]="customerSearchQuery()"
+                      (input)="customerSearchQuery.set($any($event.target).value); customerSearchOpen.set(true)"
+                      (focus)="customerSearchOpen.set(true)"
+                      (keydown.escape)="customerSearchOpen.set(false)"
+                      placeholder="Buscar por nombre, cédula o RIF"
+                      autocomplete="off"
+                      role="combobox"
+                      aria-autocomplete="list"
+                      aria-controls="quote-customer-results"
+                      [attr.aria-expanded]="customerSearchOpen()"
+                      class="min-h-11 w-full rounded-xl border border-slate-300 bg-slate-50 py-2 pl-10 pr-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-violet-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-500/20" />
+
+                    @if (customerSearchOpen()) {
+                      <div id="quote-customer-results" role="listbox" aria-label="Resultados de clientes" class="absolute z-30 mt-1 max-h-60 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+                        @for (cust of filteredCustomers(); track cust.id) {
+                          <button
+                            type="button"
+                            role="option"
+                            [attr.aria-selected]="selectedCustomerId() === cust.id"
+                            (click)="selectCustomer(cust.id)"
+                            class="flex min-h-12 w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-violet-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-violet-600">
+                            <span class="min-w-0">
+                              <span class="block truncate text-xs font-semibold text-slate-900">{{ cust.name }}</span>
+                              <span class="mt-0.5 block truncate text-[10px] text-slate-500">{{ cust.email || cust.phone || cust.customerType }}</span>
+                            </span>
+                            <span class="shrink-0 rounded-md bg-slate-100 px-2 py-1 font-mono text-[10px] text-slate-600">{{ cust.taxId }}</span>
+                          </button>
+                        } @empty {
+                          <p aria-live="polite" class="px-3 py-3 text-xs text-slate-500">
+                            {{ customerSearchQuery().trim() ? 'No hay clientes que coincidan. Revise el nombre o documento, o registre uno nuevo.' : 'No hay clientes registrados.' }}
+                          </p>
+                        }
+                      </div>
+                    }
+                  </div>
+
                   @if (selectedCustomer(); as cust) {
-                    <!-- <div class="flex items-center justify-between text-[10px] text-slate-500 mt-1 px-1">
-                      <span class="font-mono font-semibold text-slate-700">{{ cust.taxId }}</span>
-                      <span class="truncate max-w-[180px] text-slate-400">{{ cust.email || cust.phone || cust.customerType }}</span>
-                    </div> -->
+                    <div class="mt-2 flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50/70 p-3">
+                      <mat-icon aria-hidden="true" class="mt-0.5 text-base text-emerald-700">verified_user</mat-icon>
+                      <div class="min-w-0">
+                        <p class="truncate text-xs font-bold text-emerald-950">{{ cust.name }}</p>
+                        <p class="mt-0.5 truncate font-mono text-[10px] text-emerald-800">{{ cust.taxId }}</p>
+                        <p class="mt-0.5 truncate text-[10px] text-emerald-800">{{ cust.email || cust.phone || 'Sin contacto registrado' }}</p>
+                      </div>
+                    </div>
+                  } @else {
+                    <p class="mt-1 text-[10px] text-rose-700">Seleccione un cliente de los resultados para continuar.</p>
                   }
                 </div>
 
-                <div>
-                  <span class="block font-semibold text-slate-700 mb-1">Nivel de Precio Aplicado</span>
-                  <select 
+                <div class="min-w-0">
+                  <label for="quote-price-level" class="mb-1 flex min-h-9 items-center font-semibold text-slate-700">Nivel de precio aplicado</label>
+                  <select id="quote-price-level"
                     [value]="selectedPriceLevel()"
                     (change)="selectedPriceLevel.set($any($event.target).value)"
-                    class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800">
+                    class="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 font-medium text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600">
                     <option value="price1">Precio 1: Detal (Base)</option>
                     <option value="price2">Precio 2: Mayorista</option>
                     <option value="price3">Precio 3: Distribuidor</option>
@@ -641,45 +735,81 @@ import { DecimalPipe, DatePipe } from '@angular/common';
                 </div>
               </div>
 
-              <div class="grid grid-cols-2 gap-3">
+              <div class="grid grid-cols-1 items-start gap-3 sm:grid-cols-2">
                 <div>
-                  <span class="block font-semibold text-slate-700 mb-1">Validez Hasta *</span>
-                  <input #expDate type="date" [value]="today" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl" />
+                  <label for="quote-expiration" class="mb-1 block font-semibold text-slate-700">Válido hasta <span class="text-rose-600">*</span></label>
+                  <input #expDate id="quote-expiration" type="date" [value]="today" class="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600" />
                 </div>
                 <div>
-                  <span class="block font-semibold text-slate-700 mb-1">Notas Comerciales</span>
-                  <input #notesInput type="text" placeholder="Términos de entrega..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl" />
+                  <label for="quote-notes" class="mb-1 block font-semibold text-slate-700">Notas comerciales</label>
+                  <input #notesInput id="quote-notes" type="text" placeholder="Términos de entrega..." class="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600" />
                 </div>
               </div>
 
               <!-- Products Builder -->
               <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
                 
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-2">
-                  <div class="md:col-span-2">
-                    <span class="font-bold text-slate-700 uppercase tracking-wider block text-[11px]">Agregar Producto</span>
-                    <select #prodSel class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg">
-                      @for (p of filteredProducts(); track p.id) {
-                        @let pVal = stateService.getProductPriceByLevel(p, selectedPriceLevel());
-                        <option [value]="p.id">{{ p.name }} - \${{ pVal  | number: '1.2-2' }}</option>
-                      }
-                    </select>
+                <div class="grid grid-cols-1 items-end gap-2 md:grid-cols-4">
+                  <div class="relative min-w-0 md:col-span-2">
+                    <label for="quote-product-search" class="mb-1 block text-[11px] font-bold uppercase tracking-wider text-slate-700">Agregar producto</label>
+                    <div class="relative">
+                      <mat-icon aria-hidden="true" class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-lg text-slate-400">search</mat-icon>
+                      <input
+                        id="quote-product-search"
+                        type="search"
+                        [value]="quoteProductSearchQuery()"
+                        (input)="onQuoteProductSearchInput($any($event.target).value)"
+                        (focus)="quoteProductSearchOpen.set(true)"
+                        (keydown.escape)="quoteProductSearchOpen.set(false)"
+                        placeholder="Buscar por nombre, SKU o código"
+                        autocomplete="off"
+                        role="combobox"
+                        aria-autocomplete="list"
+                        aria-controls="quote-product-results"
+                        [attr.aria-expanded]="quoteProductSearchOpen()"
+                        class="min-h-11 w-full rounded-lg border border-slate-200 bg-white py-2 pl-10 pr-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20" />
+                    </div>
+
+                    @if (quoteProductSearchOpen()) {
+                      <div id="quote-product-results" role="listbox" aria-label="Resultados de productos" class="absolute z-30 mt-1 max-h-60 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+                        @for (product of filteredQuoteProducts(); track product.id) {
+                          @let price = stateService.getProductPriceByLevel(product, selectedPriceLevel());
+                          <button
+                            type="button"
+                            role="option"
+                            [attr.aria-selected]="selectedQuoteProductId() === product.id"
+                            (click)="selectQuoteProduct(product.id)"
+                            class="flex min-h-12 w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-violet-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-violet-600">
+                            <span class="min-w-0">
+                              <span class="block truncate text-xs font-semibold text-slate-900">{{ product.name }}</span>
+                              <span class="mt-0.5 block truncate font-mono text-[10px] text-slate-500">{{ product.sku }}{{ product.barcode ? ' · ' + product.barcode : '' }}</span>
+                            </span>
+                            <span class="shrink-0 font-mono text-[10px] font-semibold text-slate-700">\${{ price | number: '1.2-2' }}</span>
+                          </button>
+                        } @empty {
+                          <p aria-live="polite" class="px-3 py-3 text-xs text-slate-500">
+                            {{ quoteProductSearchQuery().trim() ? 'No hay productos que coincidan con la búsqueda.' : 'No hay productos disponibles para este almacén.' }}
+                          </p>
+                        }
+                      </div>
+                    }
                   </div>
                   <div>
-                    <span class="font-bold text-slate-700 uppercase tracking-wider block text-[11px]">Cantidad</span>
-                    <input #qtySel type="number" min="1" value="2" placeholder="Cant" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg font-mono" />
+                    <label for="quote-quantity" class="mb-1 block text-[11px] font-bold uppercase tracking-wider text-slate-700">Cantidad</label>
+                    <input #qtySel id="quote-quantity" type="number" min="1" value="2" placeholder="Cant" class="min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600" />
                   </div>
                   <div>
-                    <span class="font-bold text-slate-700 uppercase tracking-wider block text-[11px]">Descuento</span>
-                    <input #discSel type="number" min="0" max="50" value="0" placeholder="Desc %" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg font-mono" />
+                    <label for="quote-discount" class="mb-1 block text-[11px] font-bold uppercase tracking-wider text-slate-700">Descuento (%)</label>
+                    <input #discSel id="quote-discount" type="number" min="0" max="50" value="0" placeholder="Desc %" class="min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600" />
                   </div>
                 </div>
                 <div class="flex justify-end">
                   <button 
                     type="button" 
-                    (click)="addQuoteItem(prodSel.value, +qtySel.value, +discSel.value)"
-                    class="px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-xs font-medium flex items-center space-x-1 cursor-pointer">
-                    <mat-icon class="text-xs">add</mat-icon>
+                    (click)="addSelectedQuoteItem(+qtySel.value, +discSel.value)"
+                    [disabled]="!selectedQuoteProductId()"
+                    class="inline-flex min-h-10 items-center gap-1 rounded-lg bg-violet-700 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-violet-800 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-700 focus-visible:ring-offset-2">
+                    <mat-icon aria-hidden="true" class="text-xs">add</mat-icon>
                     <span>Añadir Producto</span>
                   </button>
                 </div>
@@ -691,8 +821,8 @@ import { DecimalPipe, DatePipe } from '@angular/common';
                   @for (it of quoteItems(); track $index) {
                     <div class="p-2.5 flex items-center justify-between text-xs">
                       <span class="font-medium text-slate-800">{{ it.quantity }}x {{ getProdName(it.productId) }} ({{ it.discountPercent }}% desc)</span>
-                      <button (click)="removeQuoteItem($index)" class="text-rose-500 hover:text-rose-700 cursor-pointer">
-                        <mat-icon class="text-sm">delete</mat-icon>
+                      <button type="button" (click)="removeQuoteItem($index)" [attr.aria-label]="'Eliminar ' + getProdName(it.productId)" class="flex h-10 w-10 items-center justify-center rounded-lg text-rose-600 hover:bg-rose-50 hover:text-rose-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-600">
+                        <mat-icon aria-hidden="true" class="text-sm">delete</mat-icon>
                       </button>
                     </div>
                   } @empty {
@@ -704,17 +834,17 @@ import { DecimalPipe, DatePipe } from '@angular/common';
             </div>
 
             <!-- Footer -->
-            <div class="px-6 py-3 bg-slate-50 border-t border-slate-200 flex justify-end space-x-2">
-              <button (click)="showNewQuoteModal.set(false)" class="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-medium cursor-pointer">Cancelar</button>
+            <div class="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-4 py-3 sm:px-6">
+              <button type="button" (click)="closeNewQuote()" class="min-h-11 rounded-xl bg-white px-4 py-2 font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500">Cancelar</button>
               <button 
-                [disabled]="quoteItems().length === 0"
+                [disabled]="quoteItems().length === 0 || !selectedCustomer()"
                 (click)="submitQuote(expDate.value, notesInput.value)"
-                class="px-4 py-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-xl font-medium shadow-xs cursor-pointer">
-                Guardar Presupuesto
+                class="min-h-11 rounded-xl bg-violet-700 px-4 py-2 font-semibold text-white shadow-sm hover:bg-violet-800 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-700 focus-visible:ring-offset-2">
+                Guardar presupuesto
               </button>
             </div>
 
-          </div>
+          </section>
         </div>
       }
 
@@ -722,16 +852,16 @@ import { DecimalPipe, DatePipe } from '@angular/common';
       <!-- MODAL: REGISTRAR NUEVO CLIENTE -->
       <!-- ========================================================= -->
       @if (showNewCustomerModal()) {
-        <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/60 p-3 backdrop-blur-sm sm:p-5">
+          <section role="dialog" aria-modal="true" aria-labelledby="new-customer-title" class="max-h-[94dvh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl animate-in fade-in zoom-in-95 duration-150">
             
-            <div class="px-6 py-4 bg-emerald-700 text-white flex items-center justify-between">
-              <div class="flex items-center space-x-2">
-                <mat-icon>person_add</mat-icon>
-                <h3 class="font-semibold text-sm">Registrar Nuevo Cliente</h3>
+            <div class="flex items-center justify-between bg-emerald-800 px-4 py-4 text-white sm:px-6">
+              <div class="flex items-center gap-2">
+                <mat-icon aria-hidden="true">person_add</mat-icon>
+                <h2 id="new-customer-title" class="text-sm font-semibold">Registrar nuevo cliente</h2>
               </div>
-              <button (click)="showNewCustomerModal.set(false)" class="text-white/80 hover:text-white cursor-pointer">
-                <mat-icon>close</mat-icon>
+              <button type="button" (click)="showNewCustomerModal.set(false)" aria-label="Cerrar registro de cliente" class="flex h-10 w-10 items-center justify-center rounded-lg text-white/80 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">
+                <mat-icon aria-hidden="true">close</mat-icon>
               </button>
             </div>
 
@@ -828,7 +958,7 @@ import { DecimalPipe, DatePipe } from '@angular/common';
 
             </form>
 
-          </div>
+          </section>
         </div>
       }
 
@@ -892,19 +1022,22 @@ export default class QuotesComponent {
   activeInvoiceForModal = signal<Invoice | null>(null);
 
   customers = computed(() => this.stateService.customers());
-  today: string = new Date().toISOString();
+  today: string = new Date().toISOString().slice(0, 10);
 
   constructor() {
     effect(() => {
       const action = this.shortcutService.lastExecutedAction();
       if (action?.actionId === 'NEW_QUOTE') {
-        this.showNewQuoteModal.set(true);
+        this.openNewQuote();
       }
     });
   }
 
   selectedCustomerId = signal<string>(this.customers()[0]?.id || '');
   selectedCustomer = computed(() => this.customers().find(c => c.id === this.selectedCustomerId()));
+  customerSearchQuery = signal<string>('');
+  customerSearchOpen = signal<boolean>(false);
+  filteredCustomers = computed(() => filterQuoteCustomers(this.customers(), this.customerSearchQuery()));
   selectedPriceLevel = signal<PriceLevelKey>('price1');
   quoteItems = signal<{ productId: string; quantity: number; discountPercent: number }[]>([]);
 
@@ -926,6 +1059,18 @@ export default class QuotesComponent {
         return matchesWh;
       });
     });
+
+  quoteProductSearchQuery = signal<string>('');
+  quoteProductSearchOpen = signal<boolean>(false);
+  selectedQuoteProductId = signal<string>('');
+  filteredQuoteProducts = computed(() => this.filteredProducts()
+      .filter(product => matchesEntitySearch(
+        this.quoteProductSearchQuery(),
+        product.name,
+        product.sku,
+        product.barcode
+      ))
+      .slice(0, 50));
 
   conversionCalculations = computed(() => {
     const quote = this.selectedQuoteForConversion();
@@ -1062,7 +1207,7 @@ export default class QuotesComponent {
       address: this.newCustomerAddress().trim(),
       customerType: this.newCustomerType()
     }).subscribe(costumer => {
-        this.selectedCustomerId.set(costumer.id);
+        this.selectCustomer(costumer.id);
         this.showNewCustomerModal.set(false);
     });
   }
@@ -1085,8 +1230,35 @@ export default class QuotesComponent {
   }
 
   addQuoteItem(productId: string, quantity: number, discountPercent: number) {
-    if (!productId || quantity <= 0) return;
+    if (!productId || quantity <= 0) return false;
     this.quoteItems.update(list => [...list, { productId, quantity, discountPercent: discountPercent || 0 }]);
+    return true;
+  }
+
+  addSelectedQuoteItem(quantity: number, discountPercent: number) {
+    if (this.addQuoteItem(this.selectedQuoteProductId(), quantity, discountPercent)) {
+      this.clearQuoteProductSelection();
+    }
+  }
+
+  onQuoteProductSearchInput(query: string) {
+    this.quoteProductSearchQuery.set(query);
+    this.selectedQuoteProductId.set('');
+    this.quoteProductSearchOpen.set(true);
+  }
+
+  selectQuoteProduct(productId: string) {
+    const product = this.filteredProducts().find(item => item.id === productId);
+    if (!product) return;
+    this.selectedQuoteProductId.set(product.id);
+    this.quoteProductSearchQuery.set(product.name);
+    this.quoteProductSearchOpen.set(false);
+  }
+
+  clearQuoteProductSelection() {
+    this.selectedQuoteProductId.set('');
+    this.quoteProductSearchQuery.set('');
+    this.quoteProductSearchOpen.set(false);
   }
 
   removeQuoteItem(index: number) {
@@ -1180,7 +1352,7 @@ export default class QuotesComponent {
 
   submitQuote(expDate: string, notes: string) {
     if (this.quoteItems().length === 0) return;
-    const customer = this.stateService.customers().find(c => c.id === this.selectedCustomerId());
+    const customer = this.selectedCustomer();
     if (!customer) return;
     this.stateService.createQuote(
       this.selectedCustomerId(),
@@ -1203,6 +1375,25 @@ export default class QuotesComponent {
 
   }
 
+  openNewQuote() {
+    this.customerSearchQuery.set('');
+    this.customerSearchOpen.set(false);
+    this.clearQuoteProductSelection();
+    this.showNewQuoteModal.set(true);
+  }
+
+  closeNewQuote() {
+    this.customerSearchOpen.set(false);
+    this.clearQuoteProductSelection();
+    this.showNewQuoteModal.set(false);
+  }
+
+  selectCustomer(customerId: string) {
+    this.selectedCustomerId.set(customerId);
+    this.customerSearchQuery.set('');
+    this.customerSearchOpen.set(false);
+  }
+
   // Open Printable / PDF Document
   openPrintQuote(quote: Quote) {
     this.activeQuoteForPrint.set(quote);
@@ -1215,83 +1406,53 @@ export default class QuotesComponent {
 
   // Share via WhatsApp with structured text
   shareViaWhatsApp(quote: Quote) {
-    const cust = this.stateService.customers().find(c => c.id === quote.customerId || c.taxId === quote.customerTaxId);
-    const bcvRate = quote.bcvRate || this.stateService.bcvState().usdRate || 36.50;
-    const totalBs = quote.totalVes || (quote.total * bcvRate);
-    const company = this.stateService.companyProfile();
-
-    let itemsText = '';
-    quote.items.forEach(item => {
-      itemsText += `• ${item.quantity}x ${item.name}: $${Number((item.total || 0)).toFixed(2)}\n`;
-    });
-
-    const issueDateFormatted = quote.issueDate ? quote.issueDate.substring(0, 10) : 'N/A';
-    const validUntilFormatted = quote.validUntil ? quote.validUntil.substring(0, 10) : 'N/A';
-
-    const msg = 
-      `*PRESUPUESTO COMERCIAL - ${company.legalName}*\n` +
-      `*Cotización Nº:* ${quote.quoteNumber}\n` +
-      `*Cliente:* ${quote.customerName} (${quote.customerTaxId})\n` +
-      `*Fecha:* ${issueDateFormatted} | *Válido hasta:* ${validUntilFormatted}\n\n` +
-      `*Detalle de Artículos:*\n` +
-      itemsText + `\n` +
-      `*Total Cotizado:* $${Number(quote.total).toFixed(2)} USD\n` +
-      `*Contravalor Oficial BCV:* Bs. ${totalBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Tasa: Bs. ${Number(bcvRate).toFixed(2)})\n\n` +
-      (quote.notes ? `*Condiciones:* ${quote.notes}\n\n` : '') +
-      `_Quedamos atentos a su confirmación para proceder con el despacho y facturación fiscal._`;
-
-    // Auto-update status to ENVIADO if was BORRADOR
-    if (quote.status === 'BORRADOR') {
-      this.stateService.updateQuoteStatus(quote.id, 'ENVIADO', 'Compartido vía WhatsApp');
+    const popup = window.open('about:blank', '_blank');
+    if (!popup) {
+      this.stateService.notify('error', 'No se pudo compartir', 'Permite las ventanas emergentes para abrir WhatsApp.');
+      return;
     }
 
-    const cleanPhone = (cust?.phone || '').replace(/[^0-9]/g, '');
-    const encodedMsg = encodeURIComponent(msg);
-    const whatsappUrl = cleanPhone 
-      ? `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodedMsg}`
-      : `https://api.whatsapp.com/send?text=${encodedMsg}`;
-
-    window.open(whatsappUrl, '_blank');
+    this.prepareQuoteForSharing(quote, 'Compartido vía WhatsApp', popup, saved => {
+      const customer = findQuoteCustomer(saved, this.stateService.customers());
+      const customerDetails = quoteCustomerDetails(saved, customer);
+      const bcvRate = saved.bcvRate || this.stateService.bcvState().usdRate;
+      const message = buildQuoteWhatsAppMessage(saved, this.stateService.companyProfile(), customer, bcvRate);
+      const cleanPhone = customerDetails.phone.replace(/[^0-9]/g, '');
+      const encodedMsg = encodeURIComponent(message);
+      popup.location.href = cleanPhone
+        ? `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodedMsg}`
+        : `https://api.whatsapp.com/send?text=${encodedMsg}`;
+    });
   }
 
   // Share via Email
   shareViaEmail(quote: Quote) {
-    const cust = this.stateService.customers().find(c => c.id === quote.customerId || c.taxId === quote.customerTaxId);
-    const bcvRate = quote.bcvRate || this.stateService.bcvState().usdRate || 36.50;
-    const totalBs = quote.totalVes || (quote.total * bcvRate);
-    const company = this.stateService.companyProfile();
-
-    let itemsText = '';
-    quote.items.forEach(item => {
-      itemsText += `- ${item.quantity}x ${item.name}: $${Number((item.total || 0)).toFixed(2)}\r\n`;
-    });
-
-    const subject = encodeURIComponent(`Presupuesto Comercial ${quote.quoteNumber} - ${company.legalName}`);
-    const body = encodeURIComponent(
-      `Estimado/a ${quote.customerName},\r\n\r\n` +
-      `Adjuntamos el presupuesto comercial solicitado:\r\n\r\n` +
-      `Número: ${quote.quoteNumber}\r\n` +
-      `Fecha: ${quote.date ? quote.date.substring(0, 10) : 'N/A'}\r\n` +
-      `Válido hasta: ${quote.validUntil ? quote.validUntil.substring(0, 10) : 'N/A'}\r\n\r\n` +
-      `Artículos incluidos:\r\n` +
-      itemsText + `\r\n` +
-      `Subtotal: $${Number((quote.subtotal || 0)).toFixed(2)}\r\n` +
-      `IVA Estimado: $${Number((quote.taxTotal || 0)).toFixed(2)}\r\n` +
-      `TOTAL USD: $${Number(quote.total).toFixed(2)}\r\n` +
-      `TOTAL OFICIAL BS: Bs. ${totalBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Tasa BCV: Bs. ${Number(bcvRate).toFixed(2)})\r\n\r\n` +
-      `Quedamos a su disposición para cualquier consulta.\r\n\r\n` +
-      `Atentamente,\r\n` +
-      `${company.legalName}\r\n` +
-      `RIF: ${company.taxId}\r\n` +
-      `Tel: ${company.phone || ''}`
-    );
-
-    // Auto-update status to ENVIADO if was BORRADOR
-    if (quote.status === 'BORRADOR') {
-      this.stateService.updateQuoteStatus(quote.id, 'ENVIADO', 'Compartido vía Correo');
+    const popup = window.open('about:blank', '_blank');
+    if (!popup) {
+      this.stateService.notify('error', 'No se pudo compartir', 'Permite las ventanas emergentes para abrir tu aplicación de correo.');
+      return;
     }
 
-    const email = cust?.email || '';
-    window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+    this.prepareQuoteForSharing(quote, 'Compartido vía Correo', popup, saved => {
+      const customer = findQuoteCustomer(saved, this.stateService.customers());
+      const bcvRate = saved.bcvRate || this.stateService.bcvState().usdRate;
+      const email = buildQuoteEmail(saved, this.stateService.companyProfile(), customer, bcvRate);
+      popup.location.href = `mailto:${encodeURIComponent(email.recipient)}?subject=${encodeURIComponent(email.subject)}&body=${encodeURIComponent(email.body)}`;
+    });
+  }
+
+  private prepareQuoteForSharing(
+    quote: Quote,
+    channel: string,
+    popup: Window,
+    openDocument: (savedQuote: Quote) => void
+  ) {
+    const status = quote.status === 'BORRADOR' ? 'ENVIADO' : quote.status;
+    this.stateService.updateQuoteStatus(quote.id, status, channel).subscribe({
+      next: saved => {
+        if (!popup.closed) openDocument(saved);
+      },
+      error: () => popup.close()
+    });
   }
 }
