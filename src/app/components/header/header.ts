@@ -1,4 +1,5 @@
-import { Component, ChangeDetectionStrategy, inject, output, signal, computed, effect } from '@angular/core';
+import { Component, ChangeDetectionStrategy, DestroyRef, inject, output, signal, computed, effect } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ReactiveFormsModule, FormControl, Validators } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { AuthService } from '../../services/auth.service';
@@ -7,6 +8,7 @@ import { KeyboardShortcutsService } from '../../services/keyboard-shortcuts.serv
 import { User, CriticalAuditNotification, CriticalAuditCategory } from '../../models/erp.models';
 import { DecimalPipe } from '@angular/common';
 import { ApiService } from '../../services/api.service';
+import { interval } from 'rxjs';
 
 @Component({
   selector: 'app-header',
@@ -575,6 +577,7 @@ import { ApiService } from '../../services/api.service';
   `
 })
 export class HeaderComponent {
+  private destroyRef = inject(DestroyRef);
   authService = inject(AuthService);
   stateService = inject(ErpStateService);
   shortcutService = inject(KeyboardShortcutsService);
@@ -602,6 +605,10 @@ export class HeaderComponent {
   openCompanyProfile = output<void>();
 
   constructor() {
+    this.stateService.loadCriticalAuditNotifications();
+    interval(30_000)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.stateService.loadCriticalAuditNotifications(false));
     effect(() => {
       const action = this.shortcutService.lastExecutedAction();
       if (action?.actionId === 'OPEN_BCV_MODAL') {
@@ -630,6 +637,7 @@ export class HeaderComponent {
     this.showNotifDropdown.set(!this.showNotifDropdown());
     if (this.showNotifDropdown()) {
       this.showUserDropdown.set(false);
+      this.stateService.loadCriticalAuditNotifications();
     }
   }
 

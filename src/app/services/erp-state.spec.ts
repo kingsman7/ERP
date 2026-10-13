@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { Invoice, Quote } from '../models/erp.models';
+import { CriticalAuditNotification, Invoice, Quote } from '../models/erp.models';
 import { ErpStateService } from './erp-state.service';
 
 describe('ErpStateService', () => {
@@ -31,6 +31,69 @@ describe('ErpStateService', () => {
     expect(service.products()).toEqual([]);
     expect(service.purchaseOrders()).toEqual([]);
     expect(service.kardexMovements()).toEqual([]);
+  });
+
+  it('loads critical audit notifications from the backend', () => {
+    service.loadCriticalAuditNotifications();
+
+    const request = http.expectOne('/api/audit/notifications');
+    expect(request.request.method).toBe('GET');
+    request.flush([{
+      id: 'notification-1',
+      category: 'PRICE_CHANGE',
+      severity: 'HIGH',
+      title: 'Precio actualizado',
+      message: 'Se modificó el precio base.',
+      details: { user: 'Admin', role: 'ADMIN', timestamp: '2026-10-12 12:00:00' },
+      isRead: false,
+      createdAt: '2026-10-12T16:00:00.000Z'
+    }]);
+
+    expect(service.criticalAuditNotifications()).toHaveLength(1);
+    expect(service.unreadCriticalAuditCount()).toBe(1);
+  });
+
+  it('persists an individual notification read state in the backend', () => {
+    const notification: CriticalAuditNotification = {
+      id: 'notification-1',
+      category: 'PRICE_CHANGE',
+      severity: 'HIGH',
+      title: 'Precio actualizado',
+      message: 'Se modificó el precio base.',
+      details: { user: 'Admin', role: 'ADMIN', timestamp: '2026-10-12 12:00:00' },
+      isRead: false,
+      createdAt: '2026-10-12 12:00:00'
+    };
+    service.criticalAuditNotifications.set([notification]);
+
+    service.markAuditNotificationAsRead(notification.id);
+
+    const request = http.expectOne('/api/audit/notifications/notification-1/read');
+    expect(request.request.method).toBe('PUT');
+    request.flush({ ...notification, isRead: true });
+
+    expect(service.unreadCriticalAuditCount()).toBe(0);
+  });
+
+  it('persists marking all critical notifications as read in the backend', () => {
+    service.criticalAuditNotifications.set([{
+      id: 'notification-1',
+      category: 'PRICE_CHANGE',
+      severity: 'HIGH',
+      title: 'Precio actualizado',
+      message: 'Se modificó el precio base.',
+      details: { user: 'Admin', role: 'ADMIN', timestamp: '2026-10-12 12:00:00' },
+      isRead: false,
+      createdAt: '2026-10-12 12:00:00'
+    }]);
+
+    service.markAllAuditNotificationsAsRead();
+
+    const request = http.expectOne('/api/audit/notifications/read-all');
+    expect(request.request.method).toBe('PUT');
+    request.flush({});
+
+    expect(service.unreadCriticalAuditCount()).toBe(0);
   });
 
   it('enables enterprise modules after selecting the full plan', () => {

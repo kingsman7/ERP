@@ -78,6 +78,8 @@ export interface CriticalAuditNotification {
   createdAt: string;
 }
 
+export type CreateCriticalAuditNotification = Omit<CriticalAuditNotification, 'id' | 'auditLogId' | 'isRead' | 'createdAt' | 'category'>;
+
 export type CurrencyCode = 'USD' | 'VES' | 'EUR';
 export type RateOrigin = 'API_BCV' | 'MANUAL';
 export type PriceLevelKey = 'price1' | 'price2' | 'price3' | 'price4' | 'price5';

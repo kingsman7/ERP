@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, catchError, forkJoin, map, of, throwError } from 'rxjs';
-import { Account, AuditLog, BankAccount, BcvExchangeRateState, Bom, CashRegisterSession, CompanyFiscalProfile, CrmDeal, CurrencyCode, Customer, CustomerPaymentReceipt, DeliveryOrder, DispatchGuide, Invoice, InvoiceItem, InvoiceTaxDetails, JournalEntry, KardexMovement, PayableBill, PaymentRecord, PriceLevelKey, Product, ProductCategory, ProductionOrder, PurchaseOrder, Quote, Supplier, SupplierPaymentReceipt, TreasuryCashOut, TreasuryTransaction, Warehouse } from '../models/erp.models';
+import { Account, AuditLog, BankAccount, BcvExchangeRateState, Bom, CashRegisterSession, CompanyFiscalProfile, CreateCriticalAuditNotification, CrmDeal, CriticalAuditNotification, CurrencyCode, Customer, CustomerPaymentReceipt, DeliveryOrder, DispatchGuide, Invoice, InvoiceItem, InvoiceTaxDetails, JournalEntry, KardexMovement, PayableBill, PaymentRecord, PriceLevelKey, Product, ProductCategory, ProductionOrder, PurchaseOrder, Quote, Supplier, SupplierPaymentReceipt, TreasuryCashOut, TreasuryTransaction, Warehouse } from '../models/erp.models';
 
 export interface DispatchWorkflowResponse {
   dispatchGuide: DispatchGuide;
@@ -51,6 +51,7 @@ export interface StockAdjustmentResponse {
   adjustment: unknown;
   kardexMovement: KardexMovement;
   stock: unknown;
+  totalStock: number;
 }
 
 export interface ProductImportResult {
@@ -75,7 +76,16 @@ export class ApiService {
   private normalizeKardexMovement(raw: KardexMovement & { movementDate?: string }): KardexMovement {
     return {
       ...raw,
-      date: raw.date ?? raw.movementDate ?? ''
+      date: raw.date ?? raw.movementDate ?? '',
+      entryQty: Number(raw.entryQty ?? 0),
+      entryUnitCost: Number(raw.entryUnitCost ?? 0),
+      entryTotalCost: Number(raw.entryTotalCost ?? 0),
+      exitQty: Number(raw.exitQty ?? 0),
+      exitUnitCost: Number(raw.exitUnitCost ?? 0),
+      exitTotalCost: Number(raw.exitTotalCost ?? 0),
+      balanceQty: Number(raw.balanceQty ?? 0),
+      balanceAverageCost: Number(raw.balanceAverageCost ?? 0),
+      balanceTotalValuation: Number(raw.balanceTotalValuation ?? 0)
     };
   }
 
@@ -296,7 +306,13 @@ export class ApiService {
   }
 
   createStockAdjustment(payload: StockAdjustmentPayload): Observable<StockAdjustmentResponse> {
-    return this.http.post<StockAdjustmentResponse>(`${this.baseUrl}/adjustments`, payload);
+    return this.http.post<StockAdjustmentResponse>(`${this.baseUrl}/adjustments`, payload).pipe(
+      map(response => ({
+        ...response,
+        totalStock: Number(response.totalStock),
+        kardexMovement: this.normalizeKardexMovement(response.kardexMovement as KardexMovement & { movementDate?: string }),
+      }))
+    );
   }
 
   createProduct(product: Partial<Product>): Observable<Product> {
@@ -547,8 +563,28 @@ export class ApiService {
     return this.http.get<AuditLog[]>(`${this.baseUrl}/audit/logs`);
   }
 
-  createAuditLog(data: Pick<AuditLog, 'action' | 'module' | 'details' | 'isCritical' | 'criticalCategory'>): Observable<AuditLog> {
+  createAuditLog(data: Pick<AuditLog, 'action' | 'module' | 'details' | 'isCritical' | 'criticalCategory'> & {
+    criticalNotification?: CreateCriticalAuditNotification;
+  }): Observable<AuditLog> {
     return this.http.post<AuditLog>(`${this.baseUrl}/audit/logs`, data);
+  }
+
+  getCriticalAuditNotifications(): Observable<CriticalAuditNotification[]> {
+    return this.http.get<CriticalAuditNotification[]>(`${this.baseUrl}/audit/notifications`).pipe(
+      map(notifications => notifications.map(notification => ({
+        ...notification,
+        isRead: Boolean(notification.isRead),
+        createdAt: notification.createdAt ? new Date(notification.createdAt).toLocaleString() : '',
+      }))),
+    );
+  }
+
+  markCriticalAuditNotificationAsRead(id: string): Observable<CriticalAuditNotification> {
+    return this.http.put<CriticalAuditNotification>(`${this.baseUrl}/audit/notifications/${id}/read`, {});
+  }
+
+  markAllCriticalAuditNotificationsAsRead(): Observable<void> {
+    return this.http.put<void>(`${this.baseUrl}/audit/notifications/read-all`, {});
   }
 
   getCurrentBcv(): Observable<Partial<BcvExchangeRateState>> {

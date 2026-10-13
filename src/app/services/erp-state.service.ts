@@ -39,6 +39,7 @@ import {
   JournalEntry,
   JournalEntryLine,
   ErpFullBackupPayload,
+  CreateCriticalAuditNotification,
   CriticalAuditNotification,
   CriticalAuditCategory,
   PaymentMethod,
@@ -1105,72 +1106,7 @@ export class ErpStateService {
   readonly notifications = signal<{ id: string; type: 'success' | 'info' | 'warning' | 'error'; title: string; message: string; timestamp: number }[]>([]);
 
   // Critical Audit Notifications (UI Real-time Alert Center)
-  readonly criticalAuditNotifications = signal<CriticalAuditNotification[]>([
-    {
-      id: 'can-001',
-      category: 'PRICE_CHANGE',
-      severity: 'CRITICAL',
-      title: 'Alteración de Precio Base de Venta (Nivel 1)',
-      message: 'El usuario Alejandro Morales (Admin) modificó el precio base de venta del producto "Taladro Percutor Industrial 750W 1/2"" (ELE-TAL-750) de $69.00 a $78.90 USD (+14.35%).',
-      details: {
-        itemSku: 'ELE-TAL-750',
-        itemName: 'Taladro Percutor Industrial 750W 1/2"',
-        oldValue: '$69.00 (Base Detal)',
-        newValue: '$78.90 (Base Detal)',
-        diffSummary: 'Precio Base: $69.00 ➔ $78.90 USD (Nivel 1 Detal)',
-        user: 'Alejandro Morales (Admin)',
-        role: 'ADMIN',
-        timestamp: '2026-08-18 10:15:20',
-        justification: 'Ajuste de margen comercial por inflación y fletes internacionales'
-      },
-      isRead: false,
-      createdAt: '2026-08-18 10:15:20'
-    },
-    {
-      id: 'can-002',
-      category: 'MANUAL_STOCK_ADJUSTMENT',
-      severity: 'CRITICAL',
-      title: 'Ajuste Manual de Inventario Fuera de Fabricación (Merma)',
-      message: 'Se registró un descargo manual no planificado de -2 UND en "Almacén Central" para "Bobina Cable de Red UTP Cat6 305m Exterior" (RED-CAT6-305). Soporte: MER-2026-089.',
-      details: {
-        itemSku: 'RED-CAT6-305',
-        itemName: 'Bobina Cable de Red UTP Cat6 305m Exterior 100% Cobre',
-        warehouseName: 'Almacén Central',
-        oldValue: '18 UND en Almacén Central',
-        newValue: '16 UND en Almacén Central',
-        diffSummary: 'Descargo directo por merma: -2 UND',
-        supportDocument: 'MER-2026-089',
-        justification: 'Bobinas dañadas por filtración en rack perimetral B-12',
-        user: 'David Silva (Almacén)',
-        role: 'WAREHOUSE_KEEPER',
-        timestamp: '2026-08-18 14:22:45'
-      },
-      isRead: false,
-      createdAt: '2026-08-18 14:22:45'
-    },
-    {
-      id: 'can-003',
-      category: 'MANUAL_STOCK_ADJUSTMENT',
-      severity: 'HIGH',
-      title: 'Ajuste Manual de Inventario (Sobrante por Conteo Físico)',
-      message: 'Se ingresaron manualmente +4 UND en "Almacén Sucursal Norte" para "Reflector LED Industrial Exterior IP65 50W 6500K" (ILU-LED-50W) tras auditoría física.',
-      details: {
-        itemSku: 'ILU-LED-50W',
-        itemName: 'Reflector LED Industrial Exterior IP65 50W 6500K',
-        warehouseName: 'Almacén Sucursal Norte',
-        oldValue: '12 UND en Sucursal Norte',
-        newValue: '16 UND en Sucursal Norte',
-        diffSummary: 'Ingreso manual por sobrante: +4 UND',
-        supportDocument: 'INV-FIS-042',
-        justification: 'Regularización de conteo cíclico trimestral de inventario',
-        user: 'David Silva (Almacén)',
-        role: 'WAREHOUSE_KEEPER',
-        timestamp: '2026-08-17 17:30:10'
-      },
-      isRead: true,
-      createdAt: '2026-08-17 17:30:10'
-    }
-  ]);
+  readonly criticalAuditNotifications = signal<CriticalAuditNotification[]>([]);
 
   readonly unreadCriticalAuditCount = computed(() =>
     this.criticalAuditNotifications().filter(n => !n.isRead).length
@@ -2027,48 +1963,40 @@ export class ErpStateService {
     this.notifications.update(prev => prev.filter(n => n.id !== id));
   }
 
-  addCriticalAuditNotification(
-    data: Omit<CriticalAuditNotification, 'id' | 'createdAt' | 'isRead'>
-  ): CriticalAuditNotification {
-    const id = 'can-' + Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 6);
-    const createdAt = new Date().toISOString().replace('T', ' ').substring(0, 19);
-    const newNotification: CriticalAuditNotification = {
-      ...data,
-      id,
-      isRead: false,
-      createdAt
-    };
-
-    this.criticalAuditNotifications.update(prev => [newNotification, ...prev]);
-
-    // Also trigger instant visual toast with high urgency
-    this.notify(
-      data.severity === 'CRITICAL' ? 'error' : 'warning',
-      `🚨 ALERTA DE AUDITORÍA: ${data.title}`,
-      data.message
-    );
-
-    this.saveState();
-    return newNotification;
+  loadCriticalAuditNotifications(reportError = true): void {
+    this.apiService.getCriticalAuditNotifications().subscribe({
+      next: notifications => this.criticalAuditNotifications.set(notifications),
+      error: error => {
+        if (reportError) {
+          this.notify('error', 'Alertas no disponibles', 'No se pudieron cargar las alertas desde el backend.');
+        }
+        console.error('Failed to load critical audit notifications', error);
+      }
+    });
   }
 
   markAuditNotificationAsRead(id: string): void {
-    this.criticalAuditNotifications.update(list =>
-      list.map(n => (n.id === id ? { ...n, isRead: true } : n))
-    );
-    this.saveState();
+    this.apiService.markCriticalAuditNotificationAsRead(id).subscribe({
+      next: notification => this.criticalAuditNotifications.update(list =>
+        list.map(item => item.id === id ? { ...item, isRead: Boolean(notification.isRead) } : item)
+      ),
+      error: error => {
+        this.notify('error', 'Alerta no actualizada', 'No se pudo guardar en el backend el estado de lectura.');
+        console.error('Failed to mark critical audit notification as read', error);
+      }
+    });
   }
 
   markAllAuditNotificationsAsRead(): void {
-    this.criticalAuditNotifications.update(list =>
-      list.map(n => ({ ...n, isRead: true }))
-    );
-    this.saveState();
-  }
-
-  clearAllAuditNotifications(): void {
-    this.criticalAuditNotifications.set([]);
-    this.saveState();
+    this.apiService.markAllCriticalAuditNotificationsAsRead().subscribe({
+      next: () => this.criticalAuditNotifications.update(list =>
+        list.map(notification => ({ ...notification, isRead: true }))
+      ),
+      error: error => {
+        this.notify('error', 'Alertas no actualizadas', 'No se pudo guardar en el backend el estado de lectura.');
+        console.error('Failed to mark all critical audit notifications as read', error);
+      }
+    });
   }
 
   logAudit(
@@ -2080,7 +2008,8 @@ export class ErpStateService {
     newState?: Record<string, unknown> | null,
     metadata?: Record<string, unknown>,
     isCritical?: boolean,
-    criticalCategory?: CriticalAuditCategory
+    criticalCategory?: CriticalAuditCategory,
+    criticalNotification?: CreateCriticalAuditNotification
   ) {
     const user = this.authService.currentUser();
     const log: AuditLog = {
@@ -2110,14 +2039,23 @@ export class ErpStateService {
       module,
       details: log.details,
       isCritical,
-      criticalCategory
+      criticalCategory,
+      criticalNotification
     }).subscribe({
       next: savedLog => {
         this.auditLogs.update(logs => [savedLog, ...logs.filter(existing => existing.id !== log.id)]);
         this.saveState();
+        if (criticalNotification) {
+          this.notify(
+            criticalNotification.severity === 'CRITICAL' ? 'error' : 'warning',
+            `ALERTA DE AUDITORÍA: ${criticalNotification.title}`,
+            criticalNotification.message
+          );
+          this.loadCriticalAuditNotifications();
+        }
       },
       error: error => {
-        this.notify('error', 'Auditoría no sincronizada', `El evento "${title}" quedó en este dispositivo, pero no pudo guardarse en el backend.`);
+        this.notify('error', 'Auditoría no sincronizada', `El evento "${title}" y su alerta no se pudieron guardar en el backend.`);
         console.error('Failed to persist audit event', error);
       }
     });
@@ -2414,42 +2352,41 @@ export class ErpStateService {
     };
 
     this.products.update(prods => prods.map(p => p.id === productId ? updatedProd : p));
+    const priceDeltaPercent = oldBasePrice > 0 ? (((newBasePrice - oldBasePrice) / oldBasePrice) * 100).toFixed(2) : '0';
     this.apiService.updateProduct(productId, updatedProd).subscribe({
-      next: saved => this.products.update(products => products.map(product => product.id === productId ? saved : product)),
+      next: saved => {
+        this.products.update(products => products.map(product => product.id === productId ? saved : product));
+        this.logAudit(
+          'UPDATE_PRODUCT_PRICES',
+          'INVENTORY',
+          `Actualización de 5 Niveles de Precio: ${prod.sku}`,
+          `Se actualizaron los 5 niveles de precio y condición tributaria (${isTaxExempt ? 'Exento 0%' : 'Gravado ' + (taxRate * 100) + '%'}) de ${prod.name}.`,
+          { preciosAnteriores: prod.prices, precioBaseAnterior: oldBasePrice, exentoAnterior: prod.isTaxExempt },
+          { preciosNuevos: prices, precioBaseNuevo: newBasePrice, exentoNuevo: isTaxExempt, tasaIva: taxRate },
+          { basePriceChanged: isBasePriceChanged },
+          true,
+          'PRICE_CHANGE',
+          {
+            severity: isBasePriceChanged ? 'CRITICAL' : 'HIGH',
+            title: isBasePriceChanged ? 'Alteración de Precio Base de Venta' : 'Actualización de Niveles de Precio',
+            message: `El usuario ${user.name} (${user.role}) modificó los precios de "${prod.name}" (${prod.sku}). Precio Base: $${oldBasePrice.toFixed(2)} ➔ $${newBasePrice.toFixed(2)} USD (${Number(priceDeltaPercent) >= 0 ? '+' : ''}${priceDeltaPercent}%).`,
+            details: {
+              itemSku: prod.sku,
+              itemName: prod.name,
+              oldValue: `$${oldBasePrice.toFixed(2)} (Base Nivel 1)`,
+              newValue: `$${newBasePrice.toFixed(2)} (Base Nivel 1)`,
+              diffSummary: `Precio Base: $${oldBasePrice.toFixed(2)} ➔ $${newBasePrice.toFixed(2)} USD (${isTaxExempt ? 'Exento' : 'IVA ' + (taxRate * 100) + '%'})`,
+              user: user.name,
+              role: user.role,
+              timestamp: nowStr,
+              justification: 'Modificación manual directa en catálogo de inventario'
+            }
+          }
+        );
+      },
       error: () => {
         this.products.update(products => products.map(product => product.id === productId ? prod : product));
         this.notify('error', 'Precios no guardados', 'El backend rechazó la actualización de precios e impuestos.');
-      }
-    });
-    this.logAudit(
-      'UPDATE_PRODUCT_PRICES',
-      'INVENTORY',
-      `Actualización de 5 Niveles de Precio: ${prod.sku}`,
-      `Se actualizaron los 5 niveles de precio y condición tributaria (${isTaxExempt ? 'Exento 0%' : 'Gravado ' + (taxRate * 100) + '%'}) de ${prod.name}.`,
-      { preciosAnteriores: prod.prices, precioBaseAnterior: oldBasePrice, exentoAnterior: prod.isTaxExempt },
-      { preciosNuevos: prices, precioBaseNuevo: newBasePrice, exentoNuevo: isTaxExempt, tasaIva: taxRate },
-      { basePriceChanged: isBasePriceChanged },
-      true,
-      'PRICE_CHANGE'
-    );
-
-    // Emit Real-time Critical Audit Notification
-    const priceDeltaPercent = oldBasePrice > 0 ? (((newBasePrice - oldBasePrice) / oldBasePrice) * 100).toFixed(2) : '0';
-    this.addCriticalAuditNotification({
-      category: 'PRICE_CHANGE',
-      severity: isBasePriceChanged ? 'CRITICAL' : 'HIGH',
-      title: isBasePriceChanged ? 'Alteración de Precio Base de Venta' : 'Actualización de Niveles de Precio',
-      message: `El usuario ${user.name} (${user.role}) modificó los precios de "${prod.name}" (${prod.sku}). Precio Base: $${oldBasePrice.toFixed(2)} ➔ $${newBasePrice.toFixed(2)} USD (${Number(priceDeltaPercent) >= 0 ? '+' : ''}${priceDeltaPercent}%).`,
-      details: {
-        itemSku: prod.sku,
-        itemName: prod.name,
-        oldValue: `$${oldBasePrice.toFixed(2)} (Base Nivel 1)`,
-        newValue: `$${newBasePrice.toFixed(2)} (Base Nivel 1)`,
-        diffSummary: `Precio Base: $${oldBasePrice.toFixed(2)} ➔ $${newBasePrice.toFixed(2)} USD (${isTaxExempt ? 'Exento' : 'IVA ' + (taxRate * 100) + '%'})`,
-        user: user.name,
-        role: user.role,
-        timestamp: nowStr,
-        justification: 'Modificación manual directa en catálogo de inventario'
       }
     });
 
@@ -4246,131 +4183,78 @@ export class ErpStateService {
     quantityDelta: number, // Positivo para entrada/sobrante, negativo para merma/salida
     supportDocument: string, // Campo obligatorio
     justificationReason: string
-  ): { success: boolean; message: string } {
+  ): Promise<{ success: boolean; message: string }> {
     const user = this.authService.currentUser();
     if (!supportDocument || supportDocument.trim().length < 3) {
-      return { success: false, message: 'El Documento de Soporte / Folio de Autorización es estrictamente obligatorio.' };
+      return Promise.resolve({ success: false, message: 'El Documento de Soporte / Folio de Autorización es estrictamente obligatorio.' });
     }
 
     if (!justificationReason || justificationReason.trim().length < 5) {
-      return { success: false, message: 'Debe ingresar un motivo o justificación técnica detallada.' };
+      return Promise.resolve({ success: false, message: 'Debe ingresar un motivo o justificación técnica detallada.' });
     }
 
     const prod = this.products().find(p => p.id === productId);
     const wh = this.warehouses().find(w => w.id === warehouseId);
     if (!prod || !wh) {
-      return { success: false, message: 'Producto o Almacén no válido.' };
+      return Promise.resolve({ success: false, message: 'Producto o Almacén no válido.' });
     }
 
     const currentWhStock = prod.stockByWarehouse.find(sw => sw.warehouseId === warehouseId)?.quantity || 0;
     const newWhStock = currentWhStock + quantityDelta;
 
     if (newWhStock < 0) {
-      return { success: false, message: `El ajuste generaría stock negativo en ${wh.name}. Stock actual: ${currentWhStock}` };
+      return Promise.resolve({ success: false, message: `El ajuste generaría stock negativo en ${wh.name}. Stock actual: ${currentWhStock}` });
     }
 
-    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    if (!Number.isInteger(quantityDelta) || quantityDelta === 0) {
+      return Promise.resolve({ success: false, message: 'La cantidad del ajuste debe ser un número entero distinto de cero.' });
+    }
+
     const newTotalStock = prod.totalStock + quantityDelta;
-
-    let movementType: KardexMovement['movementType'] = 'AJUSTE_INVENTARIO';
-    let entryQty = 0;
-    let entryUnitCost = 0;
-    let entryTotalCost = 0;
-    let exitQty = 0;
-    let exitUnitCost = 0;
-    let exitTotalCost = 0;
-
-    if (quantityDelta < 0) {
-      movementType = 'AJUSTE_MERMA';
-      exitQty = Math.abs(quantityDelta);
-      exitUnitCost = prod.costPrice;
-      exitTotalCost = Number((exitQty * exitUnitCost).toFixed(2));
-    } else {
-      movementType = 'AJUSTE_SOBRANTE';
-      entryQty = quantityDelta;
-      entryUnitCost = prod.costPrice;
-      entryTotalCost = Number((entryQty * entryUnitCost).toFixed(2));
+    if (newTotalStock < 0) {
+      return Promise.resolve({ success: false, message: 'El ajuste generaría stock total negativo.' });
     }
-
-    const updatedStockByWh = prod.stockByWarehouse.map(sw => {
-      if (sw.warehouseId === warehouseId) {
-        return { ...sw, quantity: newWhStock };
-      }
-      return sw;
-    });
-
-    const updatedProd: Product = {
-      ...prod,
-      totalStock: newTotalStock,
-      stockByWarehouse: updatedStockByWh,
-      updatedAt: nowStr
-    };
-
-    // New Kardex Record
-    const kdxRecord: KardexMovement = {
-      id: 'kdx-' + Date.now().toString(36),
-      productId: prod.id,
-      productSku: prod.sku,
-      productName: prod.name,
-      warehouseId: wh.id,
-      warehouseName: wh.name,
-      date: nowStr,
-      movementType,
-      docReference: `AJUSTE-${supportDocument.toUpperCase()}`,
-      supportDocument: supportDocument.trim(),
-      justificationReason: justificationReason.trim(),
-      entryQty,
-      entryUnitCost,
-      entryTotalCost,
-      exitQty,
-      exitUnitCost,
-      exitTotalCost,
-      balanceQty: newTotalStock,
-      balanceAverageCost: prod.costPrice,
-      balanceTotalValuation: Number((newTotalStock * prod.costPrice).toFixed(2)),
-      registeredByUserId: user.id,
-      registeredByUserName: user.name
-    };
-
-    this.products.update(prods => prods.map(p => p.id === productId ? updatedProd : p));
-    this.kardexMovements.update(kdx => [kdxRecord, ...kdx]);
-
-    this.logAudit(
-      'ADJUST_STOCK',
-      'INVENTORY',
-      `Ajuste de Stock: ${prod.sku} (${movementType})`,
-      `Ajuste de ${quantityDelta > 0 ? '+' : ''}${quantityDelta} UND en ${wh.name}. Doc Soporte: "${supportDocument}". Motivo: "${justificationReason}".`,
-      { stockAnteriorTotal: prod.totalStock, stockAnteriorAlmacen: currentWhStock },
-      { stockNuevoTotal: newTotalStock, stockNuevoAlmacen: newWhStock, docSoporte: supportDocument, motivo: justificationReason },
-      { auditoriaRequerida: true, movementType },
-      true,
-      'MANUAL_STOCK_ADJUSTMENT'
-    );
-
-    // Emit Real-time Critical Audit Notification for Manual Stock Adjustment
-    const isMerma = quantityDelta < 0;
-    this.addCriticalAuditNotification({
-      category: 'MANUAL_STOCK_ADJUSTMENT',
-      severity: 'CRITICAL',
-      title: `Ajuste Manual de Inventario Fuera de Fabricación (${isMerma ? 'Merma / Baja' : 'Sobrante / Regularización'})`,
-      message: `Ajuste manual de ${quantityDelta > 0 ? '+' : ''}${quantityDelta} UND en "${wh.name}" para "${prod.name}" (${prod.sku}). Doc Soporte: "${supportDocument}". Motivo: "${justificationReason}".`,
-      details: {
-        itemSku: prod.sku,
-        itemName: prod.name,
+    return firstValueFrom(this.apiService.createStockAdjustment({
+      productId,
+      warehouseId,
+      quantityDelta,
+      type: adjustmentType === 'MERMA' ? 'SHRINKAGE' : 'PHYSICAL_COUNT',
+      reason: justificationReason.trim(),
+      supportDocType: adjustmentType,
+      supportDocNum: supportDocument.trim()
+    })).then(result => {
+      const updatedStock = Number((result.stock as { quantity: number }).quantity);
+      const existingWarehouseStock = prod.stockByWarehouse.some(stock => stock.warehouseId === warehouseId);
+      const updatedStockByWh = existingWarehouseStock
+        ? prod.stockByWarehouse.map(stock => stock.warehouseId === warehouseId
+          ? { ...stock, quantity: updatedStock }
+          : stock)
+        : [...prod.stockByWarehouse, { warehouseId, warehouseName: wh.name, quantity: updatedStock }];
+      const updatedProd: Product = {
+        ...prod,
+        totalStock: result.totalStock,
+        stockByWarehouse: updatedStockByWh,
+        updatedAt: new Date().toISOString()
+      };
+      const kardexRecord: KardexMovement = {
+        ...result.kardexMovement,
+        productSku: prod.sku,
+        productName: prod.name,
         warehouseName: wh.name,
-        oldValue: `${currentWhStock} UND en ${wh.name} (Total: ${prod.totalStock} UND)`,
-        newValue: `${newWhStock} UND en ${wh.name} (Total: ${newTotalStock} UND)`,
-        diffSummary: `Ajuste ${isMerma ? 'Descargo' : 'Ingreso'}: ${quantityDelta > 0 ? '+' : ''}${quantityDelta} UND en ${wh.name}`,
-        supportDocument,
-        justification: justificationReason,
-        user: user.name,
-        role: user.role,
-        timestamp: nowStr
-      }
-    });
+        registeredByUserName: user.name
+      };
 
-    this.saveState();
-    return { success: true, message: 'Ajuste registrado exitosamente en Kardex, Bitácora y Centro de Alertas.' };
+      this.products.update(products => products.map(product => product.id === productId ? updatedProd : product));
+      this.kardexMovements.update(movements => [kardexRecord, ...movements]);
+      this.loadCriticalAuditNotifications(false);
+      this.saveState();
+      return { success: true, message: 'Ajuste registrado en backend, Kardex, Bitácora y Centro de Alertas.' };
+    }).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : 'Error desconocido al registrar el ajuste.';
+      this.notify('error', 'Ajuste no registrado', 'El backend rechazó el ajuste; no se creó la alerta ni se actualizó el inventario local.');
+      console.error('Failed to persist stock adjustment', error);
+      return { success: false, message };
+    });
   }
 
   // ==========================================
@@ -6819,23 +6703,21 @@ export class ErpStateService {
         { recordsRestored: count, source: sourceDescription },
         undefined,
         true,
-        'DB_RESTORE'
-      );
-
-      this.addCriticalAuditNotification({
-        category: 'DB_RESTORE',
-        severity: 'CRITICAL',
-        title: 'Restauración Completa de Base de Datos',
-        message: `El usuario ${this.authService.currentUser().name} ejecutó una restauración de respaldo global (${count} registros restaurados desde ${sourceDescription}).`,
-        details: {
+        'DB_RESTORE',
+        {
+          severity: 'CRITICAL',
+          title: 'Restauración Completa de Base de Datos',
+          message: `El usuario ${this.authService.currentUser().name} ejecutó una restauración de respaldo global (${count} registros restaurados desde ${sourceDescription}).`,
+          details: {
           diffSummary: `${count} entidades restauradas en PostgreSQL ACID`,
           supportDocument: `RESTORE-${Date.now()}`,
           justification: `Restauración autorizada desde módulo de seguridad (${sourceDescription})`,
           user: this.authService.currentUser().name,
           role: this.authService.currentUser().role,
           timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19)
+          }
         }
-      });
+      );
 
       this.saveState();
       this.notify('success', 'Base de Datos Restaurada', `Se restauraron exitosamente ${count} registros desde ${sourceDescription}.`);
