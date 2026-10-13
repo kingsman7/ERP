@@ -5,6 +5,32 @@ import { catchError, map, Observable, of, tap } from 'rxjs';
 import { AuditService } from './audit.servie';
 import { Router } from '@angular/router';
 
+export interface NavAccessRule {
+  title: string;
+  permissions?: string[];
+  roles?: string[];
+}
+
+export const NAV_PERMISSIONS: Record<string, NavAccessRule> = {
+  'dashboard': { title: 'Dashboard Ejecutivo' },
+  'inventory': { title: 'Inventario y Almacenes', permissions: ['inventory:view'] },
+  'kardex': { title: 'Kardex Valorado (CPP)', permissions: ['kardex:view'] },
+  'purchases': { title: 'Compras y Proveedores', permissions: ['purchases:manage', 'purchases:receive'] },
+  'sales-pos': { title: 'Punto de Venta (POS)', permissions: ['sales:pos', 'sales:manage'] },
+  'quotes': { title: 'Presupuestos / Cotizaciones', permissions: ['quotes:manage', 'quotes:create'] },
+  'logistics': { title: 'Logística & Guías SENIAT', permissions: ['inventory:manage', 'sales:manage', 'purchases:manage'] },
+  'mrp': { title: 'Manufactura y MRP', permissions: ['mrp:manage'] },
+  'crm': { title: 'CRM & Pipeline Comercial', permissions: ['crm:manage'] },
+  'treasury': { title: 'Tesorería & Bancos (CxC / CxP)', permissions: ['treasury:view', 'treasury:manage', 'accounting:view', 'purchases:manage', 'sales:manage'] },
+  'accounting': { title: 'Contabilidad General NIIF', permissions: ['accounting:view', 'accounting:manage'] },
+  'cash-closing': { title: 'Cierre de Caja (Z)', permissions: ['cash:shift'] },
+  'users': { title: 'Gestión de Usuarios & Roles', permissions: ['security:manage'] },
+  'audit-log': { title: 'Bitácora de Auditoría & Seguridad', permissions: ['audit:view'] },
+  'backups': { title: 'Respaldos Firestore', permissions: ['security:manage'] },
+  'manual': { title: 'Manual de Usuario' },
+  'company-admin': { title: 'Gestión de Empresa y Suscripción', roles: ['SUPERADMIN'] }
+};
+
 export const SYSTEM_ROLES: RoleConfig[] = [
   {
     id: 'SUPERADMIN' as UserRole,
@@ -18,14 +44,52 @@ export const SYSTEM_ROLES: RoleConfig[] = [
     name: 'Administrador de Empresa',
     badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200',
     description: 'Administración de la empresa y sus operaciones autorizadas.',
-    permissions: ['sales:pos', 'quotes:create', 'products:search', 'cash:shift', 'security:manage','kardex:view', 'audit:view', 'inventory:view', 'sales:manage', 'purchases:manage', 'reports:export', 'treasury:manage', 'treasury:view', 'accounting:manage']
+    permissions: [
+      'sales:pos',
+      'quotes:create',
+      'quotes:manage',
+      'products:search',
+      'cash:shift',
+      'security:manage',
+      'kardex:view',
+      'audit:view',
+      'inventory:view',
+      'inventory:adjust',
+      'inventory:manage',
+      'sales:manage',
+      'purchases:manage',
+      'purchases:receive',
+      'reports:export',
+      'reports:view',
+      'treasury:manage',
+      'treasury:view',
+      'accounting:manage',
+      'accounting:view',
+      'mrp:manage',
+      'crm:manage'
+    ]
   },
   {
     id: 'OPERATIONS_MANAGER',
     name: 'Gerente de Operaciones',
     badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     description: 'Gestión de compras, tesorería, cuentas por pagar/cobrar, kardex, inventario y presupuestos.',
-    permissions: ['inventory:view', 'inventory:adjust', 'purchases:manage', 'sales:view', 'reports:view', 'quotes:manage', 'treasury:view', 'treasury:manage']
+    permissions: [
+      'inventory:view',
+      'inventory:adjust',
+      'inventory:manage',
+      'purchases:manage',
+      'purchases:receive',
+      'sales:view',
+      'reports:view',
+      'quotes:manage',
+      'quotes:create',
+      'kardex:view',
+      'mrp:manage',
+      'crm:manage',
+      'treasury:view',
+      'treasury:manage'
+    ]
   },
   {
     id: 'CASHIER_SELLER',
@@ -451,6 +515,42 @@ export class AuthService {
       return true;
     }
     return roleConfig.permissions.includes(permission);
+  }
+
+  hasAnyPermission(permissions: string[]): boolean {
+    if (!permissions || permissions.length === 0) return true;
+    const roleConfig = this.currentRoleConfig();
+    if (roleConfig.permissions.includes('all')) return true;
+    return permissions.some(perm => roleConfig.permissions.includes(perm));
+  }
+
+  hasRole(...roles: string[]): boolean {
+    if (!roles || roles.length === 0) return true;
+    const currentRole = this.currentUserSignal().role as string;
+    return roles.includes(currentRole);
+  }
+
+  canAccessNav(navId: string): boolean {
+    if (this.isSuperAdmin()) return true;
+
+    const rule = NAV_PERMISSIONS[navId];
+    if (!rule) {
+      return true;
+    }
+
+    if (rule.roles && rule.roles.length > 0) {
+      if (!this.hasRole(...rule.roles)) {
+        return false;
+      }
+    }
+
+    if (rule.permissions && rule.permissions.length > 0) {
+      if (!this.hasAnyPermission(rule.permissions)) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   canAdjustInventory(): boolean {

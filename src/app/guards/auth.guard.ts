@@ -1,12 +1,12 @@
 import { inject } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
-import { CanActivateFn, CanMatchFn, Router } from '@angular/router';
+import { ActivatedRouteSnapshot, CanActivateFn, CanMatchFn, Router } from '@angular/router';
 import { filter, map, take } from 'rxjs';
-import { AuthService } from '../services/auth.service';
+import { AuthService, NAV_PERMISSIONS } from '../services/auth.service';
+import { ErpStateService } from '../services/erp-state.service';
 
 const waitForAuthentication = () => {
   const authService = inject(AuthService);
-  const router = inject(Router);
 
   return toObservable(authService.authInitialized).pipe(
     filter(Boolean),
@@ -54,5 +54,54 @@ export const loginRedirectGuard: CanActivateFn = () => {
 export const superAdminGuard: CanActivateFn = () => {
   const authService = inject(AuthService);
   const router = inject(Router);
-  return authService.isSuperAdmin() ? true : router.createUrlTree(['/app/dashboard']);
+  const stateService = inject(ErpStateService);
+
+  if (authService.isSuperAdmin()) return true;
+
+  stateService.notify(
+    'warning',
+    'Acceso No Autorizado',
+    'El módulo de Empresa y Suscripción está restringido exclusivamente a Super Administradores.'
+  );
+  return router.createUrlTree(['/app/dashboard']);
 };
+
+export const roleGuard: CanActivateFn = (route: ActivatedRouteSnapshot) => {
+  const authService = inject(AuthService);
+  const router = inject(Router);
+  const stateService = inject(ErpStateService);
+
+  return waitForAuthentication().pipe(
+    map(() => {
+      if (!authService.isAuthenticated()) {
+        return router.createUrlTree(['/']);
+      }
+
+      if (authService.isSuperAdmin()) {
+        return true;
+      }
+
+      const path = route.routeConfig?.path || '';
+      const rule = NAV_PERMISSIONS[path];
+
+      if (!rule) {
+        return true;
+      }
+
+      const hasAccess = authService.canAccessNav(path);
+      if (!hasAccess) {
+        const moduleTitle = rule.title || path;
+        const currentRoleName = authService.currentRoleConfig().name;
+        stateService.notify(
+          'warning',
+          'Acceso No Autorizado',
+          `No tienes permisos para acceder al módulo "${moduleTitle}". Tu rol actual es ${currentRoleName}.`
+        );
+        return router.createUrlTree(['/app/dashboard']);
+      }
+
+      return true;
+    })
+  );
+};
+

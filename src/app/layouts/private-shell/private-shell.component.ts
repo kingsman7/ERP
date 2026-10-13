@@ -4,7 +4,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
 import { ErpStateService } from '../../services/erp-state.service';
-import { AuthService } from '../../services/auth.service';
+import { AuthService, NAV_PERMISSIONS } from '../../services/auth.service';
 import { KeyboardShortcutsService } from '../../services/keyboard-shortcuts.service';
 import { HeaderComponent } from '../../components/header/header';
 import { SidebarComponent, NavTab } from '../../components/sidebar/sidebar';
@@ -114,9 +114,30 @@ export class PrivateShellComponent {
       return;
     }
     if (navId === 'company-admin') {
+      if (!this.authService.isSuperAdmin()) {
+        this.stateService.notify(
+          'warning',
+          'Acceso No Autorizado',
+          'El módulo de Empresa y Suscripción está restringido exclusivamente a Super Administradores.'
+        );
+        return;
+      }
       void this.router.navigate(['/app/company-admin']);
       return;
     }
+
+    if (!this.authService.canAccessNav(navId)) {
+      const rule = NAV_PERMISSIONS[navId];
+      const title = rule?.title || navId;
+      const roleName = this.authService.currentRoleConfig().name;
+      this.stateService.notify(
+        'warning',
+        'Acceso No Autorizado',
+        `No tienes permisos para acceder al módulo "${title}". Tu rol actual es ${roleName}.`
+      );
+      return;
+    }
+
     this.router.navigate(['/app', navId]);
   }
 

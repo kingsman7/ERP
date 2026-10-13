@@ -1,5 +1,7 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { NavTab } from '../components/sidebar/sidebar';
+import { AuthService } from './auth.service';
+import { ErpStateService } from './erp-state.service';
 
 export type ShortcutCategory = 'CREATION' | 'NAVIGATION' | 'POS' | 'SYSTEM';
 
@@ -14,6 +16,8 @@ export interface ShortcutDefinition {
   targetNav?: NavTab;
   badgeColor?: string;
   requiresModal?: boolean;
+  requiredPermissions?: string[];
+  requiredRoles?: string[];
 }
 
 export interface ShortcutEvent {
@@ -27,6 +31,9 @@ export interface ShortcutEvent {
   providedIn: 'root'
 })
 export class KeyboardShortcutsService {
+  authService = inject(AuthService);
+  erpState = inject(ErpStateService);
+
   // Master shortcuts catalog
   readonly shortcuts: ShortcutDefinition[] = [
     // ---------------------------------------------------------
@@ -42,7 +49,8 @@ export class KeyboardShortcutsService {
       icon: 'point_of_sale',
       targetNav: 'sales-pos',
       badgeColor: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-      requiresModal: false
+      requiresModal: false,
+      requiredPermissions: ['sales:pos', 'sales:manage']
     },
     {
       id: 'NEW_PRODUCT',
@@ -54,7 +62,8 @@ export class KeyboardShortcutsService {
       icon: 'add_box',
       targetNav: 'inventory',
       badgeColor: 'bg-sky-100 text-sky-800 border-sky-200',
-      requiresModal: true
+      requiresModal: true,
+      requiredPermissions: ['inventory:adjust', 'inventory:manage']
     },
     {
       id: 'NEW_STOCK_ADJUST',
@@ -66,7 +75,8 @@ export class KeyboardShortcutsService {
       icon: 'tune',
       targetNav: 'inventory',
       badgeColor: 'bg-amber-100 text-amber-800 border-amber-200',
-      requiresModal: true
+      requiresModal: true,
+      requiredPermissions: ['inventory:adjust']
     },
     {
       id: 'NEW_PURCHASE',
@@ -78,7 +88,8 @@ export class KeyboardShortcutsService {
       icon: 'local_shipping',
       targetNav: 'purchases',
       badgeColor: 'bg-amber-100 text-amber-800 border-amber-200',
-      requiresModal: true
+      requiresModal: true,
+      requiredPermissions: ['purchases:manage']
     },
     {
       id: 'NEW_QUOTE',
@@ -90,7 +101,8 @@ export class KeyboardShortcutsService {
       icon: 'request_quote',
       targetNav: 'quotes',
       badgeColor: 'bg-violet-100 text-violet-800 border-violet-200',
-      requiresModal: true
+      requiresModal: true,
+      requiredPermissions: ['quotes:manage', 'quotes:create']
     },
     {
       id: 'NEW_PRODUCTION_ORDER',
@@ -102,7 +114,8 @@ export class KeyboardShortcutsService {
       icon: 'precision_manufacturing',
       targetNav: 'mrp',
       badgeColor: 'bg-amber-100 text-amber-800 border-amber-200',
-      requiresModal: true
+      requiresModal: true,
+      requiredPermissions: ['mrp:manage']
     },
     {
       id: 'NEW_BOM',
@@ -114,7 +127,8 @@ export class KeyboardShortcutsService {
       icon: 'format_list_bulleted',
       targetNav: 'mrp',
       badgeColor: 'bg-amber-100 text-amber-800 border-amber-200',
-      requiresModal: true
+      requiresModal: true,
+      requiredPermissions: ['mrp:manage']
     },
     {
       id: 'NEW_JOURNAL_ENTRY',
@@ -126,7 +140,8 @@ export class KeyboardShortcutsService {
       icon: 'post_add',
       targetNav: 'accounting',
       badgeColor: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-      requiresModal: true
+      requiresModal: true,
+      requiredPermissions: ['accounting:manage']
     },
     {
       id: 'NEW_CRM_DEAL',
@@ -138,7 +153,8 @@ export class KeyboardShortcutsService {
       icon: 'group_add',
       targetNav: 'crm',
       badgeColor: 'bg-violet-100 text-violet-800 border-violet-200',
-      requiresModal: true
+      requiresModal: true,
+      requiredPermissions: ['crm:manage']
     },
     {
       id: 'NEW_BACKUP',
@@ -150,7 +166,8 @@ export class KeyboardShortcutsService {
       icon: 'cloud_upload',
       targetNav: 'backups',
       badgeColor: 'bg-indigo-100 text-indigo-800 border-indigo-200',
-      requiresModal: true
+      requiresModal: true,
+      requiredPermissions: ['security:manage']
     },
 
     // ---------------------------------------------------------
@@ -294,7 +311,8 @@ export class KeyboardShortcutsService {
       description: 'Consulta la configuración singleton de la empresa y su suscripción SaaS',
       category: 'NAVIGATION',
       icon: 'admin_panel_settings',
-      targetNav: 'company-admin'
+      targetNav: 'company-admin',
+      requiredRoles: ['SUPERADMIN']
     },
     {
       id: 'NAV_MANUAL',
@@ -328,7 +346,8 @@ export class KeyboardShortcutsService {
       description: 'Abre la ventana de cobro y selección de formas de pago en el Punto de Venta',
       category: 'POS',
       icon: 'credit_card',
-      targetNav: 'sales-pos'
+      targetNav: 'sales-pos',
+      requiredPermissions: ['sales:pos', 'sales:manage']
     },
 
     // ---------------------------------------------------------
@@ -499,9 +518,37 @@ export class KeyboardShortcutsService {
     return this.shortcuts.find(s => s.id === id) || null;
   }
 
+  canExecuteShortcut(shortcut: ShortcutDefinition): boolean {
+    if (this.authService.isSuperAdmin()) return true;
+
+    if (shortcut.requiredRoles && shortcut.requiredRoles.length > 0) {
+      if (!this.authService.hasRole(...shortcut.requiredRoles)) return false;
+    }
+
+    if (shortcut.requiredPermissions && shortcut.requiredPermissions.length > 0) {
+      if (!this.authService.hasAnyPermission(shortcut.requiredPermissions)) return false;
+    }
+
+    if (shortcut.targetNav) {
+      if (!this.authService.canAccessNav(shortcut.targetNav)) return false;
+    }
+
+    return true;
+  }
+
   triggerAction(actionId: string, payload?: unknown): void {
     const shortcut = this.getShortcutById(actionId);
     if (!shortcut) return;
+
+    if (!this.canExecuteShortcut(shortcut)) {
+      this.showPalette.set(false);
+      this.erpState.notify(
+        'warning',
+        'Acceso No Autorizado',
+        `No tienes permisos para ejecutar "${shortcut.title}". Tu rol actual es ${this.authService.currentRoleConfig().name}.`
+      );
+      return;
+    }
 
     // Close palette if open
     this.showPalette.set(false);

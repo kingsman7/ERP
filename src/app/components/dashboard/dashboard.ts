@@ -29,7 +29,7 @@ import { DecimalPipe } from '@angular/common';
           </p>
         </div>
         <div class="flex flex-wrap gap-2 items-center space-x-2">
-          @if (!canAccess('mrp:manager')){
+          @if (canAccessNav('mrp')){
             <button 
               (click)="navigate.emit('mrp')"
               class="px-3.5 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 rounded-xl text-xs font-semibold flex items-center space-x-1.5 border border-amber-500/30 transition-all">
@@ -37,7 +37,7 @@ import { DecimalPipe } from '@angular/common';
               <span>MRP</span>
             </button>
           }
-          @if (!canAccess('crm:manager')){
+          @if (canAccessNav('crm')){
             <button 
               (click)="navigate.emit('crm')"
               class="px-3.5 py-2 bg-violet-500/10 hover:bg-violet-500/20 text-violet-800 rounded-xl text-xs font-semibold flex items-center space-x-1.5 border border-violet-500/30 transition-all">
@@ -46,13 +46,15 @@ import { DecimalPipe } from '@angular/common';
             </button>
           }
 
-          <button 
-            (click)="navigate.emit('treasury')"
-            class="px-3.5 py-2 bg-sky-500/10 hover:bg-sky-500/20 text-sky-800 rounded-xl text-xs font-semibold flex items-center space-x-1.5 border border-sky-500/30 transition-all">
-            <mat-icon class="text-base text-sky-600">account_balance_wallet</mat-icon>
-            <span>Tesorería & CxC</span>
-          </button>
-          @if(!canAccess('accounting:view')){
+          @if (canAccessNav('treasury')) {
+            <button 
+              (click)="navigate.emit('treasury')"
+              class="px-3.5 py-2 bg-sky-500/10 hover:bg-sky-500/20 text-sky-800 rounded-xl text-xs font-semibold flex items-center space-x-1.5 border border-sky-500/30 transition-all">
+              <mat-icon class="text-base text-sky-600">account_balance_wallet</mat-icon>
+              <span>Tesorería & CxC</span>
+            </button>
+          }
+          @if (canAccessNav('accounting')){
             <button 
               (click)="navigate.emit('accounting')"
               class="px-3.5 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-800 rounded-xl text-xs font-semibold flex items-center space-x-1.5 border border-emerald-500/30 transition-all">
@@ -60,12 +62,14 @@ import { DecimalPipe } from '@angular/common';
               <span>Contabilidad</span>
             </button>
           }
-          <button 
-            (click)="navigate.emit('backups')"
-            class="px-3.5 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-800 rounded-xl text-xs font-semibold flex items-center space-x-1.5 border border-indigo-500/30 transition-all">
-            <mat-icon class="text-base text-indigo-600">cloud_sync</mat-icon>
-            <span>Respaldos</span>
-          </button>
+          @if (canAccessNav('backups')) {
+            <button 
+              (click)="navigate.emit('backups')"
+              class="px-3.5 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-800 rounded-xl text-xs font-semibold flex items-center space-x-1.5 border border-indigo-500/30 transition-all">
+              <mat-icon class="text-base text-indigo-600">cloud_sync</mat-icon>
+              <span>Respaldos</span>
+            </button>
+          }
 
           <button 
             (click)="navigate.emit('manual')"
@@ -74,12 +78,14 @@ import { DecimalPipe } from '@angular/common';
             <span>Manual PDF</span>
           </button>
 
-          <button 
-            (click)="navigate.emit('sales-pos')"
-            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center space-x-1.5 shadow-sm shadow-blue-200 transition-all">
-            <mat-icon class="text-base">point_of_sale</mat-icon>
-            <span>POS (F10)</span>
-          </button>
+          @if (canAccessNav('sales-pos')) {
+            <button 
+              (click)="navigate.emit('sales-pos')"
+              class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center space-x-1.5 shadow-sm shadow-blue-200 transition-all">
+              <mat-icon class="text-base">point_of_sale</mat-icon>
+              <span>POS (F10)</span>
+            </button>
+          }
         </div>
       </div>
 
@@ -196,12 +202,14 @@ import { DecimalPipe } from '@angular/common';
             </div>
           </div>
 
-          <button 
-            (click)="navigate.emit('audit-log')"
-            class="mt-6 w-full py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-bold text-slate-300 hover:text-white border border-slate-700 transition-colors flex items-center justify-center space-x-1.5">
-            <mat-icon class="text-sm">visibility</mat-icon>
-            <span>VER AUDITORÍA FORENSE COMPLETA</span>
-          </button>
+          @if (canAccessNav('audit-log')) {
+            <button 
+              (click)="navigate.emit('audit-log')"
+              class="mt-6 w-full py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-bold text-slate-300 hover:text-white border border-slate-700 transition-colors flex items-center justify-center space-x-1.5">
+              <mat-icon class="text-sm">visibility</mat-icon>
+              <span>VER AUDITORÍA FORENSE COMPLETA</span>
+            </button>
+          }
         </div>
 
         <!-- BENTO CARD 3 (Col 1, Row 3): Stock Crítico -->
@@ -253,12 +261,14 @@ import { DecimalPipe } from '@angular/common';
             <p class="text-[11px] text-slate-400">Cotizaciones pendientes de conversión</p>
           </div>
 
-          <button 
-            (click)="navigate.emit('quotes')"
-            class="w-full py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 text-[11px] font-bold rounded-xl transition-colors flex items-center justify-center space-x-1">
-            <span>GESTIONAR COTIZACIONES</span>
-            <mat-icon class="text-xs">arrow_forward</mat-icon>
-          </button>
+          @if (canAccessNav('quotes')) {
+            <button 
+              (click)="navigate.emit('quotes')"
+              class="w-full py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 text-[11px] font-bold rounded-xl transition-colors flex items-center justify-center space-x-1">
+              <span>GESTIONAR COTIZACIONES</span>
+              <mat-icon class="text-xs">arrow_forward</mat-icon>
+            </button>
+          }
         </div>
 
         <!-- BENTO CARD 5 (Col 1-2 on md/lg): Quick POS Solid Blue Action Tile -->
@@ -307,7 +317,7 @@ import { DecimalPipe } from '@angular/common';
         <div class="col-span-1 md:col-span-2 lg:col-span-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
           
           <!-- MRP Card -->
-           @if(!canAccess('mrp:manager')){
+          @if (canAccessNav('mrp')) {
             <button 
               type="button" 
               (click)="navigate.emit('mrp')" 
@@ -324,7 +334,7 @@ import { DecimalPipe } from '@angular/common';
           }
 
           <!-- CRM Card -->
-          @if(!canAccess('crm:manager')){ 
+          @if (canAccessNav('crm')) { 
             <button 
               type="button" 
               (click)="navigate.emit('crm')" 
@@ -341,7 +351,7 @@ import { DecimalPipe } from '@angular/common';
           }
 
           <!-- Accounting Card -->
-          @if (!canAccess('accounting:view')){ 
+          @if (canAccessNav('accounting')) { 
             <button 
               type="button" 
               (click)="navigate.emit('accounting')" 
@@ -366,10 +376,12 @@ import { DecimalPipe } from '@angular/common';
               <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Kardex: Últimos Movimientos Valorados</h3>
               <p class="text-xs text-slate-500">Control cronológico con Costo Promedio Ponderado</p>
             </div>
-            <button (click)="navigate.emit('kardex')" class="text-xs text-blue-600 hover:text-blue-700 font-semibold flex items-center space-x-1">
-              <span>Ver Kardex Completo</span>
-              <mat-icon class="text-xs">open_in_new</mat-icon>
-            </button>
+            @if (canAccessNav('kardex')) {
+              <button (click)="navigate.emit('kardex')" class="text-xs text-blue-600 hover:text-blue-700 font-semibold flex items-center space-x-1">
+                <span>Ver Kardex Completo</span>
+                <mat-icon class="text-xs">open_in_new</mat-icon>
+              </button>
+            }
           </div>
 
           <div class="overflow-x-auto">
@@ -420,6 +432,11 @@ export default class DashboardComponent {
   timeframe = signal<'dia' | 'mes'>('mes');
   navigate = output<NavTab>();
   viewInvoice = output<Invoice>();
+
+  canAccessNav(navId: NavTab): boolean {
+    return this.authService.canAccessNav(navId);
+  }
+
   canAccess(...permissions: string[]): boolean {
     return permissions.some(permission => this.authService.hasPermission(permission));
   }

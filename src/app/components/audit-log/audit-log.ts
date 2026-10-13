@@ -38,31 +38,33 @@ import UserManagementComponent from '../user-management/user-management';
       </div>
 
       <!-- Sub-Navigation Switcher (Audit Trail vs User Management) -->
-      <div class="flex items-center space-x-1.5 p-1 bg-slate-200/70 rounded-xl max-w-fit">
-        <button 
-          type="button"
-          (click)="activeSection.set('AUDIT_LOGS')"
-          class="px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center space-x-2"
-          [class]="activeSection() === 'AUDIT_LOGS' 
-            ? 'bg-white text-slate-900 shadow-xs' 
-            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'">
-          <mat-icon class="text-base text-blue-600">format_list_bulleted</mat-icon>
-          <span>Bitácora de Eventos ({{ stateService.auditLogs().length }})</span>
-        </button>
+      @if (authService.hasPermission('security:manage')) {
+        <div class="flex items-center space-x-1.5 p-1 bg-slate-200/70 rounded-xl max-w-fit">
+          <button 
+            type="button"
+            (click)="activeSection.set('AUDIT_LOGS')"
+            class="px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center space-x-2"
+            [class]="activeSection() === 'AUDIT_LOGS' 
+              ? 'bg-white text-slate-900 shadow-xs' 
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'">
+            <mat-icon class="text-base text-blue-600">format_list_bulleted</mat-icon>
+            <span>Bitácora de Eventos ({{ stateService.auditLogs().length }})</span>
+          </button>
 
-        <button 
-          type="button"
-          (click)="activeSection.set('USER_MANAGEMENT')"
-          class="px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center space-x-2"
-          [class]="activeSection() === 'USER_MANAGEMENT' 
-            ? 'bg-white text-slate-900 shadow-xs' 
-            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'">
-          <mat-icon class="text-base text-indigo-600">manage_accounts</mat-icon>
-          <span>Gestión de Usuarios & Roles ({{ authService.users().length }})</span>
-        </button>
-      </div>
+          <button 
+            type="button"
+            (click)="activeSection.set('USER_MANAGEMENT')"
+            class="px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center space-x-2"
+            [class]="activeSection() === 'USER_MANAGEMENT' 
+              ? 'bg-white text-slate-900 shadow-xs' 
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'">
+            <mat-icon class="text-base text-indigo-600">manage_accounts</mat-icon>
+            <span>Gestión de Usuarios & Roles ({{ authService.users().length }})</span>
+          </button>
+        </div>
+      }
 
-      @if (activeSection() === 'USER_MANAGEMENT') {
+      @if (activeSection() === 'USER_MANAGEMENT' && authService.hasPermission('security:manage')) {
         <app-user-management />
       } @else {
         <!-- Critical Events Summary KPI Bento Grid -->

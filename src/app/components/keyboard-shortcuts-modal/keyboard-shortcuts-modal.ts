@@ -130,7 +130,11 @@ import { KeyboardShortcutsService, ShortcutDefinition, ShortcutCategory } from '
                 <button 
                   type="button"
                   (click)="executeShortcut(item)"
-                  class="w-full text-left p-3.5 bg-white rounded-xl border border-slate-200/90 hover:border-blue-400 hover:shadow-md transition-all cursor-pointer flex items-center justify-between group">
+                  class="w-full text-left p-3.5 bg-white rounded-xl border border-slate-200/90 transition-all cursor-pointer flex items-center justify-between group"
+                  [class.opacity-60]="!shortcutService.canExecuteShortcut(item)"
+                  [class.hover:border-blue-400]="shortcutService.canExecuteShortcut(item)"
+                  [class.hover:shadow-md]="shortcutService.canExecuteShortcut(item)"
+                  [class.hover:border-slate-300]="!shortcutService.canExecuteShortcut(item)">
                   
                   <div class="flex items-center space-x-3 min-w-0">
                     <div 
@@ -146,7 +150,12 @@ import { KeyboardShortcutsService, ShortcutDefinition, ShortcutCategory } from '
                         <p class="font-bold text-xs text-slate-900 group-hover:text-blue-600 transition-colors truncate">
                           {{ item.title }}
                         </p>
-                        @if (item.category === 'CREATION') {
+                        @if (!shortcutService.canExecuteShortcut(item)) {
+                          <span class="text-[9px] px-1.5 py-0.2 rounded font-bold bg-slate-100 text-slate-500 border border-slate-200 flex items-center space-x-0.5">
+                            <mat-icon class="text-[11px] h-3 w-3">lock</mat-icon>
+                            <span>Bloqueado</span>
+                          </span>
+                        } @else if (item.category === 'CREATION') {
                           <span class="text-[9px] px-1.5 py-0.2 rounded font-bold bg-amber-100 text-amber-800">Crear</span>
                         }
                       </div>
@@ -159,9 +168,13 @@ import { KeyboardShortcutsService, ShortcutDefinition, ShortcutCategory } from '
                     <kbd class="px-2 py-1 bg-slate-100 group-hover:bg-blue-50 text-slate-800 group-hover:text-blue-700 font-mono text-[11px] font-bold rounded-lg border border-slate-300 shadow-2xs">
                       {{ item.keyDisplay }}
                     </kbd>
-                    <mat-icon class="text-slate-300 group-hover:text-blue-500 text-sm group-hover:translate-x-0.5 transition-transform">
-                      arrow_forward
-                    </mat-icon>
+                    @if (!shortcutService.canExecuteShortcut(item)) {
+                      <mat-icon class="text-slate-400 text-sm">lock</mat-icon>
+                    } @else {
+                      <mat-icon class="text-slate-300 group-hover:text-blue-500 text-sm group-hover:translate-x-0.5 transition-transform">
+                        arrow_forward
+                      </mat-icon>
+                    }
                   </div>
 
                 </button>
