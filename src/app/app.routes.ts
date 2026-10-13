@@ -3,7 +3,6 @@ import { adminDashboardGuard, authGuard, authMatchGuard, loginRedirectGuard, rol
 import { inventoryResolver } from './resolvers/inventory.resolver';
 import { routeDataResolver } from './resolvers/route-data.resolver';
 import { usersResolver } from './resolvers/users.resolver';
-import { bcvDataResolver } from './resolvers/bcv-data.resolver';
 
 export const routes: Routes = [
 	{
@@ -15,7 +14,6 @@ export const routes: Routes = [
 		path: 'app',
 		canMatch: [authMatchGuard],
 		canActivate: [authGuard],
-		resolve: { dataReady: bcvDataResolver },
 		loadComponent: () => import('./layouts/private-shell/private-shell.component').then(module => module.PrivateShellComponent),
 		children: [
 			{ path: '', pathMatch: 'full', redirectTo: 'dashboard' },
