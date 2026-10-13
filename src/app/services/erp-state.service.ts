@@ -275,7 +275,7 @@ export class ErpStateService {
 
   loadRouteData(route: string): Observable<boolean> {
     const loaders: Record<string, () => Observable<boolean>> = {
-      dashboard: () => of(true),
+      dashboard: () => this.loadDashboard(),
       kardex: () => this.loadKardex(),
       purchases: () => of(true),
       'sales-pos': () => of(true),
@@ -289,6 +289,35 @@ export class ErpStateService {
       'audit-log': () => this.loadAudit(),
     };
     return loaders[route]?.() ?? of(true);
+  }
+
+  private loadDashboard(): Observable<boolean> {
+    return forkJoin({
+      movements: this.apiService.getKardexMovements(),
+      logs: this.apiService.getAuditLogs(),
+      quotes: this.apiService.getQuotes(),
+      boms: this.apiService.getBoms(),
+      orders: this.apiService.getProductionOrders(),
+      deals: this.apiService.getCrmDeals(),
+      accounts: this.apiService.getAccounts()
+    }).pipe(
+      tap(({ movements, logs, quotes, boms, orders, deals, accounts }) => {
+        this.kardexMovements.set(movements);
+        this.auditLogs.set(logs);
+        this.quotes.set(quotes);
+        this.boms.set(boms);
+        this.productionOrders.set(orders);
+        this.crmDeals.set(deals);
+        this.accounts.set(accounts);
+      }),
+      map(() => true),
+      catchError(error => {
+        const message = this.extractApiErrorMessage(error, 'No fue posible cargar el resumen del backend.');
+        this.notify('error', 'Panel incompleto', message);
+        console.error('Failed to load dashboard data', error);
+        return of(false);
+      })
+    );
   }
 
   private loadKardex(): Observable<boolean> {
@@ -4789,47 +4818,49 @@ export class ErpStateService {
     return { success: true, warehouse: newWh };
   }
 
-  updateWarehouse(id: string, updated: Partial<Warehouse>): { success: boolean; message?: string } {
+  updateWarehouse(id: string, updated: Partial<Warehouse>): Observable<{ success: boolean; message?: string }> {
     const target = this.warehouses().find(w => w.id === id);
-    if (!target) return { success: false, message: 'Almacén no encontrado.' };
+    if (!target) return of({ success: false, message: 'Almacén no encontrado.' });
 
     const isMain = updated.isMain !== undefined ? updated.isMain : target.isMain;
-
-    this.warehouses.update(list => {
-      return list.map(w => {
-        if (w.id === id) {
-          return { ...w, ...updated, isMain };
+    return this.apiService.updateWarehouse(id, { ...updated, isMain }).pipe(
+      tap(saved => {
+        this.warehouses.update(list => list.map(warehouse => ({
+          ...warehouse,
+          ...(warehouse.id === id ? saved : {}),
+          isMain: isMain ? warehouse.id === id : (warehouse.id === id ? saved.isMain : warehouse.isMain)
+        })));
+        if (saved.name !== target.name) {
+          this.products.update(products => products.map(product => ({
+            ...product,
+            stockByWarehouse: (product.stockByWarehouse || []).map(stock =>
+              stock.warehouseId === id ? { ...stock, warehouseName: saved.name } : stock
+            )
+          })));
         }
-        if (isMain && w.id !== id) {
-          return { ...w, isMain: false };
-        }
-        return w;
-      });
-    });
-
-    if (updated.name && updated.name !== target.name) {
-      this.products.update(prods => prods.map(p => ({
-        ...p,
-        stockByWarehouse: (p.stockByWarehouse || []).map(s => s.warehouseId === id ? { ...s, warehouseName: updated.name! } : s)
-      })));
-    }
-
-    this.logAudit('UPDATE_WAREHOUSE', 'INVENTORY', `Actualización Almacén: ${target.code}`, `Se modificaron los datos del almacén ${target.name}.`, target as unknown as Record<string, unknown>, updated as unknown as Record<string, unknown>);
-    this.notify('info', 'Almacén Actualizado', `Almacén "${updated.name || target.name}" actualizado.`);
-    this.saveState();
-    return { success: true };
+        this.logAudit('UPDATE_WAREHOUSE', 'INVENTORY', `Actualización Almacén: ${target.code}`, `Se modificaron los datos del almacén ${target.name}.`, target as unknown as Record<string, unknown>, updated as unknown as Record<string, unknown>);
+        this.notify('success', 'Almacén Actualizado', `Almacén "${saved.name}" actualizado.`);
+        this.saveState();
+      }),
+      map(() => ({ success: true })),
+      catchError(error => {
+        const message = this.extractApiErrorMessage(error, 'El backend rechazó los cambios del almacén.');
+        this.notify('error', 'Almacén no actualizado', message);
+        return of({ success: false, message });
+      })
+    );
   }
 
-  deleteWarehouse(id: string): { success: boolean; message?: string } {
+  deleteWarehouse(id: string): Observable<{ success: boolean; message?: string }> {
     const target = this.warehouses().find(w => w.id === id);
-    if (!target) return { success: false, message: 'Almacén no encontrado.' };
+    if (!target) return of({ success: false, message: 'Almacén no encontrado.' });
 
     if (this.warehouses().length <= 1) {
-      return { success: false, message: 'No se puede eliminar el único almacén del sistema.' };
+      return of({ success: false, message: 'No se puede eliminar el único almacén del sistema.' });
     }
 
     if (target.isMain) {
-      return { success: false, message: 'No se puede eliminar el almacén Principal. Establezca otro almacén como Principal primero.' };
+      return of({ success: false, message: 'No se puede eliminar el almacén Principal. Establezca otro almacén como Principal primero.' });
     }
 
     const productsWithStock = this.products().filter(p => {
@@ -4839,28 +4870,49 @@ export class ErpStateService {
 
     if (productsWithStock.length > 0) {
       const totalQty = productsWithStock.reduce((acc, p) => acc + (p.stockByWarehouse?.find(s => s.warehouseId === id)?.quantity || 0), 0);
-      return { success: false, message: `No se puede eliminar "${target.name}" porque contiene ${totalQty} unidades distribuidas en ${productsWithStock.length} producto(s). Realice una transferencia de inventario antes de eliminarlo.` };
+      return of({ success: false, message: `No se puede eliminar "${target.name}" porque contiene ${totalQty} unidades distribuidas en ${productsWithStock.length} producto(s). Realice una transferencia de inventario antes de eliminarlo.` });
     }
 
-    this.warehouses.update(list => list.filter(w => w.id !== id));
-    this.products.update(prods => prods.map(p => ({
-      ...p,
-      stockByWarehouse: (p.stockByWarehouse || []).filter(s => s.warehouseId !== id)
-    })));
-
-    this.logAudit('DELETE_WAREHOUSE', 'INVENTORY', `Eliminación Almacén: ${target.code}`, `Se eliminó el almacén ${target.name}.`, target as unknown as Record<string, unknown>, null);
-    this.notify('warning', 'Almacén Eliminado', `Almacén "${target.name}" eliminado del sistema.`);
-    this.saveState();
-    return { success: true };
+    return this.apiService.deleteWarehouse(id).pipe(
+      tap(() => {
+        this.warehouses.update(list => list.filter(warehouse => warehouse.id !== id));
+        this.products.update(products => products.map(product => ({
+          ...product,
+          stockByWarehouse: (product.stockByWarehouse || []).filter(stock => stock.warehouseId !== id)
+        })));
+        this.logAudit('DELETE_WAREHOUSE', 'INVENTORY', `Eliminación Almacén: ${target.code}`, `Se eliminó el almacén ${target.name}.`, target as unknown as Record<string, unknown>, null);
+        this.notify('warning', 'Almacén Eliminado', `Almacén "${target.name}" eliminado del sistema.`);
+        this.saveState();
+      }),
+      map(() => ({ success: true })),
+      catchError(error => {
+        const message = this.extractApiErrorMessage(error, 'El backend rechazó la eliminación del almacén.');
+        this.notify('error', 'Almacén no eliminado', message);
+        return of({ success: false, message });
+      })
+    );
   }
 
-  setMainWarehouse(id: string): void {
+  setMainWarehouse(id: string): Observable<boolean> {
     const target = this.warehouses().find(w => w.id === id);
-    if (!target) return;
-
-    this.warehouses.update(list => list.map(w => ({ ...w, isMain: w.id === id })));
-    this.notify('success', 'Almacén Principal Asignado', `"${target.name}" es ahora el almacén principal por defecto.`);
-    this.saveState();
+    if (!target) return of(false);
+    return this.apiService.updateWarehouse(id, { isMain: true }).pipe(
+      tap(saved => {
+        this.warehouses.update(list => list.map(warehouse => ({
+          ...warehouse,
+          ...(warehouse.id === id ? saved : {}),
+          isMain: warehouse.id === id
+        })));
+        this.notify('success', 'Almacén Principal Asignado', `"${target.name}" es ahora el almacén principal por defecto.`);
+        this.saveState();
+      }),
+      map(() => true),
+      catchError(error => {
+        const message = this.extractApiErrorMessage(error, 'No se pudo asignar el almacén principal.');
+        this.notify('error', 'Almacén principal no actualizado', message);
+        return of(false);
+      })
+    );
   }
 
   // Create Supplier Helper
@@ -5371,34 +5423,68 @@ export class ErpStateService {
   createManualJournalEntry(
     concept: string,
     lines: { accountId: string; description: string; debit: number; credit: number }[]
-  ): { success: boolean; message?: string; entryNumber?: string } {
+  ): Observable<{ success: boolean; message?: string; entryNumber?: string }> {
     const totalDebit = lines.reduce((s, l) => s + l.debit, 0);
     const totalCredit = lines.reduce((s, l) => s + l.credit, 0);
 
     if (Math.abs(totalDebit - totalCredit) > 0.01) {
-      return {
+      return of({
         success: false,
         message: `El asiento no está cuadrado. Total Debe: $${totalDebit.toFixed(2)}, Total Haber: $${totalCredit.toFixed(2)}.`
-      };
+      });
     }
 
-    const allAccounts = this.accounts();
-    const formattedLines: JournalEntryLine[] = lines.map(l => {
-      const acc = allAccounts.find(a => a.id === l.accountId);
-      return {
-        accountId: l.accountId,
-        accountCode: acc?.code || '0.0.00',
-        accountName: acc?.name || 'Cuenta General',
-        description: l.description,
-        debit: l.debit,
-        credit: l.credit
-      };
-    });
+    const user = this.authService.currentUser();
+    if (!user?.id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(user.id)) {
+      const message = 'No se pudo identificar el usuario autenticado para registrar el asiento.';
+      this.notify('error', 'Asiento no registrado', message);
+      return of({ success: false, message });
+    }
 
-    const entry = this.generateAutomatedJournalEntry('MANUAL', 'MANUAL-' + Date.now(), concept, formattedLines);
-    this.notify('success', 'Asiento Contable Registrado', `Asiento ${entry.entryNumber} mayorizado correctamente.`);
-    this.saveState();
-    return { success: true, entryNumber: entry.entryNumber };
+    const entryNumber = `MANUAL-${Date.now()}`;
+    return this.apiService.createJournalEntry({
+      entryNumber,
+      entryDate: new Date().toISOString(),
+      concept: concept.trim(),
+      referenceType: 'MANUAL',
+      referenceId: entryNumber,
+      totalDebit: Number(totalDebit.toFixed(2)),
+      totalCredit: Number(totalCredit.toFixed(2)),
+      status: 'ASENTADO',
+      createdBy: user.id,
+      lines: lines.map(line => ({
+        accountId: line.accountId,
+        description: line.description,
+        debit: Number(line.debit),
+        credit: Number(line.credit)
+      }))
+    }).pipe(
+      switchMap(saved => forkJoin({
+        accounts: this.apiService.getAccounts(),
+        entries: this.apiService.getJournalEntries()
+      }).pipe(map(({ accounts, entries }) => ({ saved, accounts, entries })))),
+      tap(({ accounts, entries, saved }) => {
+        this.accounts.set(accounts);
+        this.journalEntries.set(entries);
+        this.logAudit(
+          'CREATE_JOURNAL_ENTRY',
+          'ACCOUNTING',
+          `Asiento Contable Registrado ${saved.entryNumber}`,
+          `Asiento manual por $${totalDebit.toFixed(2)} (${concept.trim()}) registrado en el backend.`,
+          null,
+          saved as unknown as Record<string, unknown>
+        );
+        this.notify('success', 'Asiento Contable Registrado', `Asiento ${saved.entryNumber} registrado correctamente.`);
+        this.saveState();
+      }),
+      map(({ saved }) => ({ success: true, entryNumber: saved.entryNumber })),
+      catchError(error => {
+        const message = this.extractApiErrorMessage(error, 'El backend rechazó el asiento contable.');
+        this.notify('error', 'Asiento no registrado', message);
+        console.error('Error registrando asiento contable:', error);
+        return of({ success: false, message });
+      })
+    );
   }
 
   // ============================================================================
@@ -6185,16 +6271,18 @@ export class ErpStateService {
     laborCost: number;
     overheadCost: number;
     notes?: string;
-  }): { success: boolean; bomId?: string; message?: string } {
+  }): Observable<{ success: boolean; bomId?: string; message?: string }> {
     const finishedProd = this.products().find(p => p.id === data.finishedProductId);
-    if (!finishedProd) return { success: false, message: 'Producto terminado no encontrado' };
+    if (!finishedProd) return of({ success: false, message: 'Producto terminado no encontrado' });
 
     let materialsTotalCost = 0;
     const bomItems: BomItem[] = [];
 
     for (const item of data.items) {
       const rawProd = this.products().find(p => p.id === item.rawMaterialProductId);
-      if (!rawProd) continue;
+      if (!rawProd) {
+        return of({ success: false, message: `Materia prima ${item.rawMaterialProductId} no encontrada.` });
+      }
 
       const unitCost = rawProd.costPrice;
       const subtotal = (item.quantityNeeded * unitCost) * (1 + (item.wastePercent / 100));
@@ -6217,36 +6305,44 @@ export class ErpStateService {
     const unitCost = Number((totalEstimatedCost / (data.quantityToProduce || 1)).toFixed(2));
     const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
 
-    const newBom: Bom = {
-      id: 'bom-' + Date.now().toString(36),
+    const bomPayload = {
       code: data.code.toUpperCase().trim(),
       name: data.name.trim(),
       finishedProductId: finishedProd.id,
-      finishedProductSku: finishedProd.sku,
-      finishedProductName: finishedProd.name,
-      quantityToProduce: data.quantityToProduce,
-      items: bomItems,
-      laborCost: data.laborCost,
+      batchQuantity: data.quantityToProduce,
+      items: bomItems.map(item => ({
+        rawProductId: item.rawMaterialProductId,
+        quantityRequired: item.quantityNeeded,
+        scrapPercent: item.wastePercent,
+        estimatedUnitCost: item.estimatedUnitCost
+      })),
+      estimatedLaborCost: data.laborCost,
       overheadCost: data.overheadCost,
-      totalEstimatedCost,
-      unitCost,
-      active: true,
       notes: data.notes,
-      createdAt: nowStr
     };
 
-    this.boms.update(boms => [newBom, ...boms]);
-    this.logAudit(
-      'CREATE_BOM',
-      'MRP',
-      `Nueva Lista de Materiales (BOM): ${newBom.code}`,
-      `Fórmula registrada para fabricar ${finishedProd.name} (Lote: ${data.quantityToProduce} ${finishedProd.unit}, Costo Unit: $${unitCost}).`,
-      null,
-      newBom as unknown as Record<string, unknown>
+    return this.apiService.createBom(bomPayload).pipe(
+      tap(saved => {
+        this.boms.update(boms => [saved, ...boms.filter(bom => bom.id !== saved.id)]);
+        this.logAudit(
+          'CREATE_BOM',
+          'MRP',
+          `Nueva Lista de Materiales (BOM): ${saved.code}`,
+          `Fórmula registrada para fabricar ${finishedProd.name} (Lote: ${saved.quantityToProduce} ${finishedProd.unit}, Costo Unit: $${saved.unitCost}).`,
+          null,
+          saved as unknown as Record<string, unknown>
+        );
+        this.notify('success', 'BOM Registrada', `Fórmula ${saved.code} guardada en el backend.`);
+        this.saveState();
+      }),
+      map(saved => ({ success: true, bomId: saved.id })),
+      catchError(error => {
+        const message = this.extractApiErrorMessage(error, 'El backend rechazó la fórmula BOM.');
+        this.notify('error', 'BOM no registrada', message);
+        console.error('Error guardando fórmula BOM:', error);
+        return of({ success: false, message });
+      })
     );
-    this.notify('success', 'BOM Registrada', `Fórmula ${newBom.code} guardada exitosamente.`);
-    this.saveState();
-    return { success: true, bomId: newBom.id };
   }
 
   createProductionOrder(data: {
@@ -6255,13 +6351,14 @@ export class ErpStateService {
     quantityPlanned: number;
     targetEndDate: string;
     notes?: string;
-  }): { success: boolean; orderNumber?: string; message?: string } {
+  }): Observable<{ success: boolean; orderNumber?: string; message?: string }> {
     const bom = this.boms().find(b => b.id === data.bomId);
-    if (!bom) return { success: false, message: 'BOM no encontrada' };
+    if (!bom) return of({ success: false, message: 'BOM no encontrada' });
 
-    const warehouse = this.warehouses().find(w => w.id === data.warehouseId) || this.warehouses()[0];
+    const warehouse = this.warehouses().find(w => w.id === data.warehouseId);
+    if (!warehouse) return of({ success: false, message: 'Almacén no encontrado.' });
     const user = this.authService.currentUser();
-    const orderNumber = 'OF-2026-' + (this.productionOrders().length + 10).toString().padStart(4, '0');
+    const orderNumber = `OF-${new Date().getFullYear()}-${Date.now()}`;
     const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
 
     const factor = data.quantityPlanned / (bom.quantityToProduce || 1);
@@ -6274,43 +6371,40 @@ export class ErpStateService {
     const totalCost = Number((directMaterialCost + laborCost + overheadCost).toFixed(2));
     const unitCost = Number((totalCost / data.quantityPlanned).toFixed(2));
 
-    const newOrder: ProductionOrder = {
-      id: 'of-' + Date.now().toString(36),
+    const orderPayload = {
       orderNumber,
       bomId: bom.id,
-      bomCode: bom.code,
       finishedProductId: bom.finishedProductId,
-      finishedProductSku: bom.finishedProductSku,
-      finishedProductName: bom.finishedProductName,
       warehouseId: warehouse.id,
-      warehouseName: warehouse.name,
       quantityPlanned: data.quantityPlanned,
-      quantityProduced: 0,
-      status: 'PLANIFICADA',
-      startDate: nowStr,
+      startDate: new Date().toISOString(),
       targetEndDate: data.targetEndDate,
-      directMaterialCost: Number(directMaterialCost.toFixed(2)),
-      laborCost: Number(laborCost.toFixed(2)),
-      overheadCost: Number(overheadCost.toFixed(2)),
-      totalCost,
-      unitCost,
       notes: data.notes,
-      operatorName: user.name || 'Jefe de Planta',
-      createdAt: nowStr
+      operatorName: user.name || 'Jefe de Planta'
     };
 
-    this.productionOrders.update(orders => [newOrder, ...orders]);
-    this.logAudit(
-      'CREATE_PRODUCTION_ORDER',
-      'MRP',
-      `Orden de Fabricación Creada ${orderNumber}`,
-      `Planificada producción de ${data.quantityPlanned} unidades de ${bom.finishedProductName} en ${warehouse.name}.`,
-      null,
-      newOrder as unknown as Record<string, unknown>
+    return this.apiService.createProductionOrder(orderPayload).pipe(
+      tap(saved => {
+        this.productionOrders.update(orders => [saved, ...orders.filter(order => order.id !== saved.id)]);
+        this.logAudit(
+          'CREATE_PRODUCTION_ORDER',
+          'MRP',
+          `Orden de Fabricación Creada ${saved.orderNumber}`,
+          `Planificada producción de ${saved.quantityPlanned} unidades de ${saved.finishedProductName} en ${saved.warehouseName}.`,
+          null,
+          saved as unknown as Record<string, unknown>
+        );
+        this.notify('success', 'Orden de Fabricación Creada', `Orden ${saved.orderNumber} guardada en el backend.`);
+        this.saveState();
+      }),
+      map(saved => ({ success: true, orderNumber: saved.orderNumber })),
+      catchError(error => {
+        const message = this.extractApiErrorMessage(error, 'El backend rechazó la orden de fabricación.');
+        this.notify('error', 'Orden no creada', message);
+        console.error('Error guardando orden de fabricación:', error);
+        return of({ success: false, message });
+      })
     );
-    this.notify('success', 'Orden de Fabricación Creada', `Orden ${orderNumber} lista para ejecución.`);
-    this.saveState();
-    return { success: true, orderNumber };
   }
 
   startProductionOrder(orderId: string): { success: boolean; message?: string } {
@@ -6571,26 +6665,11 @@ export class ErpStateService {
     assignedTo: string;
     notes?: string;
     initialActivity?: string;
-  }): { success: boolean; dealId?: string } {
+  }): Observable<{ success: boolean; dealId?: string; message?: string }> {
     const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
-    const code = 'DEAL-2026-' + (this.crmDeals().length + 85).toString().padStart(3, '0');
+    const code = `DEAL-${new Date().getFullYear()}-${Date.now()}`;
     const user = this.authService.currentUser();
-
-    const activities: CrmActivity[] = [];
-    if (data.initialActivity) {
-      activities.push({
-        id: 'act-' + Date.now().toString(36),
-        dealId: '',
-        type: 'NOTA',
-        description: data.initialActivity,
-        date: nowStr,
-        user: user.name,
-        completed: true
-      });
-    }
-
-    const newDeal: CrmDeal = {
-      id: 'deal-' + Date.now().toString(36),
+    const dealPayload = {
       code,
       title: data.title.trim(),
       customerId: data.customerId,
@@ -6603,35 +6682,46 @@ export class ErpStateService {
       probability: data.probability,
       expectedCloseDate: data.expectedCloseDate,
       assignedTo: data.assignedTo || user.name,
-      notes: data.notes,
-      activities,
-      createdAt: nowStr,
-      updatedAt: nowStr
+      notes: data.notes
     };
 
-    if (activities.length > 0) {
-      activities[0].dealId = newDeal.id;
-    }
-
-    this.crmDeals.update(deals => [newDeal, ...deals]);
-    this.logAudit(
-      'CREATE_CRM_DEAL',
-      'CRM',
-      `Nueva Oportunidad CRM: ${code}`,
-      `Oportunidad "${data.title}" por $${data.expectedValueUsd.toFixed(2)} creada para ${data.customerName}.`,
-      null,
-      newDeal as unknown as Record<string, unknown>
+    return this.apiService.createCrmDeal(dealPayload).pipe(
+      switchMap(saved => data.initialActivity?.trim()
+        ? this.apiService.createCrmActivity({
+            dealId: saved.id,
+            type: 'NOTA',
+            description: data.initialActivity.trim(),
+            activityDate: new Date().toISOString(),
+            activityUser: user.name || 'Usuario autenticado',
+            completed: true
+          }).pipe(map(activity => ({ ...saved, activities: [activity, ...saved.activities] })))
+        : of(saved)),
+      tap(saved => {
+        this.crmDeals.update(deals => [saved, ...deals.filter(deal => deal.id !== saved.id)]);
+        this.logAudit(
+          'CREATE_CRM_DEAL',
+          'CRM',
+          `Nueva Oportunidad CRM: ${saved.code}`,
+          `Oportunidad "${saved.title}" por $${saved.expectedValueUsd.toFixed(2)} creada para ${saved.customerName}.`,
+          null,
+          saved as unknown as Record<string, unknown>
+        );
+        this.notify('success', 'Oportunidad Registrada', `Oportunidad comercial ${saved.code} guardada en el backend.`);
+        this.saveState();
+      }),
+      map(saved => ({ success: true, dealId: saved.id })),
+      catchError(error => {
+        const message = this.extractApiErrorMessage(error, 'El backend rechazó la oportunidad comercial.');
+        this.notify('error', 'Oportunidad no registrada', message);
+        console.error('Error creando oportunidad CRM:', error);
+        return of({ success: false, message });
+      })
     );
-    this.notify('success', 'Oportunidad Registrada', `Oportunidad comercial ${code} agregada al pipeline.`);
-    this.saveState();
-    return { success: true, dealId: newDeal.id };
   }
 
-  updateCrmDealStage(dealId: string, newStage: CrmStage): { success: boolean } {
+  updateCrmDealStage(dealId: string, newStage: CrmStage): Observable<{ success: boolean; message?: string }> {
     const deal = this.crmDeals().find(d => d.id === dealId);
-    if (!deal) return { success: false };
-
-    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    if (!deal) return of({ success: false, message: 'Oportunidad no encontrada.' });
     let newProbability = deal.probability;
     if (newStage === 'NUEVO_LEAD') newProbability = 20;
     else if (newStage === 'CONTACTADO') newProbability = 35;
@@ -6641,55 +6731,64 @@ export class ErpStateService {
     else if (newStage === 'GANADO') newProbability = 100;
     else if (newStage === 'PERDIDO') newProbability = 0;
 
-    this.crmDeals.update(deals =>
-      deals.map(d =>
-        d.id === dealId
-          ? {
-              ...d,
-              stage: newStage,
-              probability: newProbability,
-              updatedAt: nowStr
-            }
-          : d
-      )
+    return this.apiService.updateCrmDeal(dealId, {
+      ...deal,
+      stage: newStage,
+      probability: newProbability
+    }).pipe(
+      tap(saved => {
+        this.crmDeals.update(deals => deals.map(item => item.id === dealId ? saved : item));
+        this.logAudit(
+          'UPDATE_CRM_DEAL',
+          'CRM',
+          `Cambio de Etapa en Oportunidad ${deal.code}`,
+          `La oportunidad "${deal.title}" avanzó a la etapa "${newStage}" (${newProbability}% probabilidad).`,
+          { stageBefore: deal.stage },
+          { stageAfter: newStage, probabilityAfter: newProbability }
+        );
+        this.notify('info', 'Pipeline Actualizado', `Oportunidad ${deal.code} movida a ${newStage}.`);
+        this.saveState();
+      }),
+      map(() => ({ success: true })),
+      catchError(error => {
+        const message = this.extractApiErrorMessage(error, 'El backend rechazó el cambio de etapa.');
+        this.notify('error', 'Etapa no actualizada', message);
+        console.error('Error moviendo oportunidad CRM:', error);
+        return of({ success: false, message });
+      })
     );
-
-    this.logAudit(
-      'UPDATE_CRM_DEAL',
-      'CRM',
-      `Cambio de Etapa en Oportunidad ${deal.code}`,
-      `La oportunidad "${deal.title}" avanzó a la etapa "${newStage}" (${newProbability}% probabilidad).`,
-      { stageBefore: deal.stage },
-      { stageAfter: newStage, probabilityAfter: newProbability }
-    );
-    this.notify('info', 'Pipeline Actualizado', `Oportunidad ${deal.code} movida a ${newStage}.`);
-    this.saveState();
-    return { success: true };
   }
 
-  addCrmActivity(dealId: string, activity: { type: CrmActivityType; description: string; date?: string; completed?: boolean }): { success: boolean } {
+  addCrmActivity(dealId: string, activity: { type: CrmActivityType; description: string; date?: string; completed?: boolean }): Observable<{ success: boolean; message?: string }> {
     const deal = this.crmDeals().find(d => d.id === dealId);
-    if (!deal) return { success: false };
+    if (!deal) return of({ success: false, message: 'Oportunidad no encontrada.' });
 
     const user = this.authService.currentUser();
-    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
-
-    const newAct: CrmActivity = {
-      id: 'act-' + Date.now().toString(36),
+    return this.apiService.createCrmActivity({
       dealId,
       type: activity.type,
       description: activity.description.trim(),
-      date: activity.date || nowStr,
-      user: user.name,
-      completed: activity.completed !== undefined ? activity.completed : true
-    };
-
-    this.crmDeals.update(deals =>
-      deals.map(d => (d.id === dealId ? { ...d, activities: [newAct, ...d.activities], updatedAt: nowStr } : d))
+      activityDate: activity.date ? new Date(activity.date).toISOString() : new Date().toISOString(),
+      activityUser: user.name || 'Usuario autenticado',
+      completed: activity.completed ?? true
+    }).pipe(
+      tap(saved => {
+        this.crmDeals.update(deals => deals.map(item =>
+          item.id === dealId
+            ? { ...item, activities: [saved, ...item.activities], updatedAt: new Date().toISOString() }
+            : item
+        ));
+        this.notify('success', 'Actividad Registrada', `Interacción de tipo ${activity.type} guardada en el backend.`);
+        this.saveState();
+      }),
+      map(() => ({ success: true })),
+      catchError(error => {
+        const message = this.extractApiErrorMessage(error, 'El backend rechazó la actividad comercial.');
+        this.notify('error', 'Actividad no registrada', message);
+        console.error('Error registrando actividad CRM:', error);
+        return of({ success: false, message });
+      })
     );
-    this.notify('success', 'Actividad Registrada', `Interacción de tipo ${activity.type} agregada.`);
-    this.saveState();
-    return { success: true };
   }
 
   // ==========================================================================

@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authGuard, authMatchGuard, loginRedirectGuard, roleGuard, superAdminGuard } from './guards/auth.guard';
+import { adminDashboardGuard, authGuard, authMatchGuard, loginRedirectGuard, roleGuard, superAdminGuard } from './guards/auth.guard';
 import { inventoryResolver } from './resolvers/inventory.resolver';
 import { routeDataResolver } from './resolvers/route-data.resolver';
 import { usersResolver } from './resolvers/users.resolver';
@@ -20,7 +20,7 @@ export const routes: Routes = [
 		children: [
 			{ path: '', pathMatch: 'full', redirectTo: 'dashboard' },
 			{ path: 'change-password', loadComponent: () => import('./components/change-password-modal/change-password-modal').then(module => module.ChangePasswordModalComponent) },
-			{ path: 'dashboard', resolve: { dataReady: routeDataResolver }, loadComponent: () => import('./components/dashboard/dashboard')},
+			{ path: 'dashboard', canActivate: [adminDashboardGuard], resolve: { dataReady: routeDataResolver }, loadComponent: () => import('./components/dashboard/dashboard')},
 			{ path: 'inventory', canActivate: [roleGuard], resolve: { inventoryReady: inventoryResolver }, loadComponent: () => import('./components/inventory/inventory')},
 			{ path: 'kardex', canActivate: [roleGuard], resolve: { dataReady: routeDataResolver }, loadComponent: () => import('./components/kardex/kardex')},
 			{ path: 'logistics', canActivate: [roleGuard], resolve: { dataReady: routeDataResolver }, loadComponent: () => import('./components/logistics/logistics')},

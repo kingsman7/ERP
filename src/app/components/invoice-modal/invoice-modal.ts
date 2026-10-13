@@ -45,9 +45,6 @@ type InvoiceWithWithholdings = Invoice & {
             <div class="flex justify-between items-start border-b border-slate-200 pb-5">
               <div>
                 <div class="flex items-center space-x-2">
-                  <div class="w-8 h-8 rounded-lg bg-emerald-700 text-white flex items-center justify-center font-black text-base">
-                    N
-                  </div>
                   <span class="font-bold text-lg text-slate-900 tracking-tight">{{ stateService.companyProfile().legalName }}</span>
                 </div>
                 <p class="text-xs text-slate-600 font-semibold mt-1">

@@ -26,7 +26,7 @@ export const authGuard: CanActivateFn = (_route, state) => {
       return router.createUrlTree(['/app/change-password']);
     }
     if (!authService.currentUser().mustChangePassword && isPasswordChangeRoute) {
-      return router.createUrlTree(['/app/dashboard']);
+      return router.createUrlTree([authService.getDefaultAppRoute()]);
     }
     return true;
   }));
@@ -47,7 +47,25 @@ export const loginRedirectGuard: CanActivateFn = () => {
     if (!authService.isAuthenticated()) return true;
     return router.createUrlTree([authService.currentUser().mustChangePassword
       ? '/app/change-password'
-      : '/app/dashboard']);
+      : authService.getDefaultAppRoute()]);
+  }));
+};
+
+export const adminDashboardGuard: CanActivateFn = () => {
+  const authService = inject(AuthService);
+  const router = inject(Router);
+  const stateService = inject(ErpStateService);
+
+  return waitForAuthentication().pipe(map(() => {
+    if (!authService.isAuthenticated()) return router.createUrlTree(['/']);
+    if (authService.canAccessNav('dashboard')) return true;
+
+    stateService.notify(
+      'warning',
+      'Acceso No Autorizado',
+      'El Dashboard Ejecutivo está restringido exclusivamente al rol ADMIN.'
+    );
+    return router.createUrlTree([authService.getDefaultAppRoute()]);
   }));
 };
 
@@ -63,7 +81,7 @@ export const superAdminGuard: CanActivateFn = () => {
     'Acceso No Autorizado',
     'El módulo de Empresa y Suscripción está restringido exclusivamente a Super Administradores.'
   );
-  return router.createUrlTree(['/app/dashboard']);
+  return router.createUrlTree([authService.getDefaultAppRoute()]);
 };
 
 export const roleGuard: CanActivateFn = (route: ActivatedRouteSnapshot) => {
@@ -97,11 +115,10 @@ export const roleGuard: CanActivateFn = (route: ActivatedRouteSnapshot) => {
           'Acceso No Autorizado',
           `No tienes permisos para acceder al módulo "${moduleTitle}". Tu rol actual es ${currentRoleName}.`
         );
-        return router.createUrlTree(['/app/dashboard']);
+        return router.createUrlTree([authService.getDefaultAppRoute()]);
       }
 
       return true;
     })
   );
 };
-

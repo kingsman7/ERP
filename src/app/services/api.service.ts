@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, catchError, forkJoin, map, of, throwError } from 'rxjs';
-import { Account, AuditLog, BankAccount, BcvExchangeRateState, Bom, CashRegisterSession, CompanyFiscalProfile, CreateCriticalAuditNotification, CrmDeal, CriticalAuditNotification, CurrencyCode, Customer, CustomerPaymentReceipt, DeliveryOrder, DispatchGuide, Invoice, InvoiceItem, InvoiceTaxDetails, JournalEntry, KardexMovement, PayableBill, PaymentRecord, PriceLevelKey, Product, ProductCategory, ProductionOrder, PurchaseOrder, Quote, Supplier, SupplierPaymentReceipt, TreasuryCashOut, TreasuryTransaction, Warehouse } from '../models/erp.models';
+import { Account, AuditLog, BankAccount, BcvExchangeRateState, Bom, CashRegisterSession, CompanyFiscalProfile, CreateCriticalAuditNotification, CrmActivity, CrmDeal, CriticalAuditNotification, CurrencyCode, Customer, CustomerPaymentReceipt, DeliveryOrder, DispatchGuide, Invoice, InvoiceItem, InvoiceTaxDetails, JournalEntry, KardexMovement, PayableBill, PaymentRecord, PriceLevelKey, Product, ProductCategory, ProductionOrder, PurchaseOrder, Quote, Supplier, SupplierPaymentReceipt, TreasuryCashOut, TreasuryTransaction, Warehouse } from '../models/erp.models';
 
 export interface DispatchWorkflowResponse {
   dispatchGuide: DispatchGuide;
@@ -264,6 +264,14 @@ export class ApiService {
     return this.http.post<Warehouse>(`${this.baseUrl}/warehouses`, warehouse);
   }
 
+  updateWarehouse(id: string, warehouse: Partial<Warehouse>): Observable<Warehouse> {
+    return this.http.put<Warehouse>(`${this.baseUrl}/warehouses/${id}`, warehouse);
+  }
+
+  deleteWarehouse(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/warehouses/${id}`);
+  }
+
   getCustomers(): Observable<Customer[]> {
     return this.http.get<Customer[]>(`${this.baseUrl}/customers`).pipe(
       catchError(() => of([]))
@@ -420,21 +428,192 @@ export class ApiService {
   }
 
   getBoms(): Observable<Bom[]> {
-    return this.http.get<Bom[]>(`${this.baseUrl}/mrp/boms`).pipe(
+    return this.http.get<Record<string, unknown>[]>(`${this.baseUrl}/mrp/boms`).pipe(
+      map(boms => boms.map(bom => this.normalizeBom(bom))),
       catchError(() => of([]))
+    );
+  }
+
+  createBom(bom: {
+    code: string;
+    name: string;
+    finishedProductId: string;
+    batchQuantity: number;
+    estimatedLaborCost: number;
+    overheadCost: number;
+    notes?: string;
+    items: {
+      rawProductId: string;
+      quantityRequired: number;
+      scrapPercent: number;
+      estimatedUnitCost: number;
+    }[];
+  }): Observable<Bom> {
+    return this.http.post<Record<string, unknown>>(`${this.baseUrl}/mrp/boms`, bom).pipe(
+      map(saved => this.normalizeBom(saved))
     );
   }
 
   getProductionOrders(): Observable<ProductionOrder[]> {
-    return this.http.get<ProductionOrder[]>(`${this.baseUrl}/mrp/orders`).pipe(
+    return this.http.get<Record<string, unknown>[]>(`${this.baseUrl}/mrp/orders`).pipe(
+      map(orders => orders.map(order => this.normalizeProductionOrder(order))),
       catchError(() => of([]))
     );
   }
 
+  createProductionOrder(order: {
+    orderNumber: string;
+    bomId: string;
+    finishedProductId: string;
+    warehouseId: string;
+    quantityPlanned: number;
+    startDate: string;
+    targetEndDate: string;
+    operatorName: string;
+    notes?: string;
+  }): Observable<ProductionOrder> {
+    return this.http.post<Record<string, unknown>>(`${this.baseUrl}/mrp/orders`, order).pipe(
+      map(saved => this.normalizeProductionOrder(saved))
+    );
+  }
+
   getCrmDeals(): Observable<CrmDeal[]> {
-    return this.http.get<CrmDeal[]>(`${this.baseUrl}/crm/deals`).pipe(
+    return this.http.get<Record<string, unknown>[]>(`${this.baseUrl}/crm/deals`).pipe(
+      map(deals => deals.map(deal => this.normalizeCrmDeal(deal))),
       catchError(() => of([]))
     );
+  }
+
+  createCrmDeal(deal: Omit<CrmDeal, 'id' | 'activities' | 'createdAt' | 'updatedAt'>): Observable<CrmDeal> {
+    return this.http.post<Record<string, unknown>>(`${this.baseUrl}/crm/deals`, deal).pipe(
+      map(saved => this.normalizeCrmDeal(saved))
+    );
+  }
+
+  updateCrmDeal(id: string, deal: Partial<CrmDeal>): Observable<CrmDeal> {
+    return this.http.put<Record<string, unknown>>(`${this.baseUrl}/crm/deals/${id}`, deal).pipe(
+      map(saved => this.normalizeCrmDeal(saved))
+    );
+  }
+
+  createCrmActivity(activity: {
+    dealId: string;
+    type: CrmActivity['type'];
+    description: string;
+    activityDate: string;
+    activityUser: string;
+    completed: boolean;
+  }): Observable<CrmActivity> {
+    return this.http.post<Record<string, unknown>>(`${this.baseUrl}/crm/activities`, activity).pipe(
+      map(saved => this.normalizeCrmActivity(saved))
+    );
+  }
+
+  private normalizeBom(raw: Record<string, unknown>): Bom {
+    const finishedProduct = raw['finishedProduct'] as Record<string, unknown> | undefined;
+    const items = Array.isArray(raw['items']) ? raw['items'] as Record<string, unknown>[] : [];
+    const number = (value: unknown) => Number(value ?? 0);
+    return {
+      id: String(raw['id'] ?? ''),
+      code: String(raw['code'] ?? ''),
+      name: String(raw['name'] ?? ''),
+      finishedProductId: String(raw['finishedProductId'] ?? ''),
+      finishedProductSku: String(finishedProduct?.['sku'] ?? raw['finishedProductSku'] ?? ''),
+      finishedProductName: String(finishedProduct?.['name'] ?? raw['finishedProductName'] ?? ''),
+      quantityToProduce: number(raw['batchQuantity'] ?? raw['quantityToProduce']),
+      items: items.map(item => {
+        const product = item['rawProduct'] as Record<string, unknown> | undefined;
+        const quantityNeeded = number(item['quantityRequired'] ?? item['quantityNeeded']);
+        const estimatedUnitCost = number(item['estimatedUnitCost']);
+        return {
+          id: String(item['id'] ?? ''),
+          rawMaterialProductId: String(item['rawProductId'] ?? item['rawMaterialProductId'] ?? ''),
+          rawMaterialSku: String(product?.['sku'] ?? item['rawMaterialSku'] ?? ''),
+          rawMaterialName: String(product?.['name'] ?? item['rawMaterialName'] ?? ''),
+          quantityNeeded,
+          unit: String(product?.['unit'] ?? item['unit'] ?? 'UND'),
+          wastePercent: number(item['scrapPercent'] ?? item['wastePercent']),
+          estimatedUnitCost,
+          subtotalCost: number(item['subtotalCost'] ?? quantityNeeded * estimatedUnitCost)
+        };
+      }),
+      laborCost: number(raw['estimatedLaborCost'] ?? raw['laborCost']),
+      overheadCost: number(raw['overheadCost']),
+      totalEstimatedCost: number(raw['totalEstimatedCost']),
+      unitCost: number(raw['unitCost']),
+      active: raw['active'] !== false,
+      notes: typeof raw['notes'] === 'string' ? raw['notes'] : undefined,
+      createdAt: String(raw['createdAt'] ?? '')
+    };
+  }
+
+  private normalizeProductionOrder(raw: Record<string, unknown>): ProductionOrder {
+    const bom = raw['bom'] as Record<string, unknown> | undefined;
+    const product = raw['finishedProduct'] as Record<string, unknown> | undefined;
+    const warehouse = raw['warehouse'] as Record<string, unknown> | undefined;
+    const number = (value: unknown) => Number(value ?? 0);
+    return {
+      id: String(raw['id'] ?? ''),
+      orderNumber: String(raw['orderNumber'] ?? ''),
+      bomId: String(raw['bomId'] ?? ''),
+      bomCode: String(bom?.['code'] ?? raw['bomCode'] ?? ''),
+      finishedProductId: String(raw['finishedProductId'] ?? ''),
+      finishedProductSku: String(product?.['sku'] ?? raw['finishedProductSku'] ?? ''),
+      finishedProductName: String(product?.['name'] ?? raw['finishedProductName'] ?? ''),
+      warehouseId: String(raw['warehouseId'] ?? ''),
+      warehouseName: String(warehouse?.['name'] ?? raw['warehouseName'] ?? ''),
+      quantityPlanned: number(raw['quantityPlanned']),
+      quantityProduced: number(raw['quantityProduced']),
+      status: raw['status'] as ProductionOrder['status'],
+      startDate: String(raw['startDate'] ?? ''),
+      targetEndDate: String(raw['targetEndDate'] ?? ''),
+      actualEndDate: typeof raw['actualEndDate'] === 'string' ? raw['actualEndDate'] : undefined,
+      directMaterialCost: number(raw['directMaterialCost']),
+      laborCost: number(raw['laborCost']),
+      overheadCost: number(raw['overheadCost']),
+      totalCost: number(raw['totalCost']),
+      unitCost: number(raw['unitCost']),
+      notes: typeof raw['notes'] === 'string' ? raw['notes'] : undefined,
+      operatorName: String(raw['operatorName'] ?? ''),
+      createdAt: String(raw['createdAt'] ?? '')
+    };
+  }
+
+  private normalizeCrmActivity(raw: Record<string, unknown>): CrmActivity {
+    return {
+      id: String(raw['id'] ?? ''),
+      dealId: String(raw['dealId'] ?? ''),
+      type: raw['type'] as CrmActivity['type'],
+      description: String(raw['description'] ?? ''),
+      date: String(raw['activityDate'] ?? raw['date'] ?? ''),
+      user: String(raw['activityUser'] ?? raw['user'] ?? ''),
+      completed: Boolean(raw['completed'])
+    };
+  }
+
+  private normalizeCrmDeal(raw: Record<string, unknown>): CrmDeal {
+    const activities = Array.isArray(raw['activities']) ? raw['activities'] as Record<string, unknown>[] : [];
+    return {
+      id: String(raw['id'] ?? ''),
+      code: String(raw['code'] ?? ''),
+      title: String(raw['title'] ?? ''),
+      customerId: typeof raw['customerId'] === 'string' ? raw['customerId'] : undefined,
+      customerName: String(raw['customerName'] ?? ''),
+      contactPerson: String(raw['contactPerson'] ?? ''),
+      email: String(raw['email'] ?? ''),
+      phone: String(raw['phone'] ?? ''),
+      stage: raw['stage'] as CrmDeal['stage'],
+      expectedValueUsd: Number(raw['expectedValueUsd'] ?? 0),
+      probability: Number(raw['probability'] ?? 0),
+      expectedCloseDate: String(raw['expectedCloseDate'] ?? ''),
+      assignedTo: String(raw['assignedTo'] ?? ''),
+      notes: typeof raw['notes'] === 'string' ? raw['notes'] : undefined,
+      activities: activities.map(activity => this.normalizeCrmActivity(activity)),
+      quoteId: typeof raw['quoteId'] === 'string' ? raw['quoteId'] : undefined,
+      invoiceId: typeof raw['invoiceId'] === 'string' ? raw['invoiceId'] : undefined,
+      createdAt: String(raw['createdAt'] ?? ''),
+      updatedAt: String(raw['updatedAt'] ?? '')
+    };
   }
 
   getPurchaseOrders(): Observable<PurchaseOrder[]> {
@@ -505,11 +684,73 @@ export class ApiService {
   }
 
   getAccounts(): Observable<Account[]> {
-    return this.http.get<Account[]>(`${this.baseUrl}/accounting/accounts`).pipe(catchError(() => of([])));
+    return this.http.get<Record<string, unknown>[]>(`${this.baseUrl}/accounting/accounts`).pipe(
+      map(accounts => accounts.map(account => ({
+        ...account,
+        level: Number(account['accountLevel'] ?? account['level'] ?? 0),
+        balance: Number(account['balance'] ?? 0),
+      } as Account))),
+      catchError(() => of([]))
+    );
   }
 
   getJournalEntries(): Observable<JournalEntry[]> {
-    return this.http.get<JournalEntry[]>(`${this.baseUrl}/accounting/journal-entries`).pipe(catchError(() => of([])));
+    return this.http.get<Record<string, unknown>[]>(`${this.baseUrl}/accounting/journal-entries`).pipe(
+      map(entries => entries.map(entry => this.normalizeJournalEntry(entry))),
+      catchError(() => of([]))
+    );
+  }
+
+  createJournalEntry(entry: {
+    entryNumber: string;
+    entryDate: string;
+    concept: string;
+    referenceType: JournalEntry['referenceType'];
+    referenceId: string;
+    totalDebit: number;
+    totalCredit: number;
+    status: JournalEntry['status'];
+    createdBy: string;
+    lines: Array<{
+      accountId: string;
+      description: string;
+      debit: number;
+      credit: number;
+    }>;
+  }): Observable<JournalEntry> {
+    return this.http.post<Record<string, unknown>>(`${this.baseUrl}/accounting/journal-entries`, entry).pipe(
+      map(saved => this.normalizeJournalEntry(saved))
+    );
+  }
+
+  private normalizeJournalEntry(raw: Record<string, unknown>): JournalEntry {
+    const lines = Array.isArray(raw['lines']) ? raw['lines'] as Record<string, unknown>[] : [];
+    return {
+      id: String(raw['id'] ?? ''),
+      entryNumber: String(raw['entryNumber'] ?? ''),
+      date: String(raw['entryDate'] ?? raw['date'] ?? ''),
+      concept: String(raw['concept'] ?? ''),
+      referenceType: raw['referenceType'] as JournalEntry['referenceType'],
+      referenceId: typeof raw['referenceId'] === 'string' ? raw['referenceId'] : undefined,
+      totalDebit: Number(raw['totalDebit'] ?? 0),
+      totalCredit: Number(raw['totalCredit'] ?? 0),
+      status: (raw['status'] === 'ANULADA' ? 'ANULADO' : raw['status']) as JournalEntry['status'],
+      createdBy: String(raw['createdBy'] ?? ''),
+      createdAt: String(raw['createdAt'] ?? ''),
+      lines: lines.map(line => {
+        const account = line['account'] as Record<string, unknown> | undefined;
+        return {
+          accountId: String(line['accountId'] ?? ''),
+          accountCode: String(account?.['code'] ?? line['accountCode'] ?? ''),
+          accountName: String(account?.['name'] ?? line['accountName'] ?? ''),
+          description: String(line['description'] ?? ''),
+          debit: Number(line['debit'] ?? 0),
+          credit: Number(line['credit'] ?? 0),
+          debitVes: Number(line['debitVes'] ?? 0),
+          creditVes: Number(line['creditVes'] ?? 0),
+        };
+      }),
+    };
   }
 
   getBankAccounts(): Observable<BankAccount[]> {

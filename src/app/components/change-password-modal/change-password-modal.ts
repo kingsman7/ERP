@@ -300,7 +300,7 @@ export class ChangePasswordModalComponent {
 
         setTimeout(() => {
           if (mustChangePassword) {
-            void this.router.navigate(['/app/dashboard']);
+            void this.router.navigate([this.authService.getDefaultAppRoute()]);
           } else {
             this.close();
           }

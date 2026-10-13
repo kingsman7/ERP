@@ -1769,7 +1769,7 @@ export default class MrpComponent {
       wastePercent: Number(it.wastePercent)
     }));
 
-    const res = this.stateService.createBom({
+    this.stateService.createBom({
       code: v.code!,
       name: v.name!,
       finishedProductId: v.finishedProductId!,
@@ -1777,11 +1777,9 @@ export default class MrpComponent {
       items,
       laborCost: Number(v.laborCost || 0),
       overheadCost: Number(v.overheadCost || 0)
+    }).subscribe(result => {
+      if (result.success) this.closeBomModal();
     });
-
-    if (res.success) {
-      this.closeBomModal();
-    }
   }
 
   openNewOrderModal() {
@@ -1816,16 +1814,14 @@ export default class MrpComponent {
   submitOrderForm() {
     if (this.orderForm.invalid) return;
     const v = this.orderForm.value;
-    const res = this.stateService.createProductionOrder({
+    this.stateService.createProductionOrder({
       bomId: v.bomId!,
       warehouseId: v.warehouseId!,
       quantityPlanned: Number(v.quantityPlanned!),
       targetEndDate: v.targetEndDate!,
       notes: v.notes || undefined
+    }).subscribe(result => {
+      if (result.success) this.closeOrderModal();
     });
-
-    if (res.success) {
-      this.closeOrderModal();
-    }
   }
 }

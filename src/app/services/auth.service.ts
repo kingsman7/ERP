@@ -12,7 +12,7 @@ export interface NavAccessRule {
 }
 
 export const NAV_PERMISSIONS: Record<string, NavAccessRule> = {
-  'dashboard': { title: 'Dashboard Ejecutivo' },
+  'dashboard': { title: 'Dashboard Ejecutivo', roles: ['ADMIN'] },
   'inventory': { title: 'Inventario y Almacenes', permissions: ['inventory:view'] },
   'kardex': { title: 'Kardex Valorado (CPP)', permissions: ['kardex:view'] },
   'purchases': { title: 'Compras y Proveedores', permissions: ['purchases:manage', 'purchases:receive'] },
@@ -531,6 +531,7 @@ export class AuthService {
   }
 
   canAccessNav(navId: string): boolean {
+    if (navId === 'dashboard') return this.hasRole('ADMIN');
     if (this.isSuperAdmin()) return true;
 
     const rule = NAV_PERMISSIONS[navId];
@@ -551,6 +552,30 @@ export class AuthService {
     }
 
     return true;
+  }
+
+  getDefaultAppRoute(): string {
+    if (this.hasRole('ADMIN')) return '/app/dashboard';
+    if (this.isSuperAdmin()) return '/app/company-admin';
+
+    const preferredRoutes = [
+      'inventory',
+      'sales-pos',
+      'purchases',
+      'quotes',
+      'kardex',
+      'logistics',
+      'mrp',
+      'crm',
+      'treasury',
+      'accounting',
+      'cash-closing',
+      'users',
+      'audit-log',
+      'backups'
+    ];
+    const allowedRoute = preferredRoutes.find(route => this.canAccessNav(route));
+    return allowedRoute ? `/app/${allowedRoute}` : '/app/manual';
   }
 
   canAdjustInventory(): boolean {

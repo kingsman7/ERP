@@ -4,13 +4,14 @@ import { firstValueFrom, Observable } from 'rxjs';
 import { signal } from '@angular/core';
 import { AuthService, NAV_PERMISSIONS } from '../services/auth.service';
 import { ErpStateService } from '../services/erp-state.service';
-import { authGuard, loginRedirectGuard, roleGuard, superAdminGuard } from './auth.guard';
+import { adminDashboardGuard, authGuard, loginRedirectGuard, roleGuard, superAdminGuard } from './auth.guard';
 
 describe('password-change route guards', () => {
   let authService: {
     authInitialized: ReturnType<typeof signal<boolean>>;
     isAuthenticated: ReturnType<typeof signal<boolean>>;
-    currentUser: ReturnType<typeof signal<{ mustChangePassword?: boolean }>>;
+    currentUser: ReturnType<typeof signal<{ mustChangePassword?: boolean; role?: string }>>;
+    getDefaultAppRoute: ReturnType<typeof vi.fn>;
   };
   let createUrlTree: ReturnType<typeof vi.fn>;
 
@@ -18,7 +19,8 @@ describe('password-change route guards', () => {
     authService = {
       authInitialized: signal(true),
       isAuthenticated: signal(true),
-      currentUser: signal({ mustChangePassword: true })
+      currentUser: signal({ mustChangePassword: true, role: 'ADMIN' }),
+      getDefaultAppRoute: vi.fn(() => '/app/dashboard')
     };
     createUrlTree = vi.fn((commands: string[]) => ({ commands }) as unknown as UrlTree);
 
@@ -79,6 +81,7 @@ describe('roleGuard and superAdminGuard', () => {
     isSuperAdmin: ReturnType<typeof vi.fn>;
     canAccessNav: ReturnType<typeof vi.fn>;
     currentRoleConfig: ReturnType<typeof vi.fn>;
+    getDefaultAppRoute: ReturnType<typeof vi.fn>;
   };
   let stateService: {
     notify: ReturnType<typeof vi.fn>;
@@ -91,7 +94,8 @@ describe('roleGuard and superAdminGuard', () => {
       isAuthenticated: signal(true),
       isSuperAdmin: vi.fn(() => false),
       canAccessNav: vi.fn((navId: string) => navId === 'sales-pos'),
-      currentRoleConfig: vi.fn(() => ({ name: 'Cajero / Vendedor', description: 'POS' }))
+      currentRoleConfig: vi.fn(() => ({ name: 'Cajero / Vendedor', description: 'POS' })),
+      getDefaultAppRoute: vi.fn(() => '/app/sales-pos')
     };
     stateService = {
       notify: vi.fn()
@@ -129,7 +133,7 @@ describe('roleGuard and superAdminGuard', () => {
         {} as RouterStateSnapshot
       ));
 
-      expect(result).toEqual({ commands: ['/app/dashboard'] });
+      expect(result).toEqual({ commands: ['/app/sales-pos'] });
       expect(stateService.notify).toHaveBeenCalledWith(
         'warning',
         'Acceso No Autorizado',
@@ -187,12 +191,42 @@ describe('roleGuard and superAdminGuard', () => {
       )) as Observable<boolean | UrlTree>;
 
       const val = await firstValueFrom(result);
-      expect(val).toEqual({ commands: ['/app/dashboard'] });
+      expect(val).toEqual({ commands: ['/app/sales-pos'] });
       expect(stateService.notify).toHaveBeenCalledWith(
         'warning',
         'Acceso No Autorizado',
         expect.stringContaining('Contabilidad')
       );
+    });
+
+    describe('adminDashboardGuard', () => {
+      it('allows ADMIN users to access the dashboard', async () => {
+        authService.canAccessNav.mockReturnValue(true);
+
+        const result = TestBed.runInInjectionContext(() => adminDashboardGuard(
+          {} as ActivatedRouteSnapshot,
+          {} as RouterStateSnapshot
+        )) as Observable<boolean | UrlTree>;
+
+        await expect(firstValueFrom(result)).resolves.toBe(true);
+        expect(stateService.notify).not.toHaveBeenCalled();
+      });
+
+      it('redirects non-ADMIN users to an allowed module', async () => {
+        authService.canAccessNav.mockReturnValue(false);
+
+        const result = TestBed.runInInjectionContext(() => adminDashboardGuard(
+          {} as ActivatedRouteSnapshot,
+          {} as RouterStateSnapshot
+        )) as Observable<boolean | UrlTree>;
+
+        await expect(firstValueFrom(result)).resolves.toEqual({ commands: ['/app/sales-pos'] });
+        expect(stateService.notify).toHaveBeenCalledWith(
+          'warning',
+          'Acceso No Autorizado',
+          expect.stringContaining('rol ADMIN')
+        );
+      });
     });
 
     it('allows access to routes not restricted in NAV_PERMISSIONS', async () => {

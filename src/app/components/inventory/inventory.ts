@@ -1722,7 +1722,7 @@ export default class InventoryComponent {
     const editId = this.editingWarehouseId();
 
     if (editId) {
-      const res = this.stateService.updateWarehouse(editId, {
+      this.stateService.updateWarehouse(editId, {
         code: val.code!.trim().toUpperCase(),
         name: val.name!.trim(),
         location: val.location!.trim(),
@@ -1732,10 +1732,9 @@ export default class InventoryComponent {
         managerName: (val.managerName || '').trim(),
         phone: (val.phone || '').trim(),
         description: (val.description || '').trim()
+      }).subscribe(result => {
+        if (result.success) this.cancelWarehouseEdit();
       });
-      if (res.success) {
-        this.cancelWarehouseEdit();
-      }
     } else {
       const res = this.stateService.createWarehouse({
         code: val.code!.trim().toUpperCase(),
@@ -1756,12 +1755,16 @@ export default class InventoryComponent {
 
   deleteWarehouse(wh: Warehouse) {
     if (confirm(`¿Está seguro de eliminar el almacén "${wh.name}" (${wh.code})?`)) {
-      this.stateService.deleteWarehouse(wh.id);
+      this.stateService.deleteWarehouse(wh.id).subscribe(result => {
+        if (!result.success && result.message) {
+          this.stateService.notify('error', 'Almacén no eliminado', result.message);
+        }
+      });
     }
   }
 
   setAsMainWarehouse(wh: Warehouse) {
-    this.stateService.setMainWarehouse(wh.id);
+    this.stateService.setMainWarehouse(wh.id).subscribe();
   }
 
   getWarehouseStockCount(whId: string): number {

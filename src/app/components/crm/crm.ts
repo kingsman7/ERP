@@ -468,7 +468,7 @@ export default class CrmComponent {
   }
 
   moveDeal(dealId: string, newStage: CrmStage) {
-    this.stateService.updateCrmDealStage(dealId, newStage);
+    this.stateService.updateCrmDealStage(dealId, newStage).subscribe();
   }
 
   openNewDealModal() {
@@ -497,7 +497,7 @@ export default class CrmComponent {
     const stage = v.stage as CrmStage;
     const stageObj = this.stages.find(s => s.id === stage);
 
-    const res = this.stateService.createCrmDeal({
+    this.stateService.createCrmDeal({
       title: v.title!,
       customerName: v.customerName!,
       contactPerson: v.contactPerson!,
@@ -509,11 +509,9 @@ export default class CrmComponent {
       expectedCloseDate: v.expectedCloseDate!,
       assignedTo: user?.name,
       initialActivity: v.initialActivity || undefined
+    }).subscribe(result => {
+      if (result.success) this.closeDealModal();
     });
-
-    if (res.success) {
-      this.closeDealModal();
-    }
   }
 
   openActivityModal(deal: CrmDeal) {
@@ -535,16 +533,14 @@ export default class CrmComponent {
     if (!deal || this.activityForm.invalid) return;
     const v = this.activityForm.value;
 
-    const res = this.stateService.addCrmActivity(deal.id, {
+    this.stateService.addCrmActivity(deal.id, {
       type: v.type as CrmActivityType,
       description: v.description!
-    });
-
-    if (res.success) {
-      // update local signal for updated history
+    }).subscribe(result => {
+      if (!result.success) return;
       const updatedDeal = this.stateService.crmDeals().find(d => d.id === deal.id);
       if (updatedDeal) this.activeDealForActivity.set(updatedDeal);
       this.activityForm.reset({ type: 'LLAMADA', description: '' });
-    }
+    });
   }
 }

@@ -86,6 +86,43 @@ describe('AuthService session restoration', () => {
     expect('impersonationContext' in JSON.parse(localStorage.getItem(SESSION_KEY)!)).toBe(false);
   });
 
+  it('limits the executive dashboard to the exact ADMIN role', () => {
+    const accessToken = tokenWithExpiration(Math.floor(Date.now() / 1000) + 3600);
+    localStorage.setItem(SESSION_KEY, JSON.stringify({
+      user: { ...TEST_USER, role: 'SUPERADMIN' },
+      accessToken
+    }));
+
+    const service = TestBed.inject(AuthService);
+
+    expect(service.canAccessNav('dashboard')).toBe(false);
+    expect(service.getDefaultAppRoute()).toBe('/app/company-admin');
+  });
+
+  it('keeps ADMIN on the dashboard', () => {
+    const accessToken = tokenWithExpiration(Math.floor(Date.now() / 1000) + 3600);
+    localStorage.setItem(SESSION_KEY, JSON.stringify({
+      user: { ...TEST_USER, role: 'ADMIN' },
+      accessToken
+    }));
+
+    const service = TestBed.inject(AuthService);
+    expect(service.canAccessNav('dashboard')).toBe(true);
+    expect(service.getDefaultAppRoute()).toBe('/app/dashboard');
+  });
+
+  it('sends non-ADMIN users to a permitted module', () => {
+    const accessToken = tokenWithExpiration(Math.floor(Date.now() / 1000) + 3600);
+    localStorage.setItem(SESSION_KEY, JSON.stringify({
+      user: { ...TEST_USER, role: 'WAREHOUSE' },
+      accessToken
+    }));
+
+    const service = TestBed.inject(AuthService);
+    expect(service.canAccessNav('dashboard')).toBe(false);
+    expect(service.getDefaultAppRoute()).toBe('/app/inventory');
+  });
+
   it('restores a session from a persisted valid access token without calling refresh', () => {
     const accessToken = tokenWithExpiration(Math.floor(Date.now() / 1000) + 3600);
     localStorage.setItem(SESSION_KEY, JSON.stringify({

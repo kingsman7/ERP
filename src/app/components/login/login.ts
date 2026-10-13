@@ -267,7 +267,7 @@ export default class LoginComponent {
             this.isLoading.set(false);
             void this.router.navigate([this.authService.currentUser().mustChangePassword
               ? '/app/change-password'
-              : '/app/dashboard']);
+              : this.authService.getDefaultAppRoute()]);
           } else {
             this.isLoading.set(false);
             const failure = this.authService.lastAuthFailure();

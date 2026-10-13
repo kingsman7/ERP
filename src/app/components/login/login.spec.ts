@@ -12,8 +12,9 @@ describe('LoginComponent destination', () => {
   let authService: {
     login: ReturnType<typeof vi.fn>;
     isSuperAdmin: ReturnType<typeof signal<boolean>>;
-    currentUser: ReturnType<typeof signal<{ mustChangePassword?: boolean }>>;
+    currentUser: ReturnType<typeof signal<{ mustChangePassword?: boolean; role?: string }>>;
     lastAuthFailure: ReturnType<typeof signal<null>>;
+    getDefaultAppRoute: ReturnType<typeof vi.fn>;
     roles: [];
   };
 
@@ -23,8 +24,9 @@ describe('LoginComponent destination', () => {
     authService = {
       login: vi.fn().mockReturnValue(of(true)),
       isSuperAdmin: signal(false),
-      currentUser: signal({ mustChangePassword: false }),
+      currentUser: signal({ mustChangePassword: false, role: 'ADMIN' }),
       lastAuthFailure: signal(null),
+      getDefaultAppRoute: vi.fn(() => '/app/dashboard'),
       roles: []
     };
 
@@ -56,11 +58,20 @@ describe('LoginComponent destination', () => {
     expect(navigate).toHaveBeenCalledWith(['/app/dashboard']);
   });
 
-  it('keeps SUPERADMIN on the operational ERP dashboard after login', () => {
+  it('routes SUPERADMIN to company administration after login', () => {
     authService.isSuperAdmin.set(true);
+    authService.getDefaultAppRoute.mockReturnValue('/app/company-admin');
     submit();
 
-    expect(navigate).toHaveBeenCalledWith(['/app/dashboard']);
+    expect(navigate).toHaveBeenCalledWith(['/app/company-admin']);
+  });
+
+  it('routes non-ADMIN users to an authorized module after login', () => {
+    authService.currentUser.set({ mustChangePassword: false, role: 'WAREHOUSE' });
+    authService.getDefaultAppRoute.mockReturnValue('/app/inventory');
+    submit();
+
+    expect(navigate).toHaveBeenCalledWith(['/app/inventory']);
   });
 
   it('routes users with a temporary password to the mandatory change screen', () => {

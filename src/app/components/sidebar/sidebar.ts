@@ -56,6 +56,7 @@ export type NavTab =
           Operaciones Core (Plan Base)
         </div>
 
+        @if (authService.canAccessNav('dashboard')) {
         <button 
           (click)="selectTab('dashboard')"
           [class]="activeTab() === 'dashboard' ? 'bg-blue-600/10 text-blue-400 font-semibold border-l-4 border-blue-500 rounded-r-lg' : 'hover:bg-slate-800/90 text-slate-300 rounded-lg'"
@@ -65,6 +66,7 @@ export type NavTab =
             <span class="font-medium">Dashboard Ejecutivo</span>
           </div>
         </button>
+        }
 
         @if (canAccess('inventory:view')) {
         <button 

@@ -622,9 +622,8 @@ export default class AccountingComponent {
       credit: Number(l.credit) || 0
     }));
 
-    const res = this.stateService.createManualJournalEntry(v.concept!, lines);
-    if (res.success) {
-      this.closeManualEntryModal();
-    }
+    this.stateService.createManualJournalEntry(v.concept!, lines).subscribe(result => {
+      if (result.success) this.closeManualEntryModal();
+    });
   }
 }

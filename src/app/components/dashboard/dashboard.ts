@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, inject, output, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, output, signal, computed } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { ErpStateService } from '../../services/erp-state.service';
 import { AuthService } from '../../services/auth.service';
@@ -19,8 +19,8 @@ import { DecimalPipe } from '@angular/common';
           <div class="flex items-center space-x-2">
             <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Panel Ejecutivo de Control</span>
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-            <span class="text-xs font-semibold text-emerald-600 font-mono">PostgreSQL ACID • Conectado</span>
-          </div>
+            <span class="text-xs font-semibold text-emerald-600 font-mono">Resumen conectado al backend</span>
+            </div>
           <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 mt-1">
             Centro de Operaciones Helameb ERP
           </h1>
@@ -101,8 +101,8 @@ import { DecimalPipe } from '@angular/common';
               <div>
                 <span class="text-slate-400 text-[10px] font-bold uppercase tracking-widest block">Resumen de Ventas Facturadas</span>
                 <p class="text-2xl sm:text-3xl font-bold font-mono text-slate-900 mt-1">
-                  \${{ (stateService.totalSalesToday() > 0 ? (stateService.totalSalesToday() * 5.4 + 142580) : 142580).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
-                  <span class="text-xs text-emerald-500 font-normal font-sans ml-1.5">+12.4% vs semana ant.</span>
+                  \${{ periodSalesTotal().toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+                  <span class="text-xs text-slate-400 font-normal font-sans ml-1.5">{{ timeframe() === 'dia' ? 'últimos 7 días' : 'últimos 7 meses' }}</span>
                 </p>
               </div>
               <div class="flex gap-1.5">
@@ -123,46 +123,27 @@ import { DecimalPipe } from '@angular/common';
 
             <!-- Bento Bar Chart Display -->
             <div class="h-40 flex items-end gap-2.5 px-2 py-4 bg-slate-50/70 rounded-xl border border-slate-100">
-              <div class="flex-1 flex flex-col items-center gap-1.5">
-                <div class="w-full bg-blue-100 hover:bg-blue-200 rounded-t-lg transition-all" style="height: 40%"></div>
-                <span class="text-[10px] font-medium text-slate-400">Lun</span>
-              </div>
-              <div class="flex-1 flex flex-col items-center gap-1.5">
-                <div class="w-full bg-blue-100 hover:bg-blue-200 rounded-t-lg transition-all" style="height: 65%"></div>
-                <span class="text-[10px] font-medium text-slate-400">Mar</span>
-              </div>
-              <div class="flex-1 flex flex-col items-center gap-1.5">
-                <div class="w-full bg-blue-100 hover:bg-blue-200 rounded-t-lg transition-all" style="height: 45%"></div>
-                <span class="text-[10px] font-medium text-slate-400">Mié</span>
-              </div>
-              <div class="flex-1 flex flex-col items-center gap-1.5">
-                <div class="w-full bg-blue-600 rounded-t-lg shadow-md shadow-blue-200" style="height: 90%"></div>
-                <span class="text-[10px] font-bold text-blue-600">Jue</span>
-              </div>
-              <div class="flex-1 flex flex-col items-center gap-1.5">
-                <div class="w-full bg-blue-100 hover:bg-blue-200 rounded-t-lg transition-all" style="height: 55%"></div>
-                <span class="text-[10px] font-medium text-slate-400">Vie</span>
-              </div>
-              <div class="flex-1 flex flex-col items-center gap-1.5">
-                <div class="w-full bg-blue-100 hover:bg-blue-200 rounded-t-lg transition-all" style="height: 70%"></div>
-                <span class="text-[10px] font-medium text-slate-400">Sáb</span>
-              </div>
-              <div class="flex-1 flex flex-col items-center gap-1.5">
-                <div class="w-full bg-blue-100 hover:bg-blue-200 rounded-t-lg transition-all" style="height: 50%"></div>
-                <span class="text-[10px] font-medium text-slate-400">Dom</span>
+              @for (point of salesChart(); track point.key) {
+                <div class="flex-1 flex flex-col items-center justify-end gap-1.5 h-full" [title]="point.label + ': $' + point.amount.toFixed(2)">
+                  <div class="w-full rounded-t-lg transition-all"
+                    [class]="point.current ? 'bg-blue-600 shadow-md shadow-blue-200' : 'bg-blue-100 hover:bg-blue-200'"
+                    [style.height.%]="point.height">
+                  </div>
+                  <span class="text-[10px] font-medium text-slate-400">{{ point.label }}</span>
+                </div>
+              }
               </div>
             </div>
-          </div>
 
           <!-- Bottom Bento 3-Metric Row -->
           <div class="mt-6 grid grid-cols-3 gap-4 border-t border-slate-100 pt-4">
             <div>
               <p class="text-[11px] text-slate-400 font-medium">Tickets / Facturas</p>
-              <p class="text-base sm:text-lg font-bold font-mono text-slate-900">{{ 1240 + stateService.invoices().length }}</p>
+              <p class="text-base sm:text-lg font-bold font-mono text-slate-900">{{ periodInvoiceCount() }}</p>
             </div>
             <div>
               <p class="text-[11px] text-slate-400 font-medium">Ticket Promedio</p>
-              <p class="text-base sm:text-lg font-bold font-mono text-slate-900">\${{ (114.90 + (stateService.totalSalesToday() > 0 ? 12.3 : 0)) | number: '1.2-2' }}</p>
+              <p class="text-base sm:text-lg font-bold font-mono text-slate-900">\${{ (periodInvoiceCount() ? periodSalesTotal() / periodInvoiceCount() : 0) | number: '1.2-2' }}</p>
             </div>
             <div>
               <p class="text-[11px] text-slate-400 font-medium">Margen Ponderado</p>
@@ -227,15 +208,6 @@ import { DecimalPipe } from '@angular/common';
                   {{ p.totalStock }} {{ p.unit }}
                 </span>
               </div>
-            } @empty {
-              <div class="flex justify-between items-center text-xs">
-                <span class="font-medium text-slate-700">Ref. TAL-PER-01</span>
-                <span class="text-[10px] px-2 py-0.5 bg-rose-100 text-rose-600 rounded-full font-bold font-mono">3 Unid.</span>
-              </div>
-              <div class="flex justify-between items-center text-xs">
-                <span class="font-medium text-slate-700">Aceite Ind. G4</span>
-                <span class="text-[10px] px-2 py-0.5 bg-amber-100 text-amber-600 rounded-full font-bold font-mono">12 Unid.</span>
-              </div>
             }
           </div>
 
@@ -256,7 +228,7 @@ import { DecimalPipe } from '@angular/common';
 
           <div class="my-2">
             <p class="text-2xl sm:text-3xl font-bold font-mono text-slate-900">
-              {{ stateService.quotes().length > 0 ? stateService.quotes().length : 24 }}
+              {{ pendingQuotesCount() }}
             </p>
             <p class="text-[11px] text-slate-400">Cotizaciones pendientes de conversión</p>
           </div>
@@ -432,6 +404,55 @@ export default class DashboardComponent {
   timeframe = signal<'dia' | 'mes'>('mes');
   navigate = output<NavTab>();
   viewInvoice = output<Invoice>();
+
+  private readonly salesBuckets = computed(() => {
+    const now = new Date();
+    const monthly = this.timeframe() === 'mes';
+    const invoices = this.stateService.invoices().filter(invoice => invoice.status === 'EMITIDA');
+    return Array.from({ length: 7 }, (_, index) => {
+      const offset = index - 6;
+      const date = monthly
+        ? new Date(now.getFullYear(), now.getMonth() + offset, 1)
+        : new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
+      const key = monthly
+        ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+        : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      const amount = invoices
+        .filter(invoice => monthly ? invoice.date.startsWith(key) : invoice.date.startsWith(key))
+        .reduce((total, invoice) => total + invoice.total, 0);
+      const label = monthly
+        ? date.toLocaleDateString('es', { month: 'short' })
+        : date.toLocaleDateString('es', { weekday: 'short' });
+      return { key, label, amount, current: index === 6 };
+    });
+  });
+
+  readonly salesChart = computed(() => {
+    const buckets = this.salesBuckets();
+    const max = Math.max(...buckets.map(bucket => bucket.amount), 0);
+    return buckets.map(bucket => ({
+      ...bucket,
+      height: max > 0 ? Math.max(4, (bucket.amount / max) * 100) : 2
+    }));
+  });
+
+  readonly periodSalesTotal = computed(() => this.salesBuckets().reduce((total, bucket) => total + bucket.amount, 0));
+
+  readonly pendingQuotesCount = computed(() =>
+    this.stateService.quotes().filter(quote =>
+      quote.status !== 'CONVERTIDO_A_FACTURA' && quote.status !== 'RECHAZADO'
+    ).length
+  );
+
+  readonly periodInvoiceCount = computed(() => {
+    const keys = new Set(this.salesBuckets().map(bucket => bucket.key));
+    const monthly = this.timeframe() === 'mes';
+    return this.stateService.invoices().filter(invoice =>
+      invoice.status === 'EMITIDA' && Array.from(keys).some(key =>
+        monthly ? invoice.date.startsWith(key) : invoice.date.startsWith(key)
+      )
+    ).length;
+  });
 
   canAccessNav(navId: NavTab): boolean {
     return this.authService.canAccessNav(navId);
