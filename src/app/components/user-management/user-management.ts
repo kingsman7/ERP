@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormGroup, FormControl, Validators } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { AuthService } from '../../services/auth.service';
-import { ErpStateService } from '../../services/erp-state.service';
+import { ErpStateService, extractApiErrorMessage } from '../../services/erp-state.service';
 import { User, UserRole } from '../../models/erp.models';
 
 @Component({
@@ -1132,10 +1132,11 @@ export default class UserManagementComponent {
       this.stateService.notify('success', 'Clave temporal restablecida', 'El usuario deberá cambiarla al iniciar sesión.');
       this.closeQuickResetModal();
       },
-      error: () => {
-        this.stateService.notify('error', 'Error al restablecer clave', 'No fue posible restablecer la clave temporal. Verifica tus permisos e inténtalo nuevamente.');
+      error: (err) => {
+        const message = extractApiErrorMessage(err, 'No fue posible restablecer la clave temporal. Verifica tus permisos e inténtalo nuevamente.');
+        this.stateService.notify('error', 'Error al restablecer clave', message);
         this.quickResetSubmitting.set(false);
-        this.quickResetError.set('No fue posible restablecer la clave. Verifica tus permisos e inténtalo nuevamente.');
+        this.quickResetError.set(message);
       }
     });
   }
@@ -1236,9 +1237,11 @@ export default class UserManagementComponent {
             this.stateService.notify('success', 'Usuario actualizado', 'La clave temporal quedó restablecida y exige cambio al ingresar.');
             this.closeUserModal();
           },
-          error: () => {
+          error: (err) => {
             this.isSavingUser.set(false);
-            this.userFormError.set('No fue posible restablecer la clave. Verifica tus permisos e inténtalo nuevamente.');
+            const message = extractApiErrorMessage(err, 'No fue posible restablecer la clave. Verifica tus permisos e inténtalo nuevamente.');
+            this.stateService.notify('error', 'Error al restablecer clave', message);
+            this.userFormError.set(message);
           }
         });
         
@@ -1251,12 +1254,16 @@ export default class UserManagementComponent {
           this.closeUserModal();
         },
         error: (error) => {
-          this.stateService.notify('error', 'Error al actualizar usuario', 'No fue posible actualizar los datos del usuario. Verifica tus permisos e inténtalo nuevamente.');
+          this.isSavingUser.set(false);
+          const message = extractApiErrorMessage(error, 'No fue posible actualizar los datos del usuario. Verifica tus permisos e inténtalo nuevamente.');
+          this.stateService.notify('error', 'Error al actualizar usuario', message);
+          this.userFormError.set(message);
           console.error('Error updating user', error);
         }
       });
     } else {
       ;
+      this.isSavingUser.set(true);
       const tempPass = formVal.temporaryPassword?.trim() || 'Temp2026*';
       this.authService.addUser({
         name: formVal.name!,
@@ -1268,6 +1275,7 @@ export default class UserManagementComponent {
       }, tempPass, formVal.mustChangePassword ?? true)
       .subscribe({
         next: (created) => {
+          this.isSavingUser.set(false);
           this.stateService.notify('success', 'Usuario creado', 'El nuevo usuario se creó correctamente.');
           this.closeUserModal();
           this.stateService.logAudit(
@@ -1283,7 +1291,10 @@ export default class UserManagementComponent {
           );
         },
         error: (error) => {
-          this.stateService.notify('error', 'Error al crear usuario', 'No fue posible crear el nuevo usuario. Verifica tus permisos e inténtalo nuevamente.');
+          this.isSavingUser.set(false);
+          const message = extractApiErrorMessage(error, 'No fue posible crear el nuevo usuario. Verifica tus permisos e inténtalo nuevamente.');
+          this.stateService.notify('error', 'Error al crear usuario', message);
+          this.userFormError.set(message);
           console.error('Error creating user', error);
         }
       });

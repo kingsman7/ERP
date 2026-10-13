@@ -63,6 +63,71 @@ import { ApiService } from './api.service';
 
 const STORAGE_KEY = 'nexus_erp_state_v1';
 
+export function extractApiErrorMessage(
+  error: unknown,
+  fallback: string = 'Ocurrió un error inesperado al procesar la solicitud.'
+): string {
+  if (!error) return fallback;
+
+  if (typeof error === 'string' && error.trim().length > 0) {
+    return error;
+  }
+
+  if (typeof error === 'object' && error !== null) {
+    if ('status' in error && (error as { status?: number }).status === 0) {
+      return 'No fue posible conectar con el servidor. Verifique su conexión de red o el estado del backend.';
+    }
+
+    if ('error' in error) {
+      const body = (error as { error?: unknown }).error;
+
+      if (typeof ErrorEvent !== 'undefined' && body instanceof ErrorEvent && body.message) {
+        return body.message;
+      }
+
+      if (typeof body === 'object' && body !== null) {
+        const bodyObj = body as Record<string, unknown>;
+        if ('message' in bodyObj) {
+          const msg = bodyObj['message'];
+          if (typeof msg === 'string' && msg.trim().length > 0) return msg;
+          if (Array.isArray(msg) && msg.length > 0) {
+            return msg.map(m => typeof m === 'string' ? m : JSON.stringify(m)).join(', ');
+          }
+        }
+        if ('error' in bodyObj && typeof bodyObj['error'] === 'string' && bodyObj['error'].trim().length > 0) {
+          return bodyObj['error'];
+        }
+      } else if (typeof body === 'string' && body.trim().length > 0) {
+        try {
+          const parsed = JSON.parse(body);
+          if (parsed && typeof parsed === 'object') {
+            if (typeof parsed.message === 'string' && parsed.message.trim().length > 0) return parsed.message;
+            if (Array.isArray(parsed.message) && parsed.message.length > 0) return parsed.message.join(', ');
+            if (typeof parsed.error === 'string' && parsed.error.trim().length > 0) return parsed.error;
+          }
+        } catch {
+          if (!body.includes('<!DOCTYPE') && !body.includes('<html') && body.length < 500) {
+            return body;
+          }
+        }
+      }
+    }
+
+    if ('message' in error) {
+      const msg = (error as { message?: unknown }).message;
+      if (typeof msg === 'string' && msg.trim().length > 0 && !msg.startsWith('Http failure response')) {
+        return msg;
+      }
+    }
+
+    if (error instanceof Error && error.message && !error.message.startsWith('Http failure response')) {
+      return error.message;
+    }
+  }
+
+  return fallback;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -498,7 +563,8 @@ export class ErpStateService {
           this.saveState();
         },
         error: (err) => {
-          this.notify('error', 'Error al Actualizar Perfil Fiscal', 'Ocurrió un error al actualizar el perfil fiscal de la empresa.');
+          const message = this.extractApiErrorMessage(err, 'Ocurrió un error al actualizar el perfil fiscal de la empresa.');
+          this.notify('error', 'Error al Actualizar Perfil Fiscal', message);
         }
       })
     );
@@ -1951,12 +2017,29 @@ export class ErpStateService {
     }
   }
 
-  notify(type: 'success' | 'info' | 'warning' | 'error', title: string, message: string) {
+  private lastErrorNotification: { key: string; time: number } | null = null;
+
+  notify(type: 'success' | 'info' | 'warning' | 'error', title: string, message: unknown, durationMs = 6000) {
+    let resolvedMessage = typeof message === 'string' ? message : extractApiErrorMessage(message);
+    if (!resolvedMessage || resolvedMessage.trim() === '') {
+      resolvedMessage = type === 'error' ? 'Ha ocurrido un error en la operación.' : '';
+    }
+
+    // Deduplicate identical error notifications within 2.5 seconds
+    if (type === 'error') {
+      const dedupKey = `${title}:::${resolvedMessage}`;
+      const now = Date.now();
+      if (this.lastErrorNotification && this.lastErrorNotification.key === dedupKey && (now - this.lastErrorNotification.time) < 2500) {
+        return;
+      }
+      this.lastErrorNotification = { key: dedupKey, time: now };
+    }
+
     const id = 'notif-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
-    this.notifications.update(prev => [{ id, type, title, message, timestamp: Date.now() }, ...prev]);
+    this.notifications.update(prev => [{ id, type, title, message: resolvedMessage, timestamp: Date.now() }, ...prev]);
     setTimeout(() => {
       this.dismissNotification(id);
-    }, 6000);
+    }, durationMs);
   }
 
   dismissNotification(id: string) {
@@ -2248,8 +2331,9 @@ export class ErpStateService {
       map(() => ({ success: true, orderNumber })),
       catchError(error => {
         console.error('Error en registerPurchaseOrder:', error);
-        this.notify('error', 'Error al crear la orden de compra', 'La operación no se confirmó en el backend.');
-        return of({ success: false, message: 'No fue posible registrar la compra.' });
+        const message = this.extractApiErrorMessage(error, 'La operación no se confirmó en el backend.');
+        this.notify('error', 'Error al crear la orden de compra', message);
+        return of({ success: false, message });
       })
     );
   }
@@ -2384,9 +2468,10 @@ export class ErpStateService {
           }
         );
       },
-      error: () => {
+      error: (err) => {
         this.products.update(products => products.map(product => product.id === productId ? prod : product));
-        this.notify('error', 'Precios no guardados', 'El backend rechazó la actualización de precios e impuestos.');
+        const message = this.extractApiErrorMessage(err, 'El backend rechazó la actualización de precios e impuestos.');
+        this.notify('error', 'Precios no guardados', message);
       }
     });
 
@@ -4250,8 +4335,8 @@ export class ErpStateService {
       this.saveState();
       return { success: true, message: 'Ajuste registrado en backend, Kardex, Bitácora y Centro de Alertas.' };
     }).catch((error: unknown) => {
-      const message = error instanceof Error ? error.message : 'Error desconocido al registrar el ajuste.';
-      this.notify('error', 'Ajuste no registrado', 'El backend rechazó el ajuste; no se creó la alerta ni se actualizó el inventario local.');
+      const message = this.extractApiErrorMessage(error, 'El backend rechazó el ajuste; no se creó la alerta ni se actualizó el inventario local.');
+      this.notify('error', 'Ajuste no registrado', message);
       console.error('Failed to persist stock adjustment', error);
       return { success: false, message };
     });
@@ -4264,7 +4349,7 @@ export class ErpStateService {
     countedCashUsd: number,
     countedCashVes: number = 0,
     notes?: string
-  ): Promise<{ success: boolean; session?: CashRegisterSession }> {
+  ): Promise<{ success: boolean; session?: CashRegisterSession; error?: string }> {
     const session = this.activeCashSession();
     if (session.status === 'CERRADA') {
       return { success: false };
@@ -4344,8 +4429,9 @@ export class ErpStateService {
       return { success: true, session: persistedSession };
     } catch (error) {
       console.error('Failed to close cash session:', error);
-      this.notify('error', 'Error al Cerrar Caja', 'No se pudo guardar el cierre de caja en el servidor.');
-      return { success: false };
+      const message = this.extractApiErrorMessage(error, 'No se pudo guardar el cierre de caja en el servidor.');
+      this.notify('error', 'Error al Cerrar Caja', message);
+      return { success: false, error: message };
     }
   }
 
@@ -4389,7 +4475,8 @@ export class ErpStateService {
       },
       error: err => {
         console.error('Failed to open cash session:', err);
-        this.notify('error', 'Error', 'No se pudo abrir el turno de caja.');
+        const message = this.extractApiErrorMessage(err, 'No se pudo abrir el turno de caja.');
+        this.notify('error', 'Error al Abrir Caja', message);
       }
     });
 
@@ -4438,9 +4525,10 @@ export class ErpStateService {
           this.logAudit('CREATE_PRODUCT', 'INVENTORY', `Creación de Producto: ${saved.sku}`, `Alta de producto ${saved.name} con stock inicial de ${totalStock} UND.`, null, newProd as unknown as Record<string, unknown>);
           this.notify('success', 'Producto Creado', `Se agregó ${saved.name} al catálogo.`);
         },
-        error: () => {
+        error: (err) => {
           this.saveState();
-          this.notify('error', 'Producto no creado', 'El backend rechazó el registro del producto.');
+          const message = this.extractApiErrorMessage(err, 'El backend rechazó el registro del producto.');
+          this.notify('error', 'Producto no creado', message);
         }
       })
     );
@@ -4475,9 +4563,10 @@ export class ErpStateService {
     }));
     this.apiService.updateProduct(id, { ...updated, category, categories }).subscribe({
       next: saved => this.products.update(products => products.map(product => product.id === id ? saved : product)),
-      error: () => {
+      error: (err) => {
         this.products.update(products => products.map(product => product.id === id ? target : product));
-        this.notify('error', 'Producto no actualizado', 'El backend rechazó los cambios del producto.');
+        const message = this.extractApiErrorMessage(err, 'El backend rechazó los cambios del producto.');
+        this.notify('error', 'Producto no actualizado', message);
       }
     });
 
@@ -4497,9 +4586,10 @@ export class ErpStateService {
 
     this.products.update(list => list.filter(p => p.id !== id));
     this.apiService.deleteProduct(id).subscribe({
-      error: () => {
+      error: (err) => {
         this.products.update(products => [target, ...products]);
-        this.notify('error', 'Producto no eliminado', 'El backend rechazó la eliminación del producto.');
+        const message = this.extractApiErrorMessage(err, 'El backend rechazó la eliminación del producto.');
+        this.notify('error', 'Producto no eliminado', message);
       }
     });
     this.logAudit('DELETE_PRODUCT', 'INVENTORY', `Eliminación de Producto: ${target.sku}`, `Se dio de baja el producto ${target.name}.`, target as unknown as Record<string, unknown>, null);
@@ -4533,10 +4623,11 @@ export class ErpStateService {
         this.categories.update(categories => categories.map(category => category.id === newCat.id || category.name.toLowerCase() === newCat.name.toLowerCase() ? saved : category));
         this.saveState();
       },
-      error: () => {
+      error: (err) => {
         this.categories.update(categories => categories.filter(category => category.id !== newCat.id));
         this.saveState();
-        this.notify('error', 'Categoría no creada', 'El backend rechazó el registro de la categoría.');
+        const message = this.extractApiErrorMessage(err, 'El backend rechazó el registro de la categoría.');
+        this.notify('error', 'Categoría no creada', message);
       }
     });
     this.logAudit('CREATE_CATEGORY', 'INVENTORY', `Nueva Categoría: ${newCat.name}`, `Se registró la categoría de productos ${newCat.name} (${newCat.code}).`, null, newCat as unknown as Record<string, unknown>);
@@ -4578,7 +4669,7 @@ export class ErpStateService {
         this.categories.update(list => list.map(category => category.id === id ? saved : category));
         this.saveState();
       },
-      error: () => {
+      error: (err) => {
         this.categories.update(list => list.map(category => category.id === id ? target : category));
         if (oldName !== newName) {
           this.products.update(prods => prods.map(product => ({
@@ -4588,7 +4679,8 @@ export class ErpStateService {
           })));
         }
         this.saveState();
-        this.notify('error', 'Categoría no actualizada', 'El backend rechazó los cambios de la categoría.');
+        const message = this.extractApiErrorMessage(err, 'El backend rechazó los cambios de la categoría.');
+        this.notify('error', 'Categoría no actualizada', message);
       }
     });
 
@@ -4609,10 +4701,11 @@ export class ErpStateService {
 
     this.categories.update(list => list.filter(c => c.id !== id));
     this.apiService.deleteCategory(id).subscribe({
-      error: () => {
+      error: (err) => {
         this.categories.update(list => [...list, target]);
         this.saveState();
-        this.notify('error', 'Categoría no eliminada', 'El backend rechazó la eliminación de la categoría.');
+        const message = this.extractApiErrorMessage(err, 'El backend rechazó la eliminación de la categoría.');
+        this.notify('error', 'Categoría no eliminada', message);
       }
     });
     this.logAudit('DELETE_CATEGORY', 'INVENTORY', `Eliminación Categoría: ${target.name}`, `Se eliminó la categoría ${target.name}.`, target as unknown as Record<string, unknown>, null);
@@ -4648,6 +4741,12 @@ export class ErpStateService {
       next: saved => {
         this.warehouses.update(list => list.map(w => w.id === newWh.id || w.code.toUpperCase() === newWh.code.toUpperCase() ? saved : w));
         this.saveState();
+      },
+      error: (err) => {
+        this.warehouses.update(list => list.filter(w => w.code.toUpperCase() !== newWh.code.toUpperCase()));
+        this.saveState();
+        const message = this.extractApiErrorMessage(err, 'El backend rechazó el registro del almacén.');
+        this.notify('error', 'Almacén no creado', message);
       }
     });
     
@@ -4767,7 +4866,8 @@ export class ErpStateService {
       }),
       catchError((error) => {
         this.suppliers.set(previousSuppliers);
-        this.notify('error', 'Proveedor no creado', 'El backend rechazó el registro del proveedor y no se guardó en el state.');
+        const message = this.extractApiErrorMessage(error, 'El backend rechazó el registro del proveedor y no se guardó en el state.');
+        this.notify('error', 'Proveedor no creado', message);
         console.error('Error creando proveedor:', error);
         this.saveState();
         return of(null);
@@ -4816,7 +4916,8 @@ export class ErpStateService {
         this.saveState();
       },
         error: (error) => {
-          this.notify('error', 'Cliente no creado', 'El backend rechazó el registro del cliente y no se guardó en el state.');
+          const message = this.extractApiErrorMessage(error, 'El backend rechazó el registro del cliente y no se guardó en el state.');
+          this.notify('error', 'Cliente no creado', message);
           console.error('Error creando cliente:', error);
         }
       }),
@@ -5097,7 +5198,8 @@ export class ErpStateService {
         },
         error: (err) => {
           this.quotes.set(previousQuotes);
-          this.notify('error', 'Presupuesto no creado', 'El backend rechazó la creación del presupuesto y el state fue revertido.');
+          const message = this.extractApiErrorMessage(err, 'El backend rechazó la creación del presupuesto y el state fue revertido.');
+          this.notify('error', 'Presupuesto no creado', message);
         }
       })
     );
@@ -5178,7 +5280,8 @@ export class ErpStateService {
           this.saveState();
         },
         error: error => {
-          this.notify('error', 'No se pudo actualizar el presupuesto', 'No se guardaron el estado ni la copia histórica del documento.');
+          const message = this.extractApiErrorMessage(error, 'No se guardaron el estado ni la copia histórica del documento.');
+          this.notify('error', 'No se pudo actualizar el presupuesto', message);
           console.error('Error updating quote status:', error);
         }
       })

@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, effect, inject, signal } from '@angular/core';
+import { NgClass } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
@@ -16,6 +17,7 @@ import { ChangePasswordModalComponent } from '../../components/change-password-m
   selector: 'app-private-shell',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    NgClass,
     MatIconModule,
     RouterOutlet,
     HeaderComponent,
@@ -54,10 +56,18 @@ import { ChangePasswordModalComponent } from '../../components/change-password-m
           </div>
         }
         @for (n of stateService.notifications(); track n.id) {
-          <div class="pointer-events-auto p-4 rounded-2xl shadow-xl border flex items-start space-x-3 text-xs bg-slate-900/95 border-slate-700 text-white">
-            <mat-icon class="text-base shrink-0 mt-0.5">{{ n.type === 'success' ? 'check_circle' : (n.type === 'error' ? 'error' : (n.type === 'warning' ? 'warning' : 'info')) }}</mat-icon>
-            <div class="flex-1 min-w-0"><p class="font-bold text-xs">{{ n.title }}</p><p class="text-[11px] text-slate-300 mt-0.5">{{ n.message }}</p></div>
-            <button (click)="dismissToast(n.id)" class="text-slate-400 hover:text-white shrink-0"><mat-icon class="text-sm">close</mat-icon></button>
+          <div class="pointer-events-auto p-4 rounded-2xl shadow-xl border flex items-start space-x-3 text-xs backdrop-blur-md transition-all duration-200"
+            [ngClass]="getToastContainerClass(n.type)">
+            <mat-icon class="text-base shrink-0 mt-0.5" [ngClass]="getToastIconClass(n.type)">
+              {{ n.type === 'success' ? 'check_circle' : (n.type === 'error' ? 'error' : (n.type === 'warning' ? 'warning' : 'info')) }}
+            </mat-icon>
+            <div class="flex-1 min-w-0">
+              <p class="font-bold text-xs" [ngClass]="getToastTitleClass(n.type)">{{ n.title }}</p>
+              <p class="text-[11px] mt-0.5 leading-relaxed break-words" [ngClass]="getToastMessageClass(n.type)">{{ n.message }}</p>
+            </div>
+            <button (click)="dismissToast(n.id)" class="text-slate-400 hover:text-white shrink-0 p-0.5 rounded-md hover:bg-white/10 transition-colors">
+              <mat-icon class="text-sm">close</mat-icon>
+            </button>
           </div>
         }
       </div>
@@ -112,5 +122,57 @@ export class PrivateShellComponent {
 
   dismissToast(id: string): void {
     this.stateService.dismissNotification(id);
+  }
+
+  getToastContainerClass(type: string): string {
+    switch (type) {
+      case 'error':
+        return 'bg-slate-900/98 border-rose-500/50 text-white shadow-rose-950/40 ring-1 ring-rose-500/20';
+      case 'warning':
+        return 'bg-slate-900/98 border-amber-500/50 text-white shadow-amber-950/40 ring-1 ring-amber-500/20';
+      case 'success':
+        return 'bg-slate-900/98 border-emerald-500/50 text-white shadow-emerald-950/40 ring-1 ring-emerald-500/20';
+      default:
+        return 'bg-slate-900/98 border-sky-500/50 text-white shadow-sky-950/40 ring-1 ring-sky-500/20';
+    }
+  }
+
+  getToastIconClass(type: string): string {
+    switch (type) {
+      case 'error':
+        return 'text-rose-400';
+      case 'warning':
+        return 'text-amber-400';
+      case 'success':
+        return 'text-emerald-400';
+      default:
+        return 'text-sky-400';
+    }
+  }
+
+  getToastTitleClass(type: string): string {
+    switch (type) {
+      case 'error':
+        return 'text-rose-200';
+      case 'warning':
+        return 'text-amber-200';
+      case 'success':
+        return 'text-emerald-200';
+      default:
+        return 'text-sky-200';
+    }
+  }
+
+  getToastMessageClass(type: string): string {
+    switch (type) {
+      case 'error':
+        return 'text-rose-100/90';
+      case 'warning':
+        return 'text-amber-100/90';
+      case 'success':
+        return 'text-emerald-100/90';
+      default:
+        return 'text-slate-300';
+    }
   }
 }

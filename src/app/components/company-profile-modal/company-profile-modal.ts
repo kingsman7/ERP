@@ -1,7 +1,7 @@
 import { Component, ChangeDetectionStrategy, inject, output, signal } from '@angular/core';
 import { ReactiveFormsModule, FormControl, FormGroup, Validators } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
-import { ErpStateService } from '../../services/erp-state.service';
+import { ErpStateService, extractApiErrorMessage } from '../../services/erp-state.service';
 import { CompanyPlanTier, CompanyFiscalProfile } from '../../models/erp.models';
 
 @Component({
@@ -637,7 +637,8 @@ export class CompanyProfileModalComponent {
         );
       },
       error: (err) => {
-        this.stateService.notify('error', 'Error al Guardar Perfil Fiscal', 'Ocurrió un error al guardar el perfil fiscal de la empresa.');
+        const message = extractApiErrorMessage(err, 'Ocurrió un error al guardar el perfil fiscal de la empresa.');
+        this.stateService.notify('error', 'Error al Guardar Perfil Fiscal', message);
       }
     });
   }

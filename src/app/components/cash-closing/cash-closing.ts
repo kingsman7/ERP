@@ -808,10 +808,16 @@ import { CashSessionPaymentMethodBreakdown, PaymentMethod, CurrencyCode, Warehou
                 class="w-full sm:max-w-md px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-slate-400" />
 
               <button 
+                [disabled]="isClosing()"
                 (click)="closeShift(closingNotesInput.value)"
-                class="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold flex items-center justify-center space-x-2 shadow-xs transition-colors cursor-pointer shrink-0">
-                <mat-icon class="text-sm">lock</mat-icon>
-                <span>CERRAR TURNO & GENERAR REPORTE Z</span>
+                class="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold flex items-center justify-center space-x-2 shadow-xs transition-colors cursor-pointer shrink-0">
+                @if (isClosing()) {
+                  <span class="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                  <span>CERRANDO TURNO...</span>
+                } @else {
+                  <mat-icon class="text-sm">lock</mat-icon>
+                  <span>CERRAR TURNO & GENERAR REPORTE Z</span>
+                }
               </button>
             </div>
           </div>
@@ -1394,12 +1400,20 @@ export default class CashClosingComponent {
     return Number((diffUsd + diffVesInUsd).toFixed(2));
   });
 
-  closeShift(notes?: string) {
-    this.stateService.closeCashSession(
-      this.countedCashUsdInput(),
-      this.countedCashVesInput(),
-      notes || 'Arqueo de cierre de jornada habitual con desglose multimoneda'
-    );
+  isClosing = signal(false);
+
+  async closeShift(notes?: string) {
+    if (this.isClosing()) return;
+    this.isClosing.set(true);
+    try {
+      await this.stateService.closeCashSession(
+        this.countedCashUsdInput(),
+        this.countedCashVesInput(),
+        notes || 'Arqueo de cierre de jornada habitual con desglose multimoneda'
+      );
+    } finally {
+      this.isClosing.set(false);
+    }
   }
 
   confirmOpenSession(openingBaseUsd: number, initialAmountVes: number) {
