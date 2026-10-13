@@ -453,6 +453,16 @@ import {
                       class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg font-mono text-xs text-slate-900 focus:outline-none" />
                   </div>
 
+                  <label class="flex items-start gap-2 p-2.5 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-950 cursor-pointer">
+                    <input
+                      id="conv-create-pickup"
+                      type="checkbox"
+                      [checked]="createPickupOrder()"
+                      (change)="createPickupOrder.set($any($event.target).checked)"
+                      class="mt-0.5 accent-amber-600" />
+                    <span><strong>Preparar para retiro en despacho.</strong> Genera una orden pendiente vinculada a esta factura. Requiere pago completo; la mercancía se descuenta del inventario una sola vez al facturar.</span>
+                  </label>
+
                   <!-- SENIAT IGTF Evaluation Banner -->
                   @if (calc.appliesIgtf && calc.igtfAmount > 0) {
                     <div class="p-2.5 bg-indigo-50 border border-indigo-200 rounded-xl space-y-1">
@@ -1016,6 +1026,7 @@ export default class QuotesComponent {
   conversionPaymentRef = signal<string>('');
   conversionInvoiceType = signal<InvoiceType>('FACTURA_ELECTRONICA');
   conversionManualIgtf = signal<boolean | null>(null);
+  createPickupOrder = signal<boolean>(false);
   isSubmittingConversion = signal<boolean>(false);
 
   // Active Invoice Modal for viewing & printing
@@ -1273,6 +1284,7 @@ export default class QuotesComponent {
     this.conversionPaymentRef.set(`COT-CONVERT-${quote.quoteNumber}`);
     this.conversionInvoiceType.set('FACTURA_ELECTRONICA');
     this.conversionManualIgtf.set(null);
+    this.createPickupOrder.set(false);
     this.isSubmittingConversion.set(false);
     this.showConversionModal.set(true);
   }
@@ -1280,6 +1292,7 @@ export default class QuotesComponent {
   closeConversionModal() {
     this.showConversionModal.set(false);
     this.selectedQuoteForConversion.set(null);
+    this.createPickupOrder.set(false);
   }
 
   onConversionPaymentMethodChange(method: PaymentMethod) {
@@ -1327,7 +1340,8 @@ export default class QuotesComponent {
         payments: paymentRecords,
         paymentCurrency: this.conversionPaymentCurrency(),
         invoiceType: this.conversionInvoiceType(),
-        appliesIgtfManual: this.conversionManualIgtf()
+        appliesIgtfManual: this.conversionManualIgtf(),
+        createPickupOrder: this.createPickupOrder()
       });
     } finally {
       this.isSubmittingConversion.set(false);

@@ -18,6 +18,12 @@ function tokenWithExpiration(expiration: number): string {
   return `header.${payload}.signature`;
 }
 
+function flushLoginAudit(http: HttpTestingController): void {
+  const request = http.expectOne('/api/audit/logs');
+  expect(request.request.body.action).toBe('USER_LOGIN');
+  request.flush({ id: 'audit-login-test' });
+}
+
 describe('AuthService session restoration', () => {
   let http: HttpTestingController;
   let navigate: ReturnType<typeof vi.fn>;
@@ -48,6 +54,7 @@ describe('AuthService session restoration', () => {
     const request = http.expectOne('/api/auth/login');
     expect(request.request.body).toEqual({ email: 'user@example.com', password: 'password123' });
     request.flush({ accessToken: tokenWithExpiration(Math.floor(Date.now() / 1000) + 3600), user: TEST_USER });
+    flushLoginAudit(http);
   });
 
   it('retains mustChangePassword from login for the route guard', () => {
@@ -58,6 +65,7 @@ describe('AuthService session restoration', () => {
       accessToken: tokenWithExpiration(Math.floor(Date.now() / 1000) + 3600),
       user: { ...TEST_USER, mustChangePassword: true }
     });
+    flushLoginAudit(http);
 
     expect(service.currentUser().mustChangePassword).toBe(true);
   });
@@ -71,6 +79,7 @@ describe('AuthService session restoration', () => {
       accessToken: tokenWithExpiration(Math.floor(Date.now() / 1000) + 3600),
       user: { ...TEST_USER, role: 'SUPERADMIN' }
     });
+    flushLoginAudit(http);
 
     expect(service.isSuperAdmin()).toBe(true);
     expect(JSON.parse(localStorage.getItem(SESSION_KEY)!).user.role).toBe('SUPERADMIN');
@@ -131,6 +140,7 @@ describe('AuthService session restoration', () => {
       accessToken: tokenWithExpiration(Math.floor(Date.now() / 1000) + 3600),
       user: TEST_USER
     });
+    flushLoginAudit(http);
 
     service.logout();
     const request = http.expectOne('/api/auth/logout');
@@ -150,6 +160,7 @@ describe('AuthService session restoration', () => {
       accessToken: tokenWithExpiration(Math.floor(Date.now() / 1000) + 3600),
       user: TEST_USER
     });
+    flushLoginAudit(http);
 
     service.logout();
     http.expectOne('/api/auth/logout').flush(

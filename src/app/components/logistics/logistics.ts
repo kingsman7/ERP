@@ -406,7 +406,7 @@ import { matchesEntitySearch } from '../../utils/entity-search';
                   </div>
                   
                   <div>
-                    @if (ord.status === 'ENTREGADA') {
+                    @if (ord.status === 'ENTREGADA' || ord.status === 'ENTREGADA_CONFORME') {
                       <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center space-x-1">
                         <mat-icon class="text-xs">verified</mat-icon>
                         <span>Entregada Conforme</span>
@@ -429,16 +429,22 @@ import { matchesEntitySearch } from '../../utils/entity-search';
                   </div>
                 </div>
 
-                <!-- Amparo Guía de Despacho -->
-                <div class="p-2.5 bg-amber-50/60 rounded-xl border border-amber-200/60 text-xs flex items-center justify-between">
-                  <div>
-                    <span class="text-[10px] text-amber-800 font-bold block uppercase">Guía de Despacho SENIAT:</span>
-                    <span class="font-mono font-bold text-amber-950">{{ ord.dispatchGuideNumber }}</span>
+                @if (ord.fulfillmentType === 'CUSTOMER_PICKUP') {
+                  <div class="p-2.5 bg-amber-50/60 rounded-xl border border-amber-200/60 text-xs">
+                    <span class="text-[10px] text-amber-800 font-bold block uppercase">Retiro de mercancía facturada:</span>
+                    <span class="font-mono font-bold text-amber-950">{{ ord.invoicedInvoiceNumber }}</span>
                   </div>
-                  <span class="text-[10px] font-mono text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
-                    Ctrl: {{ ord.dispatchControlNumber }}
-                  </span>
-                </div>
+                } @else {
+                  <div class="p-2.5 bg-amber-50/60 rounded-xl border border-amber-200/60 text-xs flex items-center justify-between">
+                    <div>
+                      <span class="text-[10px] text-amber-800 font-bold block uppercase">Guía de Despacho SENIAT:</span>
+                      <span class="font-mono font-bold text-amber-950">{{ ord.dispatchGuideNumber }}</span>
+                    </div>
+                    <span class="text-[10px] font-mono text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
+                      Ctrl: {{ ord.dispatchControlNumber }}
+                    </span>
+                  </div>
+                }
 
                 <!-- Cliente & Dirección -->
                 <div class="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs space-y-1">
@@ -448,17 +454,18 @@ import { matchesEntitySearch } from '../../utils/entity-search';
                   <p class="text-slate-600 text-[11px] truncate">📍 {{ ord.deliveryAddress }}</p>
                 </div>
 
-                <!-- Transportista / Chofer -->
-                <div class="text-xs text-slate-600 flex items-center justify-between">
-                  <div>
-                    <span class="text-slate-400 text-[10px] block uppercase">Chofer Asignado:</span>
-                    <span class="font-medium text-slate-800">{{ ord.driverName }}</span>
+                @if (ord.fulfillmentType !== 'CUSTOMER_PICKUP') {
+                  <div class="text-xs text-slate-600 flex items-center justify-between">
+                    <div>
+                      <span class="text-slate-400 text-[10px] block uppercase">Chofer Asignado:</span>
+                      <span class="font-medium text-slate-800">{{ ord.driverName }}</span>
+                    </div>
+                    <div class="text-right">
+                      <span class="text-slate-400 text-[10px] block uppercase">Vehículo:</span>
+                      <span class="font-mono font-bold text-slate-800">{{ ord.vehiclePlate }}</span>
+                    </div>
                   </div>
-                  <div class="text-right">
-                    <span class="text-slate-400 text-[10px] block uppercase">Vehículo:</span>
-                    <span class="font-mono font-bold text-slate-800">{{ ord.vehiclePlate }}</span>
-                  </div>
-                </div>
+                }
 
                 <!-- Recepción Details si ya fue entregado -->
                 @if (ord.reception; as rec) {
@@ -492,19 +499,19 @@ import { matchesEntitySearch } from '../../utils/entity-search';
                 <span class="font-mono text-xs text-slate-500">{{ ord.totalPackages }} bultos ({{ ord.totalWeightKg }} kg)</span>
 
                 <div class="flex items-center space-x-1.5">
-                  @if (ord.status !== 'ENTREGADA' && ord.status !== 'CANCELADA') {
+                  @if (canRegisterReceipt(ord)) {
                     <button 
                       (click)="openDeliveryReceiptModal(ord)"
                       class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold flex items-center space-x-1 shadow-xs transition-colors cursor-pointer">
                       <mat-icon class="text-sm">draw</mat-icon>
-                      <span>Registrar Recepción</span>
+                      <span>{{ ord.fulfillmentType === 'CUSTOMER_PICKUP' ? 'Confirmar Retiro' : 'Registrar Recepción' }}</span>
                     </button>
                   } @else {
                     <button 
                       (click)="viewDeliveryDetails(ord)"
                       class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-semibold flex items-center space-x-1 transition-colors cursor-pointer">
                       <mat-icon class="text-sm">visibility</mat-icon>
-                      <span>Ver Comprobante</span>
+                      <span>{{ ord.fulfillmentType === 'CUSTOMER_PICKUP' ? 'Ver Factura' : 'Ver Comprobante' }}</span>
                     </button>
                   }
                 </div>
@@ -1228,25 +1235,34 @@ import { matchesEntitySearch } from '../../utils/entity-search';
       <!-- MODAL 3: REGISTRO DE RECEPCIÓN CONFORME / ORDEN DE ENTREGA -->
       <!-- ========================================================= -->
       @if (activeOrderForReceipt(); as ord) {
-        <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             
-            <div class="px-6 py-4 bg-gradient-to-r from-emerald-700 to-teal-800 text-white flex items-center justify-between">
-              <div class="flex items-center space-x-2.5">
-                <mat-icon>task_alt</mat-icon>
-                <div>
-                  <h3 class="font-bold text-sm sm:text-base">Recepción Conforme de Mercancía</h3>
-                  <p class="text-[11px] text-emerald-100">Orden {{ ord.orderNumber }} (Guía {{ ord.dispatchGuideNumber }})</p>
+            <div class="px-5 py-3.5 sm:px-6 sm:py-4 bg-gradient-to-r from-emerald-700 to-teal-800 text-white flex items-center justify-between shrink-0">
+              <div class="flex items-center space-x-2.5 min-w-0">
+                <mat-icon class="shrink-0">task_alt</mat-icon>
+                <div class="min-w-0">
+                  <h3 class="font-bold text-sm sm:text-base truncate">{{ ord.fulfillmentType === 'CUSTOMER_PICKUP' ? 'Confirmar Retiro de Mercancía' : 'Recepción Conforme de Mercancía' }}</h3>
+                  <p class="text-[11px] text-emerald-100 truncate">
+                    Orden {{ ord.orderNumber }}
+                    @if (ord.fulfillmentType === 'CUSTOMER_PICKUP') {
+                      · Factura {{ ord.invoicedInvoiceNumber }}
+                    } @else {
+                      · Guía {{ ord.dispatchGuideNumber }}
+                    }
+                  </p>
                 </div>
               </div>
-              <button 
+              <button
+                type="button"
                 (click)="activeOrderForReceipt.set(null)"
-                class="p-1 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors cursor-pointer">
+                class="p-1 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors cursor-pointer shrink-0 ml-2"
+                aria-label="Cerrar modal">
                 <mat-icon>close</mat-icon>
               </button>
             </div>
 
-            <div class="p-6 space-y-4 text-xs">
+            <div class="p-4 sm:p-6 overflow-y-auto space-y-4 text-xs flex-1 min-h-0 overscroll-contain">
               
               <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
                 <span class="text-slate-400 font-bold uppercase text-[10px]">Cliente / Receptor:</span>
@@ -1298,7 +1314,7 @@ import { matchesEntitySearch } from '../../utils/entity-search';
               <div>
                 <div class="flex items-center justify-between mb-1">
                   <span class="block font-bold text-slate-700 text-[11px]">Firma de quien recibe *</span>
-                  <button type="button" (click)="clearReceiptSignature()" class="text-[10px] font-semibold text-emerald-700 hover:text-emerald-900">Limpiar firma</button>
+                  <button type="button" (click)="clearReceiptSignature()" class="text-[10px] font-semibold text-emerald-700 hover:text-emerald-900 cursor-pointer">Limpiar firma</button>
                 </div>
                 <canvas
                   #signatureCanvas
@@ -1321,21 +1337,23 @@ import { matchesEntitySearch } from '../../utils/entity-search';
               }
 
               <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-[11px] text-emerald-900 flex items-center space-x-2">
-                <mat-icon class="text-emerald-600 text-base">verified</mat-icon>
+                <mat-icon class="text-emerald-600 text-base shrink-0">verified</mat-icon>
                 <span>La recepción, identificación y firma se guardarán como evidencia verificable.</span>
               </div>
             </div>
 
-            <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
-              <button 
+            <div class="px-5 py-3.5 sm:px-6 sm:py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3 shrink-0">
+              <button
+                type="button"
                 (click)="activeOrderForReceipt.set(null)"
-                class="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded-xl text-xs font-semibold cursor-pointer">
+                class="px-3.5 py-2 sm:px-4 sm:py-2 text-slate-600 hover:bg-slate-200 rounded-xl text-xs font-semibold cursor-pointer transition-colors">
                 Cancelar
               </button>
 
-              <button 
+              <button
+                type="button"
                 (click)="submitDeliveryReceipt()"
-                class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-xs cursor-pointer">
+                class="px-4 py-2 sm:px-5 sm:py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-xs cursor-pointer transition-colors shrink-0">
                 <mat-icon class="text-sm">task_alt</mat-icon>
                 <span>Guardar Recepción Conforme</span>
               </button>
@@ -1458,6 +1476,13 @@ export default class LogisticsComponent {
     const guide = this.stateService.dispatchGuides().find(item => item.id === order.dispatchGuideId);
     const reason = guide?.transferReason ?? guide?.transportReason;
     return Boolean(guide && guide.customerId && ['VENTA', 'VENTA_MERCANCIA'].includes(reason ?? ''));
+  }
+
+  canRegisterReceipt(order: DeliveryOrder): boolean {
+    if (order.fulfillmentType === 'CUSTOMER_PICKUP') {
+      return order.status === 'PENDIENTE_DESPACHO';
+    }
+    return order.status === 'EN_RUTA';
   }
 
   readonly calculatedNewGuideTotalPackages = computed(() => {
@@ -1830,6 +1855,10 @@ export default class LogisticsComponent {
   }
 
   viewDeliveryDetails(order: DeliveryOrder) {
+    if (order.fulfillmentType === 'CUSTOMER_PICKUP' && order.invoicedInvoiceNumber) {
+      this.viewInvoiceModal(order.invoicedInvoiceNumber);
+      return;
+    }
     if (order.dispatchGuideId) {
       const guide = this.stateService.dispatchGuides().find(g => g.id === order.dispatchGuideId);
       if (guide) {

@@ -638,6 +638,8 @@ export interface DeliveryOrder {
   id: string;
   orderNumber: string;             // Número de Orden de Entrega, e.g. "OE-2026-0001"
   controlNumber: string;           // Número de control consecutivo, e.g. "00-00000201"
+  fulfillmentType?: 'TRANSPORT' | 'CUSTOMER_PICKUP';
+  invoiceId?: string;
   dispatchGuideId?: string;        // Guía de Despacho enlazada
   dispatchGuideNumber?: string;
   dispatchControlNumber?: string;
@@ -667,11 +669,11 @@ export interface DeliveryOrder {
   // Transporte
   carrierType?: CarrierType;
   carrierName?: string;
-  driverName: string;
+  driverName?: string | null;
   driverIdNumber?: string;
   driverIdDoc?: string;
   driverPhone?: string;
-  vehiclePlate: string;
+  vehiclePlate?: string | null;
   
   // Bloque de Recepción y Conformidad del Cliente (SENIAT)
   reception?: DeliveryReceptionDetails;

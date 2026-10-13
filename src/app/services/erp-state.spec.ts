@@ -22,6 +22,7 @@ describe('ErpStateService', () => {
   });
 
   afterEach(() => {
+    http.match('/api/audit/logs').forEach(request => request.flush({ id: 'audit-test' }));
     http.verify();
     localStorage.clear();
   });
@@ -264,15 +265,45 @@ describe('ErpStateService', () => {
   it('loads audit records and keeps company management available in the base plan', () => {
     service.loadRouteData('audit-log').subscribe();
     http.expectOne('/api/audit/logs').flush([{ id: 'audit-1', action: 'CREATE_BACKUP', isCritical: true }]);
-
-    service.setCompanyPlan('BASE');
+    http.expectOne('/api/users').flush([]);
 
     expect(service.auditLogs()).toContainEqual(expect.objectContaining({
       id: 'audit-1',
       action: 'CREATE_BACKUP',
       isCritical: true,
     }));
+
+    service.setCompanyPlan('BASE');
+    http.expectOne('/api/audit/logs').flush({ id: 'audit-plan-change' });
+
     expect(service.isTabAllowedInPlan('audit-log')).toBe(false);
     expect(service.isTabAllowedInPlan('company-admin')).toBe(true);
+  });
+
+  it('persists audit events in the backend and replaces the temporary local record', () => {
+    service.logAudit('CREATE_PRODUCT', 'INVENTORY', 'Producto creado', 'Se creó un producto.');
+
+    const request = http.expectOne('/api/audit/logs');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toMatchObject({
+      action: 'CREATE_PRODUCT',
+      module: 'INVENTORY',
+      details: {
+        title: 'Producto creado',
+        description: 'Se creó un producto.',
+      },
+    });
+    expect(request.request.body.userId).toBeUndefined();
+    expect(request.request.body.ipAddress).toBeUndefined();
+    request.flush({
+      id: 'audit-saved',
+      userName: 'Usuario de prueba',
+      userRole: 'ADMIN',
+      action: 'CREATE_PRODUCT',
+      module: 'INVENTORY',
+      details: { title: 'Producto creado', description: 'Se creó un producto.' },
+    });
+
+    expect(service.auditLogs()[0].id).toBe('audit-saved');
   });
 });

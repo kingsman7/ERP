@@ -289,7 +289,12 @@ export class ErpStateService {
       users: this.authService.loadUsersFromBackend()
     }).pipe(
       tap(({ logs }) => { this.auditLogs.set(logs) }),
-      map(() => true)
+      map(() => true),
+      catchError(error => {
+        this.notify('error', 'No se pudo consultar la auditoría', 'No fue posible cargar la bitácora desde el backend.');
+        console.error('Failed to load audit logs', error);
+        return of(false);
+      })
     );
   }
 
@@ -2094,12 +2099,28 @@ export class ErpStateService {
         newState: newState || null,
         metadata
       },
-      ipAddress: '192.168.1.' + Math.floor(Math.random() * 200 + 10),
+      ipAddress: '',
       createdAt: new Date().toISOString().replace('T', ' ').substring(0, 19)
     };
 
     this.auditLogs.update(logs => [log, ...logs]);
     this.saveState();
+    this.apiService.createAuditLog({
+      action,
+      module,
+      details: log.details,
+      isCritical,
+      criticalCategory
+    }).subscribe({
+      next: savedLog => {
+        this.auditLogs.update(logs => [savedLog, ...logs.filter(existing => existing.id !== log.id)]);
+        this.saveState();
+      },
+      error: error => {
+        this.notify('error', 'Auditoría no sincronizada', `El evento "${title}" quedó en este dispositivo, pero no pudo guardarse en el backend.`);
+        console.error('Failed to persist audit event', error);
+      }
+    });
   }
 
   // ==========================================
@@ -2590,11 +2611,12 @@ export class ErpStateService {
       dispatchGuideNumbers?: string[];
       dispatchControlNumbers?: string[];
       deliveryOrderNumbers?: string[];
+      createPickupOrder?: boolean;
       cashTendered?: number;
       cashChangeDue?: number;
       saveChangeAsCustomerCredit?: boolean;
     }
-  ): Promise<{ success: boolean; invoiceNumber?: string; message?: string; invoice?: Invoice }> {
+  ): Promise<{ success: boolean; invoiceNumber?: string; message?: string; invoice?: Invoice; pickupOrder?: DeliveryOrder }> {
     const user = this.authService.currentUser();
     const customer = this.customers().find(c => c.id === customerId) || this.customers()[0];
     const warehouse = this.warehouses().find(w => w.id === warehouseId) || this.warehouses()[0];
@@ -2848,7 +2870,7 @@ export class ErpStateService {
       isStockAlreadyDeducted
     };
 
-    let createdInvoice: Pick<Invoice, 'id' | 'invoiceNumber'>;
+    let createdInvoice: Pick<Invoice, 'id' | 'invoiceNumber'> & { pickupOrder?: DeliveryOrder };
     try {
       createdInvoice = await firstValueFrom(this.apiService.createInvoice({
         customerId: customer.id,
@@ -2873,6 +2895,7 @@ export class ErpStateService {
         customIvaRate: options?.customIvaRate,
         appliesIgtfManual: options?.appliesIgtfManual,
         isStockAlreadyDeducted,
+        createPickupOrder: options?.createPickupOrder,
         dispatchGuideNumbers: options?.dispatchGuideNumbers
       }));
     } catch (error) {
@@ -2887,6 +2910,12 @@ export class ErpStateService {
     invoiceNumber = createdInvoice.invoiceNumber;
     newInvoice.id = createdInvoice.id;
     newInvoice.invoiceNumber = invoiceNumber;
+    if (createdInvoice.pickupOrder) {
+      this.deliveryOrders.update(orders => [
+        createdInvoice.pickupOrder!,
+        ...orders.filter(order => order.id !== createdInvoice.pickupOrder!.id)
+      ]);
+    }
     for (const movement of kardexToAdd) movement.docReference = invoiceNumber;
 
     // 1. Acreditación de vuelto como Saldo a Favor / Anticipo si fue solicitado
@@ -3129,11 +3158,11 @@ export class ErpStateService {
     this.notify(
       'success',
       'Factura Emitida con Éxito',
-      `${invoiceNumber} registrada: $${grandTotalUsd.toFixed(2)} / Bs. ${totalVes.toLocaleString('es-VE', { minimumFractionDigits: 2 })}`
+      `${invoiceNumber} registrada: $${grandTotalUsd.toFixed(2)} / Bs. ${totalVes.toLocaleString('es-VE', { minimumFractionDigits: 2 })}${createdInvoice.pickupOrder ? `. Orden ${createdInvoice.pickupOrder.orderNumber} pendiente en despacho para retiro.` : ''}`
     );
     this.saveState();
     await this.refreshTreasuryAfterWrite();
-    return { success: true, invoiceNumber, invoice: newInvoice };
+    return { success: true, invoiceNumber, invoice: newInvoice, pickupOrder: createdInvoice.pickupOrder };
   }
 
   // ==========================================
@@ -3150,8 +3179,9 @@ export class ErpStateService {
       customIvaRate?: number;
       globalDiscountPercent?: number;
       priceLevelApplied?: PriceLevelKey;
+      createPickupOrder?: boolean;
     }
-  ): Promise<{ success: boolean; invoiceNumber?: string; invoice?: Invoice; message?: string }> {
+  ): Promise<{ success: boolean; invoiceNumber?: string; invoice?: Invoice; message?: string; pickupOrder?: DeliveryOrder }> {
     const quote = this.quotes().find(q => q.id === quoteId);
     if (!quote) return { success: false, message: 'Presupuesto no encontrado.' };
 
@@ -3191,7 +3221,8 @@ export class ErpStateService {
         originQuoteNumber: quote.quoteNumber,
         appliesIgtfManual: options?.appliesIgtfManual,
         customIvaRate: options?.customIvaRate,
-        globalDiscountPercent: options?.globalDiscountPercent
+        globalDiscountPercent: options?.globalDiscountPercent,
+        createPickupOrder: options?.createPickupOrder
       }
     );
 

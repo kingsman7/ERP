@@ -146,6 +146,12 @@ El módulo de **POS** está optimizado para la atención rápida en caja con sop
    - **Aplicación de IGTF (3%)**: Si el pago incluye divisas en efectivo (USD/EUR Cash), el sistema calculará automáticamente el 3% de IGTF sobre la base en divisa correspondiente.
 5. **Finalizar y Generar Comprobante**: Se abre el modal con la vista de impresión oficial de la factura electrónica/boleta, mostrando el desglose en USD y el equivalente en VES a la tasa BCV del día.
 
+### Venta con retiro posterior en despacho:
+1. En caja, active **Preparar para retiro en despacho** antes de emitir la factura.
+2. La factura debe quedar pagada por completo. La emisión descuenta las existencias una sola vez y crea una orden de retiro pendiente vinculada a la factura.
+3. En **Logística > Entregas**, despacho busca la orden por cliente y número de factura, verifica los productos y registra quién recibió, su identificación, la firma y cualquier observación.
+4. Al confirmar el retiro, la orden queda entregada. Esta confirmación no descuenta stock nuevamente. No cree una guía de despacho para repetir la salida de inventario.
+
 ---
 
 ## 9. Módulo 6: Cotizaciones y Presupuestos
@@ -155,7 +161,7 @@ Herramienta para la elaboración de propuestas comerciales formales sin afectar 
 ### Flujo de Trabajo:
 1. Crear Cotización especificando cliente, fecha de expiración y productos.
 2. Estado inicial: `BORRADOR` -> `ENVIADO` -> `APROBADO`.
-3. **Conversión a Factura en 1 Clic**: Una vez aprobada por el cliente, presione **"Convertir a Factura"**. El sistema generará automáticamente la venta en el módulo POS, actualizará el Kardex y reservará la mercancía.
+3. **Conversión a Factura en 1 Clic**: Una vez aprobada por el cliente, presione **"Convertir a Factura"**. El sistema generará la venta y registrará la salida de inventario. Si el cliente retirará después, active **Preparar para retiro en despacho** para generar también la orden pendiente vinculada a la factura; la cotización por sí sola no reserva existencias.
 
 ---
 

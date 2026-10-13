@@ -253,15 +253,15 @@ export class AuthService {
           this.persistSession(user.user, user.accessToken);
           this.isAuthenticatedSignal.set(true);
           this.auditService.createLog({
-            userId: user.user.id,
-            userName: user.user.name,
-            userRole: user.user.role,
-            action: 'LOGIN',
+            action: 'USER_LOGIN',
             module: 'AUTH',
             isCritical: false,
-            details: { message: 'User logged in successfully' },
-            ipAddress: '',
-            createdAt: new Date()
+            details: {
+              title: 'Inicio de sesión',
+              description: 'El usuario inició sesión correctamente.'
+            }
+          }).subscribe({
+            error: error => console.error('Failed to persist login audit event', error)
           });
         }
       }),

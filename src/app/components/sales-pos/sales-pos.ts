@@ -1098,6 +1098,15 @@ export interface SplitPaymentLine {
                 </div>
               }
 
+              <label class="flex items-start gap-2 p-2.5 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-950 cursor-pointer">
+                <input
+                  type="checkbox"
+                  [checked]="createPickupOrder()"
+                  (change)="createPickupOrder.set($any($event.target).checked)"
+                  class="mt-0.5 accent-amber-600" />
+                <span><strong>Preparar para retiro en despacho.</strong> Crea una orden pendiente vinculada a la factura; requiere el pago completo. El inventario se descuenta una sola vez al facturar.</span>
+              </label>
+
               <!-- Checkout Action Button -->
               <button 
                 type="button"
@@ -1574,6 +1583,7 @@ export default class SalesPosComponent {
   manualIgtfOverride = signal<boolean | null>(null);
   cashTendered = signal<number | null>(null);
   saveChangeAsCustomerCredit = signal<boolean>(false);
+  createPickupOrder = signal<boolean>(false);
 
   cartItems = signal<CartItem[]>([]);
 
@@ -2493,6 +2503,7 @@ export default class SalesPosComponent {
   clearCart() {
     this.cartItems.set([]);
     this.cashTendered.set(null);
+    this.createPickupOrder.set(false);
   }
 
   async checkout() {
@@ -2577,7 +2588,8 @@ export default class SalesPosComponent {
           appliesIgtfManual: sTax.appliesIgtf,
           cashTendered: bal.totalPaidUsd,
           cashChangeDue: bal.surplusUsd > 0 ? bal.surplusUsd : 0,
-          saveChangeAsCustomerCredit: this.saveChangeAsCustomerCredit()
+          saveChangeAsCustomerCredit: this.saveChangeAsCustomerCredit(),
+          createPickupOrder: this.createPickupOrder()
         }
       );
 
@@ -2585,6 +2597,7 @@ export default class SalesPosComponent {
         this.cartItems.set([]);
         this.cashTendered.set(null);
         this.saveChangeAsCustomerCredit.set(false);
+        this.createPickupOrder.set(false);
         this.openInvoiceView.emit(result.invoice);
         try {
           this.emailService.checkAndTriggerReorderAlerts('SALE_POS', result.invoice.invoiceNumber);
@@ -2674,7 +2687,8 @@ export default class SalesPosComponent {
         appliesIgtfManual: this.computedTaxDetails().appliesIgtf,
         cashTendered: changeInfo.tendered,
         cashChangeDue: changeInfo.changeInCurrency,
-        saveChangeAsCustomerCredit: this.saveChangeAsCustomerCredit()
+        saveChangeAsCustomerCredit: this.saveChangeAsCustomerCredit(),
+        createPickupOrder: this.createPickupOrder()
       }
     );
 
@@ -2682,6 +2696,7 @@ export default class SalesPosComponent {
       this.cartItems.set([]);
       this.cashTendered.set(null);
       this.saveChangeAsCustomerCredit.set(false);
+      this.createPickupOrder.set(false);
       this.activeInvoiceForView.set(result.invoice);
       try {
         this.emailService.checkAndTriggerReorderAlerts('SALE_POS', result.invoice.invoiceNumber);

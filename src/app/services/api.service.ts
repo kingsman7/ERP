@@ -32,6 +32,7 @@ export interface CreateInvoiceRequest {
   customIvaRate?: number;
   appliesIgtfManual?: boolean | null;
   isStockAlreadyDeducted?: boolean;
+  createPickupOrder?: boolean;
   dispatchGuideNumbers?: string[];
 }
 
@@ -393,8 +394,13 @@ export class ApiService {
     return this.http.delete<void>(`${this.baseUrl}/products/${id}`);
   }
 
-  createInvoice(invoice: CreateInvoiceRequest): Observable<Pick<Invoice, 'id' | 'invoiceNumber'>> {
-    return this.http.post<Pick<Invoice, 'id' | 'invoiceNumber'>>(`${this.baseUrl}/invoices`, invoice);
+  createInvoice(invoice: CreateInvoiceRequest): Observable<Pick<Invoice, 'id' | 'invoiceNumber'> & { pickupOrder?: DeliveryOrder }> {
+    return this.http.post<Pick<Invoice, 'id' | 'invoiceNumber'> & { pickupOrder?: DeliveryOrder }>(`${this.baseUrl}/invoices`, invoice).pipe(
+      map(response => ({
+        ...response,
+        pickupOrder: response.pickupOrder ? this.normalizeDeliveryOrder(response.pickupOrder) : undefined
+      }))
+    );
   }
 
   getBoms(): Observable<Bom[]> {
@@ -538,7 +544,11 @@ export class ApiService {
   }
 
   getAuditLogs(): Observable<AuditLog[]> {
-    return this.http.get<AuditLog[]>(`${this.baseUrl}/audit/logs`).pipe(catchError(() => of([])));
+    return this.http.get<AuditLog[]>(`${this.baseUrl}/audit/logs`);
+  }
+
+  createAuditLog(data: Pick<AuditLog, 'action' | 'module' | 'details' | 'isCritical' | 'criticalCategory'>): Observable<AuditLog> {
+    return this.http.post<AuditLog>(`${this.baseUrl}/audit/logs`, data);
   }
 
   getCurrentBcv(): Observable<Partial<BcvExchangeRateState>> {
