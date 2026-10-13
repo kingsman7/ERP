@@ -1416,9 +1416,11 @@ export default class CashClosingComponent {
     }
   }
 
-  confirmOpenSession(openingBaseUsd: number, initialAmountVes: number) {
-    this.stateService.reopenCashSession(openingBaseUsd || 0, initialAmountVes || 0, this.warehouseSelect()?.id || '');
-    this.showOpenSessionModal.set(false);
+  async confirmOpenSession(openingBaseUsd: number, initialAmountVes: number) {
+    const res = await this.stateService.reopenCashSession(openingBaseUsd || 0, initialAmountVes || 0, this.warehouseSelect()?.id || '');
+    if (res.success) {
+      this.showOpenSessionModal.set(false);
+    }
   }
 
   printZReport() {

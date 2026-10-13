@@ -90,6 +90,32 @@ export interface SplitPaymentLine {
               </button>
             </div>
 
+            <!-- Cash Register Session Status Pill -->
+            <button
+              type="button"
+              (click)="!isCashSessionOpen() ? showOpenSessionModal.set(true) : null"
+              [class]="isCashSessionOpen() 
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
+                : 'bg-rose-50 border-rose-200 text-rose-800 cursor-pointer hover:bg-rose-100 transition-colors'"
+              class="flex items-center space-x-2 border rounded-xl px-3 py-1.5 shadow-2xs"
+              [title]="isCashSessionOpen() ? 'Turno de caja activo: ' + stateService.activeCashSession().sessionCode : 'Caja cerrada. Haga clic para abrir turno.'">
+              <span class="flex h-2 w-2 relative">
+                @if (isCashSessionOpen()) {
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                } @else {
+                  <span class="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                }
+              </span>
+              <div class="flex items-center space-x-1 font-semibold text-[11px]">
+                <mat-icon class="text-xs">{{ isCashSessionOpen() ? 'point_of_sale' : 'lock' }}</mat-icon>
+                <span>{{ isCashSessionOpen() ? 'Caja: Abierta' : 'Caja: Cerrada' }}</span>
+                @if (!isCashSessionOpen()) {
+                  <span class="underline ml-0.5 text-[10px] font-bold">Abrir</span>
+                }
+              </div>
+            </button>
+
             <!-- Download CSV Direct Action -->
             <button 
               type="button"
@@ -1107,14 +1133,37 @@ export interface SplitPaymentLine {
                 <span><strong>Preparar para retiro en despacho.</strong> Crea una orden pendiente vinculada a la factura; requiere el pago completo. El inventario se descuenta una sola vez al facturar.</span>
               </label>
 
+              <!-- Warning Banner when Cash Session is Closed -->
+              @if (!isCashSessionOpen()) {
+                <div class="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-center justify-between text-xs text-rose-900 animate-in fade-in">
+                  <div class="flex items-center space-x-2">
+                    <mat-icon class="text-rose-600 text-lg">lock</mat-icon>
+                    <div>
+                      <p class="font-bold text-xs">Caja Cerrada</p>
+                      <p class="text-[10px] text-rose-700 leading-tight">Debe abrir un turno de caja para poder facturar en el POS.</p>
+                    </div>
+                  </div>
+                  <button 
+                    type="button" 
+                    (click)="showOpenSessionModal.set(true)" 
+                    class="px-2.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg text-[10px] flex items-center space-x-1 cursor-pointer transition-all shadow-xs shrink-0">
+                    <mat-icon class="text-xs">lock_open</mat-icon>
+                    <span>Abrir Turno</span>
+                  </button>
+                </div>
+              }
+
               <!-- Checkout Action Button -->
               <button 
                 type="button"
                 (click)="checkout()"
-                [disabled]="canInvoices()"
-                class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-bold rounded-xl text-xs flex items-center justify-center space-x-1.5 shadow-sm transition-all cursor-pointer disabled:cursor-not-allowed">
-                <mat-icon class="text-base">receipt_long</mat-icon>
-                <span>EMITIR FACTURA FISCAL (F10)</span>
+                [disabled]="isCheckoutDisabled()"
+                [class.bg-slate-400]="!isCashSessionOpen()"
+                [class.bg-emerald-600]="isCashSessionOpen()"
+                [class.hover:bg-emerald-700]="isCashSessionOpen()"
+                class="w-full py-3 disabled:opacity-40 text-white font-bold rounded-xl text-xs flex items-center justify-center space-x-1.5 shadow-sm transition-all cursor-pointer disabled:cursor-not-allowed">
+                <mat-icon class="text-base">{{ !isCashSessionOpen() ? 'lock' : 'receipt_long' }}</mat-icon>
+                <span>{{ !isCashSessionOpen() ? 'CAJA CERRADA — ABRIR TURNO PARA FACTURAR' : 'EMITIR FACTURA FISCAL (F10)' }}</span>
               </button>
 
             </div>
@@ -1525,6 +1574,80 @@ export interface SplitPaymentLine {
           [invoice]="inv"
           (closeModal)="activeInvoiceForView.set(null)" />
       }
+
+      <!-- Modal: Apertura de Turno de Caja (POS) -->
+      @if (showOpenSessionModal()) {
+        <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md p-6 space-y-4 text-xs animate-in fade-in zoom-in-95">
+            <div class="flex items-center space-x-2">
+              <span class="p-2 rounded-xl bg-emerald-50 text-emerald-600">
+                <mat-icon>point_of_sale</mat-icon>
+              </span>
+              <div>
+                <h3 class="font-bold text-sm text-slate-900">Apertura de Turno de Caja (POS)</h3>
+                <p class="text-[11px] text-slate-500">Inicie un turno de caja para registrar las ventas en este terminal.</p>
+              </div>
+            </div>
+
+            <div class="space-y-3">
+              <div>
+                <label for="pos-open-initial-usd" class="block font-semibold text-slate-700 mb-1">Fondo Inicial en Dólares ($ USD):</label>
+                <div class="relative">
+                  <span class="absolute left-3 top-2.5 font-bold text-slate-400">$</span>
+                  <input id="pos-open-initial-usd" #initialUsdInput type="number" step="0.01" min="0" value="0.00" class="w-full pl-7 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono text-sm font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500" />
+                </div>
+              </div>
+
+              <div>
+                <label for="pos-open-initial-ves" class="block font-semibold text-slate-700 mb-1">Fondo Inicial en Bolívares (Bs. VES):</label>
+                <div class="relative">
+                  <span class="absolute left-3 top-2.5 font-bold text-slate-400">Bs.</span>
+                  <input id="pos-open-initial-ves" #initialVesInput type="number" step="0.01" min="0" value="0.00" class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono text-sm font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500" />
+                </div>
+                <span class="text-[10px] text-slate-400 block mt-1 font-mono">
+                  Tasa oficial BCV: Bs. {{ bcvRate() | number:'1.2-2' }} / USD
+                </span>
+              </div>
+
+              <div>
+                <label for="pos-open-warehouse" class="block font-semibold text-slate-700 mb-1">Almacén de Operación:</label>
+                <select 
+                  id="pos-open-warehouse"
+                  [value]="selectedWarehouseId() !== 'ALL' ? selectedWarehouseId() : (stateService.warehouses()[0]?.id || '')"
+                  (change)="selectedWarehouseId.set($any($event.target).value)"
+                  class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                  @for (wh of stateService.warehouses(); track wh.id) {
+                    <option [value]="wh.id">{{ wh.name }} ({{ wh.code }})</option>
+                  }
+                </select>
+              </div>
+            </div>
+
+            <div class="flex justify-end space-x-2 pt-3 border-t border-slate-100">
+              <button 
+                type="button"
+                [disabled]="isOpeningSession()"
+                (click)="showOpenSessionModal.set(false)" 
+                class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-medium cursor-pointer transition-colors disabled:opacity-50">
+                Cancelar
+              </button>
+              <button 
+                type="button"
+                [disabled]="isOpeningSession()"
+                (click)="confirmOpenCashSession(+initialUsdInput.value, +initialVesInput.value)" 
+                class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow-xs cursor-pointer flex items-center space-x-1.5 transition-colors disabled:opacity-50">
+                @if (isOpeningSession()) {
+                  <span class="inline-block animate-spin mr-1">⌛</span>
+                  <span>Abriendo...</span>
+                } @else {
+                  <mat-icon class="text-sm">lock_open</mat-icon>
+                  <span>Abrir Turno</span>
+                }
+              </button>
+            </div>
+          </div>
+        </div>
+      }
     </div>
   `
 })
@@ -1537,6 +1660,10 @@ export default class SalesPosComponent {
   openInvoiceView = output<Invoice>();
 
   activeSalesTab = signal<'pos' | 'history'>('pos');
+
+  // Open Cash Session Modal Signals
+  showOpenSessionModal = signal<boolean>(false);
+  isOpeningSession = signal<boolean>(false);
 
   // New Customer Modal Signals
   showNewCustomerModal = signal<boolean>(false);
@@ -1594,13 +1721,24 @@ export default class SalesPosComponent {
     return wh ? wh.name : 'Almacén Principal';
   });
 
-  IsActiveSession = computed(() => this.stateService.activeCashSession().status !== 'ABIERTA');
+  isCashSessionOpen = computed(() => this.stateService.activeCashSession?.()?.status === 'ABIERTA');
+  IsActiveSession = computed(() => !this.isCashSessionOpen());
+  bcvRate = computed(() => this.stateService.bcvState?.()?.usdRate || 36.50);
 
   paymentReferencesMissing = computed(() => this.isMixedPayment()
     ? this.splitPayments().some(sp => sp.amount > 0 && this.requiresPaymentReference(sp.method) && !sp.reference?.trim())
     : this.requiresPaymentReference(this.selectedPaymentMethod()) && !this.paymentReference().trim());
 
-  canInvoices = computed(() => !this.IsActiveSession() ? !this.IsActiveSession : this.cartItems().length === 0 || (!this.isMixedPayment() && this.cashChangeDetails().isDeficit && this.selectedPaymentMethod() !== 'CREDITO') || (this.isMixedPayment() && this.mixedBalanceDetails().isDeficit && !this.hasCreditPayment()) || this.paymentReferencesMissing());
+  isCheckoutDisabled = computed(() => {
+    if (!this.isCashSessionOpen()) return true;
+    if (this.cartItems().length === 0) return true;
+    if (!this.isMixedPayment() && this.cashChangeDetails().isDeficit && this.selectedPaymentMethod() !== 'CREDITO') return true;
+    if (this.isMixedPayment() && this.mixedBalanceDetails().isDeficit && !this.hasCreditPayment()) return true;
+    if (this.paymentReferencesMissing()) return true;
+    return false;
+  });
+
+  canInvoices = computed(() => this.isCheckoutDisabled());
 
   getProductWarehouseStock(product: Product, warehouseId?: string): number {
     if (!product) return 0;
@@ -2507,6 +2645,16 @@ export default class SalesPosComponent {
   }
 
   async checkout() {
+    if (!this.isCashSessionOpen()) {
+      this.stateService.notify(
+        'warning',
+        'Turno de Caja Cerrado',
+        'Debe abrir un turno de caja antes de emitir facturas en el Punto de Venta.'
+      );
+      this.showOpenSessionModal.set(true);
+      return;
+    }
+
     if (this.cartItems().length === 0) return;
 
     if (this.paymentReferencesMissing()) {
@@ -2580,6 +2728,7 @@ export default class SalesPosComponent {
         payments,
         'FACTURA_ELECTRONICA',
         {
+          source: 'POS',
           baseCurrency: 'USD',
           paymentCurrency: 'USD',
           priceLevelApplied: this.selectedPriceTier(),
@@ -2679,6 +2828,7 @@ export default class SalesPosComponent {
       payments,
       'FACTURA_ELECTRONICA',
       {
+        source: 'POS',
         baseCurrency: 'USD',
         paymentCurrency: this.selectedPaymentCurrency(),
         priceLevelApplied: this.selectedPriceTier(),
@@ -2777,5 +2927,21 @@ export default class SalesPosComponent {
         this.selectedCustomerId.set(customer.id);
         this.showNewCustomerModal.set(false);
     });
+  }
+
+  async confirmOpenCashSession(openingBaseUsd: number, initialAmountVes: number) {
+    if (this.isOpeningSession()) return;
+    this.isOpeningSession.set(true);
+    try {
+      const whId = (this.selectedWarehouseId() && this.selectedWarehouseId() !== 'ALL')
+        ? this.selectedWarehouseId()
+        : (this.stateService.warehouses()[0]?.id || 'wh-01');
+      const res = await this.stateService.reopenCashSession(openingBaseUsd || 0, initialAmountVes || 0, whId);
+      if (res && res.success) {
+        this.showOpenSessionModal.set(false);
+      }
+    } finally {
+      this.isOpeningSession.set(false);
+    }
   }
 }

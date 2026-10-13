@@ -2622,6 +2622,7 @@ export class ErpStateService {
     payments: PaymentRecord[],
     invoiceType: Invoice['type'] = 'FACTURA_ELECTRONICA',
     options?: {
+      source?: 'POS' | 'ADMIN';
       baseCurrency?: CurrencyCode;
       paymentCurrency?: CurrencyCode;
       globalDiscountPercent?: number;
@@ -2645,6 +2646,21 @@ export class ErpStateService {
 
     if (!customer || !warehouse || items.length === 0) {
       return { success: false, message: 'Datos incompletos para generar la factura. Verifique productos y almacén.' };
+    }
+
+    // Odoo-style cash session check: Direct POS sales require an active open register session
+    const isAdministrative = Boolean(
+      options?.source === 'ADMIN' ||
+      (options?.source !== 'POS' && (options?.originQuoteNumber || options?.dispatchGuideNumbers?.length || options?.deliveryOrderNumbers?.length))
+    );
+
+    if (!isAdministrative) {
+      const activeSession = this.activeCashSession();
+      if (!activeSession || activeSession.status !== 'ABIERTA') {
+        const message = 'No se puede facturar en el Punto de Venta con la caja cerrada. Debe abrir un turno de caja.';
+        this.notify('warning', 'Caja Cerrada', message);
+        return { success: false, message };
+      }
     }
 
     const isStockAlreadyDeducted = Boolean(options?.isStockAlreadyDeducted);
@@ -4435,7 +4451,7 @@ export class ErpStateService {
     }
   }
 
-  reopenCashSession(initialAmountUsd: number, initialAmountVes: number = 0, warehouseId: string) {
+  async reopenCashSession(initialAmountUsd: number, initialAmountVes: number = 0, warehouseId: string): Promise<{ success: boolean; session?: CashRegisterSession; error?: string }> {
     const user = this.authService.currentUser();
     const nowStr = new Date().toISOString();
     const code = 'CAJA-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-' + (this.cashSessionHistory().length + 1).toString().padStart(2, '0');
@@ -4467,20 +4483,18 @@ export class ErpStateService {
       warehouseId: warehouseId
     };
 
-    this.apiService.openCashierSession(newSession).subscribe({
-      next: session => {
-        this.activeCashSession.set(session);
-        this.notify('info', 'Caja Abierta', `Nuevo turno de caja iniciado con fondo de $${initialAmountUsd.toFixed(2)} y Bs. ${initialAmountVes.toFixed(2)}`);
-        this.saveState();
-      },
-      error: err => {
-        console.error('Failed to open cash session:', err);
-        const message = this.extractApiErrorMessage(err, 'No se pudo abrir el turno de caja.');
-        this.notify('error', 'Error al Abrir Caja', message);
-      }
-    });
-
-    
+    try {
+      const session = await firstValueFrom(this.apiService.openCashierSession(newSession));
+      this.activeCashSession.set(session);
+      this.notify('info', 'Caja Abierta', `Nuevo turno de caja iniciado con fondo de $${initialAmountUsd.toFixed(2)} y Bs. ${initialAmountVes.toFixed(2)}`);
+      this.saveState();
+      return { success: true, session };
+    } catch (err) {
+      console.error('Failed to open cash session:', err);
+      const message = this.extractApiErrorMessage(err, 'No se pudo abrir el turno de caja.');
+      this.notify('error', 'Error al Abrir Caja', message);
+      return { success: false, error: message };
+    }
   }
 
   // Create Product Helper
