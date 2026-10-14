@@ -34,7 +34,7 @@
   },
   "devDependencies": {
     "@angular/build": "^21.0.0",
-    "@angular/cli": "^21.0.0",
+    "@angular/cli": "^21.2.26",
     "@angular/compiler-cli": "^21.0.0",
     "@firebase/eslint-plugin-security-rules": "^0.0.2",
     "@tailwindcss/postcss": "^4.1.12",
