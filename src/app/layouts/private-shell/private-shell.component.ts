@@ -126,6 +126,17 @@ export class PrivateShellComponent {
       return;
     }
 
+    if (!this.stateService.isTabAllowedInPlan(navId)) {
+      const rule = NAV_PERMISSIONS[navId];
+      const title = rule?.title || navId;
+      this.stateService.notify(
+        'warning',
+        'Módulo no incluido en el plan',
+        `El módulo "${title}" pertenece al plan Full / Pro y no está disponible en el plan básico.`
+      );
+      return;
+    }
+
     if (!this.authService.canAccessNav(navId)) {
       const rule = NAV_PERMISSIONS[navId];
       const title = rule?.title || navId;

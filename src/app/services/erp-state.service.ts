@@ -63,6 +63,12 @@ import { ApiService } from './api.service';
 
 const STORAGE_KEY = 'nexus_erp_state_v1';
 
+export function resolveCompanyPlanTier(value: unknown, fallback: CompanyPlanTier = 'BASE'): CompanyPlanTier {
+  if (value === 'FULL') return 'FULL';
+  if (value === 'BASE' || value === 'BASIC') return 'BASE';
+  return fallback;
+}
+
 export function extractApiErrorMessage(
   error: unknown,
   fallback: string = 'Ocurrió un error inesperado al procesar la solicitud.'
@@ -212,7 +218,14 @@ export class ErpStateService {
         this.customers.set(customers);
         this.purchaseOrders.set(purchaseOrders);
         this.invoices.set(invoices);
-        this.companyProfile.update(current => ({ ...current, ...companyProfile }));
+        this.companyProfile.update(current => ({
+          ...current,
+          ...companyProfile,
+          planTier: resolveCompanyPlanTier(
+            companyProfile?.planTier,
+            current.planTier ?? 'BASE'
+          )
+        }));
         this.setCashSessions(cashSessions);
         this.accounts.set(accounts);
         this.sharedDataLoaded = true;
@@ -546,7 +559,7 @@ export class ErpStateService {
   ];
 
   // Señales Reactivas de Nivel de Plan
-  readonly companyPlan = computed<CompanyPlanTier>(() => this.companyProfile().planTier || 'FULL');
+  readonly companyPlan = computed<CompanyPlanTier>(() => this.companyProfile().planTier || 'BASE');
   readonly isBasePlan = computed<boolean>(() => this.companyPlan() === 'BASE');
   readonly isFullPlan = computed<boolean>(() => this.companyPlan() === 'FULL');
   readonly currentPlanConfig = computed<PlanFeatureConfig>(() => {

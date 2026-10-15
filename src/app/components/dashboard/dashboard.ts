@@ -455,7 +455,7 @@ export default class DashboardComponent {
   });
 
   canAccessNav(navId: NavTab): boolean {
-    return this.authService.canAccessNav(navId);
+    return this.stateService.isTabAllowedInPlan(navId) && this.authService.canAccessNav(navId);
   }
 
   canAccess(...permissions: string[]): boolean {

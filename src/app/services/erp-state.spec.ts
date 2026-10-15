@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { CriticalAuditNotification, Invoice, Quote } from '../models/erp.models';
-import { ErpStateService } from './erp-state.service';
+import { ErpStateService, resolveCompanyPlanTier } from './erp-state.service';
 
 describe('ErpStateService', () => {
   let service: ErpStateService;
@@ -94,6 +94,20 @@ describe('ErpStateService', () => {
     request.flush({});
 
     expect(service.unreadCriticalAuditCount()).toBe(0);
+  });
+
+  it('maps BASIC SaaS codes to the commercial base plan', () => {
+    expect(resolveCompanyPlanTier('BASIC')).toBe('BASE');
+    expect(resolveCompanyPlanTier('BASE')).toBe('BASE');
+    expect(resolveCompanyPlanTier('FULL')).toBe('FULL');
+    expect(resolveCompanyPlanTier(undefined, 'FULL')).toBe('FULL');
+  });
+
+  it('hides enterprise modules by default until a full plan is applied', () => {
+    expect(service.isBasePlan()).toBe(true);
+    expect(service.isTabAllowedInPlan('mrp')).toBe(false);
+    expect(service.isTabAllowedInPlan('crm')).toBe(false);
+    expect(service.isTabAllowedInPlan('accounting')).toBe(false);
   });
 
   it('enables enterprise modules after selecting the full plan', () => {

@@ -85,6 +85,7 @@ describe('roleGuard and superAdminGuard', () => {
   };
   let stateService: {
     notify: ReturnType<typeof vi.fn>;
+    isTabAllowedInPlan: ReturnType<typeof vi.fn>;
   };
   let createUrlTree: ReturnType<typeof vi.fn>;
 
@@ -98,7 +99,8 @@ describe('roleGuard and superAdminGuard', () => {
       getDefaultAppRoute: vi.fn(() => '/app/sales-pos')
     };
     stateService = {
-      notify: vi.fn()
+      notify: vi.fn(),
+      isTabAllowedInPlan: vi.fn(() => true)
     };
     createUrlTree = vi.fn((commands: string[]) => ({ commands }) as unknown as UrlTree);
 
@@ -180,6 +182,24 @@ describe('roleGuard and superAdminGuard', () => {
       const val = await firstValueFrom(result);
       expect(val).toBe(true);
       expect(stateService.notify).not.toHaveBeenCalled();
+    });
+
+    it('blocks full-plan modules when the company is on the basic plan', async () => {
+      authService.canAccessNav.mockReturnValue(true);
+      stateService.isTabAllowedInPlan.mockReturnValue(false);
+
+      const result = TestBed.runInInjectionContext(() => roleGuard(
+        { routeConfig: { path: 'mrp' } } as unknown as ActivatedRouteSnapshot,
+        {} as RouterStateSnapshot
+      )) as Observable<boolean | UrlTree>;
+
+      const val = await firstValueFrom(result);
+      expect(val).toEqual({ commands: ['/app/sales-pos'] });
+      expect(stateService.notify).toHaveBeenCalledWith(
+        'warning',
+        'Módulo no incluido en el plan',
+        expect.stringContaining('Manufactura y MRP')
+      );
     });
 
     it('blocks unauthorized user, shows warning notification, and redirects to /app/dashboard', async () => {

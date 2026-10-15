@@ -95,11 +95,22 @@ export const roleGuard: CanActivateFn = (route: ActivatedRouteSnapshot) => {
         return router.createUrlTree(['/']);
       }
 
+      const path = route.routeConfig?.path || '';
+      if (!stateService.isTabAllowedInPlan(path)) {
+        const rule = NAV_PERMISSIONS[path];
+        const moduleTitle = rule?.title || path;
+        stateService.notify(
+          'warning',
+          'Módulo no incluido en el plan',
+          `El módulo "${moduleTitle}" pertenece al plan Full / Pro y no está disponible en el plan básico.`
+        );
+        return router.createUrlTree([authService.getDefaultAppRoute()]);
+      }
+
       if (authService.isSuperAdmin()) {
         return true;
       }
 
-      const path = route.routeConfig?.path || '';
       const rule = NAV_PERMISSIONS[path];
 
       if (!rule) {

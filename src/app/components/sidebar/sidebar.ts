@@ -154,12 +154,12 @@ export type NavTab =
         </button>
         }
 
+        @if (stateService.isFullPlan()) {
         <!-- FASE 2 SECTION -->
         <div class="pt-3 px-3 pb-2 text-[10px] font-bold text-amber-400 uppercase tracking-widest flex items-center justify-between">
           <span>Avanzado (Enterprise)</span>
-          <span class="px-1 py-0.2 text-[8px] font-bold rounded"
-            [class]="stateService.isFullPlan() ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-800 text-slate-400'">
-            {{ stateService.isFullPlan() ? 'FULL' : 'PRO' }}
+          <span class="px-1 py-0.2 text-[8px] font-bold rounded bg-emerald-500/20 text-emerald-300">
+            FULL
           </span>
         </div>
 
@@ -225,6 +225,7 @@ export type NavTab =
           </div>
         </button>
         }
+        }
 
         <div class="pt-3 px-3 pb-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
           Finanzas & Seguridad
@@ -257,7 +258,7 @@ export type NavTab =
         </button>
         }
 
-        @if (canAccess('audit:view')) {
+        @if (stateService.isTabAllowedInPlan('audit-log') && canAccess('audit:view')) {
         <button 
           (click)="selectTab('audit-log')"
           [class]="activeTab() === 'audit-log' ? 'bg-blue-600/10 text-blue-400 font-semibold border-l-4 border-blue-500 rounded-r-lg' : 'hover:bg-slate-800/90 text-slate-300 rounded-lg'"
@@ -272,7 +273,7 @@ export type NavTab =
         </button>
         }
 
-        @if (canAccess('security:manage')) {
+        @if (stateService.isTabAllowedInPlan('backups') && canAccess('security:manage')) {
         <button 
           (click)="selectTab('backups')"
           [class]="activeTab() === 'backups' ? 'bg-indigo-600/15 text-indigo-400 font-semibold border-l-4 border-indigo-500 rounded-r-lg' : 'hover:bg-slate-800/90 text-slate-300 rounded-lg'"
