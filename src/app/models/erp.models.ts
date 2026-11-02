@@ -362,7 +362,7 @@ export type InvoiceType = 'FACTURA_ELECTRONICA' | 'BOLETA_POS' | 'TICKET_VENTA';
 
 export interface Invoice {
   id: string;
-  invoiceNumber: string; // e.g. "FAC-2026-0089"
+  invoiceNumber: string; // e.g. "FACT-000001"
   customerId: string;
   customerName: string;
   customerTaxId: string;
@@ -386,8 +386,8 @@ export interface Invoice {
   discountTotal: number;          // Total descuentos (renglones + global)
   taxDetails: InvoiceTaxDetails;  // Desglose IVA e IGTF
   taxTotal: number;               // IVA + IGTF
-  total: number;                  // Total general en Moneda Base (USD)
-  totalVes: number;               // Total equivalente en Bolívares (VES) a tasa BCV
+  total: number;                  // Total fiscal en moneda base (VES al emitir)
+  totalVes: number;               // Total en Bolívares (VES) a tasa BCV
   totalEur: number;               // Total equivalente en Euros (EUR)
 
   // Cobro en Caja y Cambio / Vuelto

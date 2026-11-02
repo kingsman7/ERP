@@ -490,6 +490,7 @@ export class ErpStateService {
         'logistics',
         'treasury',
         'cash-closing',
+        'audit-log',
         'manual',
         'architecture'
       ],
@@ -2812,7 +2813,7 @@ export class ErpStateService {
           productSku: prod.sku,
           productName: prod.name,
           warehouseId: warehouse.id,
-          warehouseName: warehouse.name,
+          warehouseName: warehouse.name, 
           date: nowStr,
           movementType: 'SALIDA_VENTA',
           docReference: invoiceNumber,
@@ -4964,11 +4965,12 @@ export class ErpStateService {
     customerType?: 'EMPRESA' | 'PERSONA_NATURAL' | 'FINAL_CONSUMIDOR';
     advanceBalanceUsd?: number;
     advanceBalanceVes?: number;
+    bcvRate?: number;
   }): Observable<Customer> {
 
     const cleanTaxId = data.taxId.trim().toUpperCase();
 
-    const newCustomer: Omit<Customer, 'id'> = {
+    const newCustomer: Omit<Customer, 'id'> & { bcvRate?: number } = {
       taxId: cleanTaxId,
       name: data.name.trim(),
       email: data.email ? data.email.trim() : '',
@@ -4977,6 +4979,7 @@ export class ErpStateService {
       customerType: data.customerType || 'EMPRESA',
       advanceBalanceVes: data.advanceBalanceVes || 0,
       advanceBalanceUsd: data.advanceBalanceUsd || 0,
+      bcvRate: data.bcvRate,
     };
 
     return this.apiService.createCustomer(newCustomer).pipe(

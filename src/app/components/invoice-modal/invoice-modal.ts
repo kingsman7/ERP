@@ -1,8 +1,15 @@
 import { Component, ChangeDetectionStrategy, input, output, inject, OnDestroy, signal } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
-import { Invoice } from '../../models/erp.models';
+import { Invoice, PaymentRecord } from '../../models/erp.models';
 import { ErpStateService } from '../../services/erp-state.service';
 import { DecimalPipe, DatePipe } from '@angular/common'
+import {
+  invoiceAmountBs,
+  invoiceTotalUsd,
+  invoiceTotalVes,
+  isUsdCreditBalance,
+  paymentAmountBs,
+} from '../../utils/invoice-currency';
 
 type InvoiceWithWithholdings = Invoice & {
   withholdingIvaPercent?: number;
@@ -25,7 +32,7 @@ type InvoiceWithWithholdings = Invoice & {
           <div class="px-6 py-3.5 bg-slate-900 text-white flex items-center justify-between no-print">
             <div class="flex items-center space-x-2">
               <mat-icon class="text-emerald-400">check_circle</mat-icon>
-              <span class="text-sm font-semibold">Comprobante Fiscal Digital Multimoneda</span>
+              <span class="text-sm font-semibold">Comprobante Fiscal Digital</span>
             </div>
             <div class="flex items-center space-x-2">
               <button (click)="printInvoice()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center space-x-1 transition-colors cursor-pointer">
@@ -98,7 +105,7 @@ type InvoiceWithWithholdings = Invoice & {
                   Tasa BCV: Bs. {{ (inv.bcvRate) | number:'1.2-2' }} / USD
                 </p>
                 <p class="text-[10px] text-slate-500">
-                  Origen: {{ inv.rateOrigin === 'API_BCV' ? 'Oficial BCV' : 'Manual' }} • Base: {{ inv.paymentCurrency || 'USD' }}
+                  Origen: {{ inv.rateOrigin === 'API_BCV' ? 'Oficial BCV' : 'Manual' }} • Montos fiscales en Bolívares
                 </p>
               </div>
             </div>
@@ -110,9 +117,9 @@ type InvoiceWithWithholdings = Invoice & {
                   <th class="py-2">SKU</th>
                   <th class="py-2">Descripción</th>
                   <th class="py-2 text-center">Cant.</th>
-                  <th class="py-2 text-right">P. Unit ($)</th>
+                  <th class="py-2 text-right">P. Unit (Bs.)</th>
                   <th class="py-2 text-center">Alícuota</th>
-                  <th class="py-2 text-right">Subtotal ($)</th>
+                  <th class="py-2 text-right">Subtotal (Bs.)</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-100">
@@ -126,7 +133,7 @@ type InvoiceWithWithholdings = Invoice & {
                       }
                     </td>
                     <td class="py-2 text-center">{{ item.quantity }} {{ item.unit }}</td>
-                    <td class="py-2 text-right font-mono">\${{ (item.unitPrice || 0) | number:'1.2-2' }}</td>
+                    <td class="py-2 text-right font-mono">Bs. {{ amountBs(inv, item.unitPrice) | number:'1.2-2' }}</td>
                     <td class="py-2 text-center">
                       @if (item.isTaxExempt || item.taxRate === 0) {
                         <span class="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold text-[10px]">
@@ -138,7 +145,7 @@ type InvoiceWithWithholdings = Invoice & {
                         </span>
                       }
                     </td>
-                    <td class="py-2 text-right font-mono font-medium text-slate-900">\${{ (item.subtotal || 0) | number:'1.2-2' }}</td>
+                    <td class="py-2 text-right font-mono font-medium text-slate-900">Bs. {{ amountBs(inv, item.subtotal) | number:'1.2-2' }}</td>
                   </tr>
                 }
               </tbody>
@@ -158,8 +165,13 @@ type InvoiceWithWithholdings = Invoice & {
                       <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                       <span class="font-medium text-slate-800">{{ pay.method === 'SALDO_A_FAVOR' ? 'Saldo a Favor / Anticipo' : pay.method.replace('_', ' ') }}:</span>
                       <span class="font-mono font-bold text-slate-900">
-                        {{ pay.currency === 'VES' ? 'Bs. ' : '$' }}{{ (pay.amount || 0) | number:'1.2-2' }}
+                        {{ pay.currency === 'VES' ? 'Bs. ' : pay.currency === 'EUR' ? '€ ' : '$' }}{{ (pay.amount || 0) | number:'1.2-2' }}
                       </span>
+                      @if (isUsdCredit(pay)) {
+                        <span class="text-slate-500 text-[10px] font-mono font-normal">
+                          (Bs. {{ paymentBs(inv, pay) | number:'1.2-2' }})
+                        </span>
+                      }
                       @if (pay.reference) {
                         <span class="text-slate-400 text-[10px]">({{ pay.reference }})</span>
                       }
@@ -225,7 +237,7 @@ type InvoiceWithWithholdings = Invoice & {
                       <span>Percepción IGTF 3.00% (SENIAT - Pago en Moneda Extranjera)</span>
                     </p>
                     <p class="text-[10px] text-indigo-700">
-                      Base Imponible IGTF: \${{ (inv.taxDetails.igtfBase || 0) | number:'1.2-2' }} (Bs. {{ ((inv.taxDetails.igtfBase || 0) * (inv.bcvRate || 36.50)) | number:'1.2-2' }}) • Impuesto Percibido: \${{ (inv.taxDetails.igtfAmount || 0) | number:'1.2-2' }}
+                      Base Imponible IGTF: Bs. {{ amountBs(inv, inv.taxDetails.igtfBase) | number:'1.2-2' }} • Impuesto Percibido: Bs. {{ amountBs(inv, inv.taxDetails.igtfAmount) | number:'1.2-2' }}
                     </p>
                   </div>
                 } @else {
@@ -240,56 +252,60 @@ type InvoiceWithWithholdings = Invoice & {
               <div class="space-y-1.5 text-xs text-right bg-slate-50 p-3 rounded-xl border border-slate-200">
                 <div class="flex justify-between text-slate-600">
                   <span>Base Imponible Gravada:</span>
-                  <span class="font-mono font-medium">\${{ ((inv.taxDetails && inv.taxDetails.taxableBase) || inv.subtotal || 0) | number:'1.2-2' }}</span>
+                  <span class="font-mono font-medium">Bs. {{ amountBs(inv, (inv.taxDetails && inv.taxDetails.taxableBase) || inv.subtotal) | number:'1.2-2' }}</span>
                 </div>
                 
                 @if (inv.taxDetails && (inv.taxDetails.exemptBase || 0) > 0) {
                   <div class="flex justify-between text-emerald-700 font-medium">
                     <span>Base Exenta (0% IVA):</span>
-                    <span class="font-mono">\${{ (inv.taxDetails.exemptBase || 0) | number:'1.2-2' }}</span>
+                    <span class="font-mono">Bs. {{ amountBs(inv, inv.taxDetails.exemptBase) | number:'1.2-2' }}</span>
                   </div>
                 }
 
                 @if ((inv.discountTotal || 0) > 0) {
                   <div class="flex justify-between text-indigo-600 font-medium">
                     <span>Descuento Total:</span>
-                    <span class="font-mono">-\${{ (inv.discountTotal || 0) | number:'1.2-2' }}</span>
+                    <span class="font-mono">-Bs. {{ amountBs(inv, inv.discountTotal) | number:'1.2-2' }}</span>
                   </div>
                 }
 
                 <div class="flex justify-between text-slate-600">
                   <span>IVA ({{ (inv.taxDetails && inv.taxDetails.ivaPercent) || 16 }}%):</span>
-                  <span class="font-mono font-medium">\${{ ((inv.taxDetails && inv.taxDetails.ivaAmount) || 0) | number:'1.2-2' }}</span>
+                  <span class="font-mono font-medium">Bs. {{ amountBs(inv, (inv.taxDetails && inv.taxDetails.ivaAmount) || 0) | number:'1.2-2' }}</span>
                 </div>
 
                 @if (inv.taxDetails && inv.taxDetails.appliesIgtf && (inv.taxDetails.igtfAmount || 0) > 0) {
                   <div class="flex justify-between text-indigo-800 font-semibold">
                     <span>Percepción IGTF (3% Divisas):</span>
-                    <span class="font-mono">+\${{ (inv.taxDetails.igtfAmount || 0) | number:'1.2-2' }}</span>
+                    <span class="font-mono">+Bs. {{ amountBs(inv, inv.taxDetails.igtfAmount) | number:'1.2-2' }}</span>
                   </div>
                 }
 
-                <!-- Grand Total USD -->
+                @if ((withholdingDetails(inv).withholdingIvaAmount || 0) > 0) {
+                  <div class="flex justify-between text-amber-800 font-medium">
+                    <span>Retención IVA ({{ withholdingDetails(inv).withholdingIvaPercent || 0 }}%):</span>
+                    <span class="font-mono">-Bs. {{ amountBs(inv, withholdingDetails(inv).withholdingIvaAmount) | number:'1.2-2' }}</span>
+                  </div>
+                }
+
+                @if ((withholdingDetails(inv).withholdingIslrAmount || 0) > 0) {
+                  <div class="flex justify-between text-amber-800 font-medium">
+                    <span>Retención ISLR ({{ withholdingDetails(inv).withholdingIslrPercent || 0 }}%{{ withholdingDetails(inv).withholdingIslrNature ? ' - ' + withholdingDetails(inv).withholdingIslrNature : '' }}):</span>
+                    <span class="font-mono">-Bs. {{ amountBs(inv, withholdingDetails(inv).withholdingIslrAmount) | number:'1.2-2' }}</span>
+                  </div>
+                }
+
                 <div class="flex justify-between text-sm font-bold text-slate-900 border-t border-slate-200 pt-1.5">
-                  <span>TOTAL FACTURA ($ USD):</span>
-                  <span class="font-mono text-base text-emerald-700">\${{ (inv.total || 0) | number:'1.2-2' }}</span>
+                  <span>TOTAL FACTURA (Bs.):</span>
+                  <span class="font-mono text-base text-indigo-700">Bs. {{ totalBs(inv) | number:'1.2-2' }}</span>
                 </div>
 
-                <!-- Grand Total Bolívares -->
                 <div class="flex justify-between text-xs font-bold text-slate-800">
-                  <span>TOTAL EN BOLÍVARES (VES):</span>
-                  <span class="font-mono text-indigo-700">
-                    Bs. {{ (inv.totalVes || (inv.total * (inv.bcvRate || 36.50))) | number:'1.2-2' }}
+                  <span>Equivalente USD:</span>
+                  <span class="font-mono text-emerald-700">
+                    \${{ totalUsd(inv) | number:'1.2-2' }}
                   </span>
                 </div>
-
-                <!-- Grand Total Euros -->
-                @if (inv.totalEur) {
-                  <div class="flex justify-between text-[11px] text-slate-500">
-                    <span>Equivalente Euros (EUR):</span>
-                    <span class="font-mono">€ {{ (inv.totalEur || 0) | number:'1.2-2' }}</span>
-                  </div>
-                }
               </div>
 
             </div>
@@ -335,6 +351,26 @@ export class InvoiceModal implements OnDestroy {
 
   withholdingDetails(invoice: Invoice): InvoiceWithWithholdings {
     return invoice as InvoiceWithWithholdings;
+  }
+
+  amountBs(invoice: Invoice, amount: number | undefined | null): number {
+    return invoiceAmountBs(invoice, amount);
+  }
+
+  totalBs(invoice: Invoice): number {
+    return invoiceTotalVes(invoice);
+  }
+
+  totalUsd(invoice: Invoice): number {
+    return invoiceTotalUsd(invoice);
+  }
+
+  paymentBs(invoice: Invoice, payment: PaymentRecord): number {
+    return paymentAmountBs(invoice, payment);
+  }
+
+  isUsdCredit(payment: PaymentRecord): boolean {
+    return isUsdCreditBalance(payment);
   }
   OnInit() {
     console.log('Invoice Modal Initialized with invoice:', this.invoice());

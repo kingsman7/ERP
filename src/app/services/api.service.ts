@@ -309,7 +309,7 @@ export class ApiService {
     });
   }
 
-  createCustomer(customer: Partial<Customer>): Observable<Customer> {
+  createCustomer(customer: Partial<Customer> & { bcvRate?: number }): Observable<Customer> {
     return this.http.post<Customer>(`${this.baseUrl}/customers`, customer);
   }
 

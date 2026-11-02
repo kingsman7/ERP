@@ -14,6 +14,7 @@ import {
   PriceLevelKey 
 } from '../../models/erp.models';
 import { exportSalesToCsv, exportSaleItemLinesToCsv } from '../../utils/csv-exporter';
+import { invoiceAmountBs, invoiceAmountUsd, invoiceTotalUsd, invoiceTotalVes } from '../../utils/invoice-currency';
 import { DecimalPipe } from '@angular/common';
 import { InvoiceModal } from '../invoice-modal/invoice-modal';
 import { matchesEntitySearch } from '../../utils/entity-search';
@@ -472,16 +473,16 @@ export interface SplitPaymentLine {
                     <span class="truncate max-w-[220px] text-slate-400">{{ cust.email || cust.phone || cust.customerType }}</span>
                   </div>
 
-                  @if (cust.advanceBalanceUsd && cust.advanceBalanceUsd > 0) {
+                  @if ((cust.advanceBalanceUsd || 0) > 0 || (cust.advanceBalanceVes || 0) > 0) {
                     <div class="mt-1.5 p-2 rounded-xl bg-emerald-50 border border-emerald-200/90 flex items-center justify-between gap-2 shadow-2xs">
                       <div class="flex items-center space-x-1.5 text-emerald-900">
                         <mat-icon class="text-emerald-600 text-base">account_balance_wallet</mat-icon>
                         <div class="text-[11px] leading-tight">
                           <span class="font-bold text-emerald-950">Saldo a Favor disponible:</span>
                           <div class="font-mono text-xs font-extrabold text-emerald-700">
-                            \${{ cust.advanceBalanceUsd | number:'1.2-2' }} USD
+                            \${{ (cust.advanceBalanceUsd || 0) | number:'1.2-2' }} USD
                             <span class="text-[10px] font-normal text-emerald-800">
-                              (Bs. {{ (cust.advanceBalanceUsd * stateService.bcvState().usdRate) | number:'1.2-2' }})
+                              (Bs. {{ (cust.advanceBalanceVes || (cust.advanceBalanceUsd || 0) * stateService.bcvState().usdRate) | number:'1.2-2' }})
                             </span>
                           </div>
                         </div>
@@ -1293,11 +1294,11 @@ export interface SplitPaymentLine {
                     <th class="py-3 px-3">Fecha / Hora</th>
                     <th class="py-3 px-3">Cliente / RIF</th>
                     <th class="py-3 px-3">Moneda & Tasa</th>
-                    <th class="py-3 px-3 text-right">Subtotal ($)</th>
-                    <th class="py-3 px-3 text-right">IVA ($)</th>
-                    <th class="py-3 px-3 text-right">IGTF ($)</th>
-                    <th class="py-3 px-3 text-right">Total ($ USD)</th>
-                    <th class="py-3 px-3 text-right">Total (Bs. BCV)</th>
+                    <th class="py-3 px-3 text-right">Subtotal (Bs.)</th>
+                    <th class="py-3 px-3 text-right">IVA (Bs.)</th>
+                    <th class="py-3 px-3 text-right">IGTF (Bs.)</th>
+                    <th class="py-3 px-3 text-right">Equiv. USD</th>
+                    <th class="py-3 px-3 text-right">Total (Bs.)</th>
                     <th class="py-3 px-3">Método Pago</th>
                     <th class="py-3 px-3 text-center">Estado</th>
                     <th class="py-3 px-3 text-right">Acciones</th>
@@ -1336,27 +1337,27 @@ export interface SplitPaymentLine {
 
                       <!-- Subtotal -->
                       <td class="py-3 px-3 text-right font-mono text-slate-700">
-                        \${{ inv.subtotal | number:'1.2-2' }}
+                        Bs. {{ amountBs(inv, inv.subtotal) | number:'1.2-2' }}
                       </td>
 
                       <!-- IVA -->
                       <td class="py-3 px-3 text-right font-mono text-slate-700">
-                        \${{ (inv.taxDetails.ivaAmount || 0) | number:'1.2-2' }}
+                        Bs. {{ amountBs(inv, inv.taxDetails.ivaAmount || 0) | number:'1.2-2' }}
                       </td>
 
                       <!-- IGTF -->
                       <td class="py-3 px-3 text-right font-mono" [class.text-indigo-700]="(inv.taxDetails.igtfAmount || 0) > 0">
-                        \${{ (inv.taxDetails.igtfAmount || 0) | number:'1.2-2' }}
+                        Bs. {{ amountBs(inv, inv.taxDetails.igtfAmount || 0) | number:'1.2-2' }}
                       </td>
 
                       <!-- Total USD -->
                       <td class="py-3 px-3 text-right font-mono font-bold text-emerald-700 text-sm">
-                        \${{ inv.total | number:'1.2-2' }}
+                        \${{ totalUsd(inv) | number:'1.2-2' }}
                       </td>
 
                       <!-- Total VES -->
                       <td class="py-3 px-3 text-right font-mono font-bold text-slate-900 text-xs whitespace-nowrap">
-                        Bs. {{ (inv.totalVes || inv.total * inv.bcvRate).toLocaleString('es-VE', { minimumFractionDigits: 2 }) }}
+                        Bs. {{ totalBs(inv).toLocaleString('es-VE', { minimumFractionDigits: 2 }) }}
                       </td>
 
                       <!-- Payment Method -->
@@ -1528,24 +1529,54 @@ export interface SplitPaymentLine {
               </div>
 
               <div>
-                <label for="pos-cust-advance" class="block font-semibold text-slate-700 mb-1">
-                  Saldo a Favor / Anticipo Inicial ($ USD)
-                  <span class="text-slate-400 font-normal">(Opcional)</span>
-                </label>
+                <div class="flex items-center justify-between gap-2 mb-1">
+                  <label for="pos-cust-advance" class="font-semibold text-slate-700">
+                    Saldo a Favor / Anticipo Inicial
+                    <span class="text-slate-400 font-normal">(Opcional)</span>
+                  </label>
+                  <div class="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+                    <button
+                      type="button"
+                      (click)="newCustomerAdvanceCurrency.set('USD')"
+                      [class]="newCustomerAdvanceCurrency() === 'USD' ? 'bg-white text-emerald-700 shadow-2xs font-bold' : 'text-slate-500 font-medium'"
+                      class="px-2 py-1 rounded-md text-[10px] transition-colors cursor-pointer">
+                      USD
+                    </button>
+                    <button
+                      type="button"
+                      (click)="newCustomerAdvanceCurrency.set('VES')"
+                      [class]="newCustomerAdvanceCurrency() === 'VES' ? 'bg-white text-emerald-700 shadow-2xs font-bold' : 'text-slate-500 font-medium'"
+                      class="px-2 py-1 rounded-md text-[10px] transition-colors cursor-pointer">
+                      VES
+                    </button>
+                  </div>
+                </div>
                 <div class="relative">
-                  <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-mono text-xs">$</span>
+                  <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-mono text-xs">
+                    {{ newCustomerAdvanceCurrency() === 'VES' ? 'Bs.' : '$' }}
+                  </span>
                   <input 
                     id="pos-cust-advance"
                     type="number" 
                     step="0.01"
                     min="0"
-                    disabled
                     [value]="newCustomerAdvanceBalance()" 
                     (input)="newCustomerAdvanceBalance.set(+$any($event.target).value || 0)" 
                     placeholder="0.00" 
-                    class="w-full pl-7 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:bg-white focus:ring-1 focus:ring-emerald-500 focus:outline-none font-mono" />
+                    class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:bg-white focus:ring-1 focus:ring-emerald-500 focus:outline-none font-mono" />
                 </div>
-                <p class="text-[10px] text-slate-400 mt-0.5">Anticipo en custodia o saldo a favor preexistente para futuras compras.</p>
+                @if (newCustomerAdvanceBalance() > 0) {
+                  <p class="text-[10px] text-slate-500 mt-0.5 font-mono">
+                    @if (newCustomerAdvanceCurrency() === 'USD') {
+                      Equivale a Bs. {{ (newCustomerAdvanceBalance() * bcvRate()) | number:'1.2-2' }}
+                    } @else {
+                      Equivale a \${{ (bcvRate() > 0 ? newCustomerAdvanceBalance() / bcvRate() : 0) | number:'1.2-2' }} USD
+                    }
+                    | Tasa BCV Bs. {{ bcvRate() | number:'1.2-2' }}
+                  </p>
+                } @else {
+                  <p class="text-[10px] text-slate-400 mt-0.5">USD por defecto. Elija VES si el anticipo está en bolívares.</p>
+                }
               </div>
 
               <div class="pt-3 border-t border-slate-100 flex items-center justify-end space-x-2">
@@ -1674,8 +1705,21 @@ export default class SalesPosComponent {
   newCustomerAddress = signal<string>('');
   newCustomerType = signal<'EMPRESA' | 'PERSONA_NATURAL' | 'FINAL_CONSUMIDOR'>('EMPRESA');
   newCustomerAdvanceBalance = signal<number>(0);
+  newCustomerAdvanceCurrency = signal<'USD' | 'VES'>('USD');
 
   activeInvoiceForView = signal<Invoice | null>(null);
+
+  amountBs(invoice: Invoice, amount: number): number {
+    return invoiceAmountBs(invoice, amount);
+  }
+
+  totalUsd(invoice: Invoice): number {
+    return invoiceTotalUsd(invoice);
+  }
+
+  totalBs(invoice: Invoice): number {
+    return invoiceTotalVes(invoice);
+  }
 
   constructor() {
     effect(() => {
@@ -1895,26 +1939,25 @@ export default class SalesPosComponent {
   totalFilteredUsd = computed(() => {
     return this.filteredInvoices()
       .filter(i => i.status === 'EMITIDA')
-      .reduce((sum, inv) => sum + inv.total, 0);
+      .reduce((sum, inv) => sum + invoiceTotalUsd(inv), 0);
   });
 
   totalFilteredVes = computed(() => {
-    const bcv = this.stateService.bcvState().usdRate;
     return this.filteredInvoices()
       .filter(i => i.status === 'EMITIDA')
-      .reduce((sum, inv) => sum + (inv.totalVes || (inv.total * (inv.bcvRate || bcv))), 0);
+      .reduce((sum, inv) => sum + invoiceTotalVes(inv), 0);
   });
 
   totalFilteredIvaUsd = computed(() => {
     return this.filteredInvoices()
       .filter(i => i.status === 'EMITIDA')
-      .reduce((sum, inv) => sum + (inv.taxDetails?.ivaAmount || 0), 0);
+      .reduce((sum, inv) => sum + invoiceAmountUsd(inv, inv.taxDetails?.ivaAmount || 0), 0);
   });
 
   totalFilteredIgtfUsd = computed(() => {
     return this.filteredInvoices()
       .filter(i => i.status === 'EMITIDA')
-      .reduce((sum, inv) => sum + (inv.taxDetails?.igtfAmount || 0), 0);
+      .reduce((sum, inv) => sum + invoiceAmountUsd(inv, inv.taxDetails?.igtfAmount || 0), 0);
   });
 
   emittedCount = computed(() => {
@@ -2425,12 +2468,15 @@ export default class SalesPosComponent {
 
   applyCustomerCreditToPayment() {
     const cust = this.selectedCustomer();
-    if (!cust || !cust.advanceBalanceUsd || cust.advanceBalanceUsd <= 0) {
+    const rate = this.bcvRate();
+    const availableCreditUsd = (cust?.advanceBalanceUsd || 0) > 0
+      ? cust!.advanceBalanceUsd!
+      : ((cust?.advanceBalanceVes || 0) > 0 && rate > 0 ? Number(((cust!.advanceBalanceVes || 0) / rate).toFixed(2)) : 0);
+
+    if (!cust || availableCreditUsd <= 0) {
       this.stateService.notify('warning', 'Sin Saldo', 'El cliente no tiene saldo a favor disponible.');
       return;
     }
-
-    const availableCreditUsd = cust.advanceBalanceUsd;
     const totalToPayUsd = this.grandTotalUsd();
 
     if (totalToPayUsd <= 0) {
@@ -2905,6 +2951,7 @@ export default class SalesPosComponent {
     this.newCustomerAddress.set('');
     this.newCustomerType.set('EMPRESA');
     this.newCustomerAdvanceBalance.set(0);
+    this.newCustomerAdvanceCurrency.set('USD');
     this.showNewCustomerModal.set(true);
   }
 
@@ -2915,6 +2962,21 @@ export default class SalesPosComponent {
       return;
     }
 
+    const amount = this.newCustomerAdvanceBalance();
+    const currency = this.newCustomerAdvanceCurrency();
+    const rate = this.bcvRate();
+    let advanceBalanceUsd = 0;
+    let advanceBalanceVes = 0;
+    if (amount > 0) {
+      if (currency === 'USD') {
+        advanceBalanceUsd = Number(amount.toFixed(2));
+        advanceBalanceVes = Number((amount * rate).toFixed(2));
+      } else {
+        advanceBalanceVes = Number(amount.toFixed(2));
+        advanceBalanceUsd = rate > 0 ? Number((amount / rate).toFixed(2)) : 0;
+      }
+    }
+
     this.stateService.createCustomer({
       taxId: this.newCustomerTaxId().trim(),
       name: this.newCustomerName().trim(),
@@ -2922,7 +2984,9 @@ export default class SalesPosComponent {
       phone: this.newCustomerPhone().trim(),
       address: this.newCustomerAddress().trim(),
       customerType: this.newCustomerType(),
-      advanceBalanceUsd: this.newCustomerAdvanceBalance() > 0 ? this.newCustomerAdvanceBalance() : undefined
+      advanceBalanceUsd: advanceBalanceUsd > 0 ? advanceBalanceUsd : undefined,
+      advanceBalanceVes: advanceBalanceVes > 0 ? advanceBalanceVes : undefined,
+      bcvRate: rate
     }).subscribe(customer => {
         this.selectedCustomerId.set(customer.id);
         this.showNewCustomerModal.set(false);

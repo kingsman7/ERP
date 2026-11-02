@@ -24,7 +24,7 @@ const invoice: Invoice & {
   withholdingIslrNature: string;
 } = {
   id: 'invoice-1', invoiceNumber: 'FAC-0001', customerId: 'customer-1', customerName: 'Cliente Demo', customerTaxId: 'V-123',
-  warehouseId: 'warehouse-1', date: '21/09/2026', type: 'FACTURA_ELECTRONICA', status: 'EMITIDA',
+  warehouseId: 'warehouse-1', date: '2026-09-21T12:00:00.000Z', type: 'FACTURA_ELECTRONICA', status: 'EMITIDA',
   baseCurrency: 'USD', paymentCurrency: 'USD', bcvRate: 36.5, eurRate: 39.8, rateOrigin: 'API_BCV', priceLevelApplied: 'price1',
   subtotal: 200, discountTotal: 0, taxTotal: 38, total: 238, totalVes: 8687, totalEur: 218.09,
   taxDetails: { taxableBase: 200, exemptBase: 0, ivaPercent: 16, ivaAmount: 32, appliesIgtf: true, igtfPercent: 3, igtfBase: 200, igtfAmount: 6 },
@@ -54,12 +54,14 @@ describe('InvoiceModal', () => {
     expect(text).toContain('EFECTIVO USD');
     expect(text).toContain('IVA (16%)');
     expect(text).toContain('Retención IVA (75%)');
-    expect(text).toContain('-$24.00');
+    expect(text).toContain('-Bs. 876.00');
     expect(text).toContain('Retención ISLR (2% - Honorarios)');
-    expect(text).toContain('-$4.00');
+    expect(text).toContain('-Bs. 146.00');
     expect(text).toContain('Percepción IGTF 3.00%');
     expect(text).not.toContain('Retención IGTF');
-    expect(text).toContain('TOTAL EN BOLÍVARES (VES)');
+    expect(text).toContain('TOTAL FACTURA (Bs.)');
+    expect(text).toContain('Equivalente USD');
+    expect(text).toContain('Bs. 8,687.00');
   });
 
   it('shows the non-IGTF message when the invoice has no foreign tax', () => {

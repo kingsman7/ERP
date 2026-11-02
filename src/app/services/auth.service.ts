@@ -430,9 +430,9 @@ export class AuthService {
       return new Observable(subscriber => subscriber.error(new Error('No hay una sesión activa')));
     }
 
-    return this.http.put<User>(`${this.baseUrl}/users/${user.id}`, { avatarUrl }).pipe(
+    return this.http.put<User>(`${this.baseUrl}/users/me/avatar`, { avatarUrl }).pipe(
       tap(updatedUser => {
-        const updated = { ...user, ...updatedUser, avatarUrl };
+        const updated = { ...user, ...updatedUser };
         this.currentUserSignal.set(updated);
         this.persistSession(updated, this.tokenSignal());
         this.usersSignal.update(users => users.map(item => item.id === updated.id ? updated : item));

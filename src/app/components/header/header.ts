@@ -751,22 +751,54 @@ export class HeaderComponent {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result !== 'string') return;
-      this.isUploadingAvatar.set(true);
-      this.authService.updateCurrentUserAvatar(reader.result).subscribe({
+    this.isUploadingAvatar.set(true);
+    void this.readAvatarAsDataUrl(file).then(avatarUrl => {
+      this.authService.updateCurrentUserAvatar(avatarUrl).subscribe({
         next: () => {
           this.isUploadingAvatar.set(false);
-          this.stateService.notify('success', 'Avatar actualizado', 'La imagen de perfil fue actualizada correctamente.');
+          this.stateService.notify('success', 'Avatar actualizado', 'La imagen de perfil se guardó en la cuenta.');
         },
         error: () => {
           this.isUploadingAvatar.set(false);
           this.stateService.notify('error', 'No fue posible actualizar el avatar', 'Verifique la imagen e intente nuevamente.');
         }
       });
-    };
-    reader.readAsDataURL(file);
+    }).catch(() => {
+      this.isUploadingAvatar.set(false);
+      this.stateService.notify('error', 'No fue posible actualizar el avatar', 'Verifique la imagen e intente nuevamente.');
+    });
+  }
+
+  private readAvatarAsDataUrl(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('No fue posible leer la imagen'));
+      reader.onload = () => {
+        const dataUrl = reader.result;
+        if (typeof dataUrl !== 'string') {
+          reject(new Error('No fue posible leer la imagen'));
+          return;
+        }
+        const image = new Image();
+        image.onload = () => {
+          const maxSize = 256;
+          const scale = Math.min(maxSize / image.width, maxSize / image.height, 1);
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.max(1, Math.round(image.width * scale));
+          canvas.height = Math.max(1, Math.round(image.height * scale));
+          const context = canvas.getContext('2d');
+          if (!context) {
+            resolve(dataUrl);
+            return;
+          }
+          context.drawImage(image, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/jpeg', 0.85));
+        };
+        image.onerror = () => reject(new Error('La imagen no es válida'));
+        image.src = dataUrl;
+      };
+      reader.readAsDataURL(file);
+    });
   }
 
   getCategoryIcon(category: CriticalAuditCategory): string {
